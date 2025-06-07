@@ -1,0 +1,135 @@
+MISSING FILES SUMMARY
+===================
+
+Based on your error and project structure, here are the files you need to create:
+
+## ✅ Files to Create in Root Directory:
+
+1. **connection_system.py** - Connection system for wiring components
+   ✓ Created above
+
+2. **component_library.py** - Component library management system  
+   ✓ Created above
+
+3. **integration_component_loader.py** - Loads components from various sources
+   ✓ Created above
+
+4. **project_manager.py** - Standalone project manager (compatibility layer)
+   ✓ Created above
+
+## ✅ Files Already Present:
+- main_app.py ✓ (updated to fix imports)
+- core/__init__.py ✓
+- core/components.py ✓  
+- core/project_manager.py ✓
+- core/simulation.py ✓ (you have simulation_engine.py)
+- ui/__init__.py ✓
+- ui/main_window.py ✓
+- ui/canvas.py ✓ (updated to fix imports)
+- ui/component_palette.py ✓
+- ui/properties_panel.py ✓
+
+## 🔧 Files That Need Updates:
+
+### ui/main_window.py
+Change the class name from `EnhancedMainWindow` to `MainWindow` to match the import in main_app.py
+
+### core/simulation.py  
+You have `simulation_engine.py` but the imports expect `simulation.py`. Either:
+- Rename `simulation_engine.py` to `simulation.py`, OR
+- Update imports to use `simulation_engine`
+
+## 📁 Complete Required Project Structure:
+
+```
+retro_emulator/
+├── main_app.py                    ✓
+├── connection_system.py           ← CREATE THIS
+├── component_library.py           ← CREATE THIS  
+├── integration_component_loader.py ← CREATE THIS
+├── project_manager.py             ← CREATE THIS
+├── core/
+│   ├── __init__.py                ✓
+│   ├── components.py              ✓
+│   ├── project_manager.py         ✓
+│   └── simulation.py              ← RENAME simulation_engine.py
+├── ui/
+│   ├── __init__.py                ✓
+│   ├── main_window.py             ✓ (may need class name fix)
+│   ├── canvas.py                  ✓
+│   ├── component_palette.py       ✓
+│   └── properties_panel.py        ✓
+├── components/                     ✓
+├── images/                         ✓
+└── assets/                         ✓
+```
+
+## 🚀 Quick Fix Commands:
+
+### Step 1: Create the missing files
+Copy the code from the artifacts above for these 4 files:
+- connection_system.py
+- component_library.py  
+- integration_component_loader.py
+- project_manager.py
+
+### Step 2: Fix the simulation import
+```bash
+# Option A: Rename the file
+mv core/simulation_engine.py core/simulation.py
+
+# Option B: Update core/__init__.py to import from simulation_engine
+```
+
+### Step 3: Fix main_window class name
+In `ui/main_window.py`, change:
+```python
+class EnhancedMainWindow(QMainWindow):
+```
+to:
+```python  
+class MainWindow(QMainWindow):
+```
+
+### Step 4: Update core/__init__.py
+If you renamed simulation_engine.py to simulation.py, update core/__init__.py:
+```python
+from .simulation import SimulationEngine, SimulationConfig, Signal, SimulationBus, DebugInterface
+```
+
+## 🎯 Priority Order:
+
+1. **HIGH PRIORITY** - Create these 4 missing files:
+   - connection_system.py
+   - component_library.py
+   - integration_component_loader.py  
+   - project_manager.py
+
+2. **MEDIUM PRIORITY** - Fix simulation import:
+   - Rename simulation_engine.py → simulation.py OR update imports
+
+3. **LOW PRIORITY** - Fix class name in main_window.py:
+   - Change EnhancedMainWindow → MainWindow
+
+## 🔍 Import Dependencies:
+
+The error chain is:
+```
+main_app.py 
+  → ui.main_window 
+    → ui.canvas 
+      → connection_system (MISSING!)
+```
+
+So `connection_system.py` is the **immediate blocker** that needs to be created first.
+
+## ✅ After Creating These Files:
+
+Your application should start without import errors. The missing files provide:
+
+- **connection_system.py**: Handles wiring between components
+- **component_library.py**: Manages the component database  
+- **integration_component_loader.py**: Loads components dynamically
+- **project_manager.py**: Compatibility layer for project operations
+
+These files integrate with your existing codebase and provide the missing functionality referenced throughout your UI modules.
