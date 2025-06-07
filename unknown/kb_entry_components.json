@@ -1,0 +1,246 @@
+{
+  "directory": "components",
+  "type": "code_project",
+  "structure": {
+    "amiga/amiga_agnus.py": {
+      "size": 1059,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "amiga/amiga_denise.py": {
+      "size": 1016,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "amiga/amiga_paula.py": {
+      "size": 952,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "commodore/c64_sid.py": {
+      "size": 829,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "commodore/c64_vic2.py": {
+      "size": 900,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/apple2_iou.py": {
+      "size": 817,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/apple2_mmu.py": {
+      "size": 828,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/atari_antic.py": {
+      "size": 959,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/atari_gtia.py": {
+      "size": 931,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/atari_pokey.py": {
+      "size": 929,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/bbc_crtc.py": {
+      "size": 916,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/bbc_electron_ula.py": {
+      "size": 932,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/bbc_integra_b.py": {
+      "size": 1000,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/bbc_system_via.py": {
+      "size": 950,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/bbc_video_ula.py": {
+      "size": 905,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/dragon_sam.py": {
+      "size": 962,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/genesis_vdp.py": {
+      "size": 1065,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/msx_ay3_8910.py": {
+      "size": 856,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/msx_s1985.py": {
+      "size": 1087,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/msx_tms9918a.py": {
+      "size": 936,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/nes_apu.py": {
+      "size": 916,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/nes_ppu.py": {
+      "size": 934,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/oric_ula.py": {
+      "size": 910,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/spectrum_ula.py": {
+      "size": 936,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/ti99_tms9900.py": {
+      "size": 1014,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    },
+    "custom/ti99_tms9901.py": {
+      "size": 938,
+      "type": ".py",
+      "tech": [
+        "Python"
+      ],
+      "importance": 6,
+      "summary": ""
+    }
+  },
+  "key_files": [],
+  "patterns": [],
+  "technologies": [
+    "Python"
+  ],
+  "purpose": ""
+}

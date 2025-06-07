@@ -1,0 +1,363 @@
+{
+  "directory": "images",
+  "type": "code_project",
+  "structure": {
+    "Zilog Z180.jpg": {
+      "size": 20989,
+      "type": ".jpg",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "Zilog Z8018008VSG-pinout.jpg": {
+      "size": 35545,
+      "type": ".jpg",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "Zilog-Z0840008PSC-Z80-CPU.jpg": {
+      "size": 134737,
+      "type": ".jpg",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "Zilog-Z84C0010FEC_LQFP.jpg": {
+      "size": 47976,
+      "type": ".jpg",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_6502_dip_40.png": {
+      "size": 18093,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_6502_qfp_44.png": {
+      "size": 26764,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_68000_dip_64.png": {
+      "size": 22034,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_68000_pga_68.png": {
+      "size": 33242,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_68000_qfp_68.png": {
+      "size": 33973,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_z80_dip_40.png": {
+      "size": 17044,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_z80_plcc_44.png": {
+      "size": 6400,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "cpu_z80_qfp_44.png": {
+      "size": 24457,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "test_z80_qfp44.png": {
+      "size": 20820,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_agnus_dip_84.png": {
+      "size": 26598,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_agnus_plcc_84.png": {
+      "size": 14409,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_denise_dip_48.png": {
+      "size": 19072,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_denise_plcc_48.png": {
+      "size": 11756,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_denise_qfp_52.png": {
+      "size": 29892,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_paula_dip_48.png": {
+      "size": 19161,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/amiga_paula_plcc_48.png": {
+      "size": 11333,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/apple2_iou_dip_28.png": {
+      "size": 13858,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/apple2_iou_qfp_32.png": {
+      "size": 22670,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/apple2_mmu_dip_28.png": {
+      "size": 13383,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/apple2_mmu_qfp_32.png": {
+      "size": 22455,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_antic_dip_40.png": {
+      "size": 17305,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_antic_qfp_44.png": {
+      "size": 22959,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_gtia_dip_40.png": {
+      "size": 17782,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_gtia_qfp_44.png": {
+      "size": 23111,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_pokey_dip_40.png": {
+      "size": 17043,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/atari_pokey_qfp_44.png": {
+      "size": 21386,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_crtc_dip_40.png": {
+      "size": 17005,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_crtc_qfp_44.png": {
+      "size": 23884,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_electron_ula_dip_40.png": {
+      "size": 17916,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_electron_ula_qfp_44.png": {
+      "size": 25201,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_integra_b_plcc_84.png": {
+      "size": 13063,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_integra_b_qfp_84.png": {
+      "size": 38803,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_system_via_dip_40.png": {
+      "size": 18519,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_system_via_qfp_44.png": {
+      "size": 23611,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_video_ula_dip_40.png": {
+      "size": 18449,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/bbc_video_ula_qfp_44.png": {
+      "size": 24556,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/c64_sid_dip_28.png": {
+      "size": 14035,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/c64_sid_qfp_44.png": {
+      "size": 22019,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/c64_vic2_dip_40.png": {
+      "size": 17469,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/c64_vic2_qfp_44.png": {
+      "size": 22992,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-6502_dip_40.png": {
+      "size": 18093,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-6502_qfp_44.png": {
+      "size": 26764,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-68000_dip_40.png": {
+      "size": 17334,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-68000_pga_68.png": {
+      "size": 34515,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-68000_qfp_68.png": {
+      "size": 35258,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    },
+    "components/cpu-z80_dip_40.png": {
+      "size": 17386,
+      "type": ".png",
+      "tech": [],
+      "importance": 0,
+      "summary": ""
+    }
+  },
+  "key_files": [],
+  "patterns": [
+    "Test Suite",
+    "Component Architecture"
+  ],
+  "technologies": [],
+  "purpose": ""
+}
