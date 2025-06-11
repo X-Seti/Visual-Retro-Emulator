@@ -1,6 +1,6 @@
 """
-X-Seti - June07 2025 - Project Management System
-Handles project creation, saving, loading, and management
+X-Seti - June10 2025 - Project Management System
+Complete implementation with all expected methods
 """
 
 import json
@@ -209,152 +209,19 @@ class Project:
             print(f"Error saving project: {e}")
             return False
             
-    def export_to_archive(self, archive_path: str) -> bool:
-        """Export project to a compressed archive"""
-        try:
-            if not self.project_dir or not os.path.exists(self.project_dir):
-                return False
-                
-            with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(self.project_dir):
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, self.project_dir)
-                        zipf.write(file_path, arcname)
-                        
-            return True
-            
-        except Exception as e:
-            print(f"Error exporting project: {e}")
-            return False
-            
-    def import_from_archive(self, archive_path: str, extract_dir: str) -> bool:
-        """Import project from a compressed archive"""
-        try:
-            with zipfile.ZipFile(archive_path, 'r') as zipf:
-                zipf.extractall(extract_dir)
-                
-            # Find the project directory in the extracted files
-            project_name = self.metadata.name if self.metadata else "imported_project"
-            self.project_dir = os.path.join(extract_dir, project_name)
-            
-            # Load the imported project
-            return self.load(self.project_dir)
-            
-        except Exception as e:
-            print(f"Error importing project: {e}")
-            return False
-            
-    def add_asset(self, asset_path: str, asset_name: Optional[str] = None) -> bool:
-        """Add an asset file to the project"""
-        try:
-            if not self.project_dir:
-                return False
-                
-            assets_dir = os.path.join(self.project_dir, self.ASSETS_DIR)
-            os.makedirs(assets_dir, exist_ok=True)
-            
-            if not asset_name:
-                asset_name = os.path.basename(asset_path)
-                
-            dest_path = os.path.join(assets_dir, asset_name)
-            shutil.copy2(asset_path, dest_path)
-            
-            self.mark_modified()
-            return True
-            
-        except Exception as e:
-            print(f"Error adding asset: {e}")
-            return False
-            
-    def remove_asset(self, asset_name: str) -> bool:
-        """Remove an asset from the project"""
-        try:
-            if not self.project_dir:
-                return False
-                
-            asset_path = os.path.join(self.project_dir, self.ASSETS_DIR, asset_name)
-            if os.path.exists(asset_path):
-                os.remove(asset_path)
-                self.mark_modified()
-                return True
-            return False
-            
-        except Exception as e:
-            print(f"Error removing asset: {e}")
-            return False
-            
-    def get_assets(self) -> List[str]:
-        """Get list of all assets in the project"""
-        try:
-            if not self.project_dir:
-                return []
-                
-            assets_dir = os.path.join(self.project_dir, self.ASSETS_DIR)
-            if os.path.exists(assets_dir):
-                return [f for f in os.listdir(assets_dir) 
-                       if os.path.isfile(os.path.join(assets_dir, f))]
-            return []
-            
-        except Exception as e:
-            print(f"Error getting assets: {e}")
-            return []
-            
-    def get_asset_path(self, asset_name: str) -> Optional[str]:
-        """Get full path to an asset"""
-        if not self.project_dir:
-            return None
-            
-        asset_path = os.path.join(self.project_dir, self.ASSETS_DIR, asset_name)
-        return asset_path if os.path.exists(asset_path) else None
+    def get_name(self) -> str:
+        """Get project name"""
+        if self.metadata:
+            return self.metadata.name
+        return "Untitled Project"
         
-    def update_components_data(self, components_data: Dict[str, Any]):
-        """Update components data"""
-        self.components_data = components_data
-        self.mark_modified()
-        
-    def update_connections_data(self, connections_data: List[Tuple[str, str, str, str]]):
-        """Update connections data"""
-        self.connections_data = connections_data
-        self.mark_modified()
-        
-    def set_custom_data(self, key: str, value: Any):
-        """Set custom data"""
-        self.custom_data[key] = value
-        self.mark_modified()
-        
-    def get_custom_data(self, key: str, default: Any = None) -> Any:
-        """Get custom data"""
-        return self.custom_data.get(key, default)
+    def get_file_path(self) -> Optional[str]:
+        """Get project file path"""
+        return self.project_path or self.project_dir
         
     def mark_modified(self):
         """Mark project as modified"""
         self.is_modified = True
-        
-    def get_project_info(self) -> Dict[str, Any]:
-        """Get project information summary"""
-        info = {
-            'path': self.project_path,
-            'directory': self.project_dir,
-            'loaded': self.is_loaded,
-            'modified': self.is_modified,
-            'components_count': len(self.components_data),
-            'connections_count': len(self.connections_data),
-            'assets_count': len(self.get_assets())
-        }
-        
-        if self.metadata:
-            info.update({
-                'name': self.metadata.name,
-                'description': self.metadata.description,
-                'version': self.metadata.version,
-                'author': self.metadata.author,
-                'created_date': self.metadata.created_date,
-                'modified_date': self.metadata.modified_date,
-                'target_system': self.metadata.target_system
-            })
-            
-        return info
 
 class ProjectManager(QObject):
     """Manages multiple projects and project operations"""
@@ -374,8 +241,8 @@ class ProjectManager(QObject):
         self.recent_projects_file = os.path.join(self.settings_dir, "recent_projects.json")
         self.load_recent_projects()
         
-    def create_new_project(self, name: str, description: str, author: str,
-                          target_system: str, project_dir: str) -> bool:
+    def new_project(self, name: str, description: str = "", author: str = "", 
+                   target_system: str = "", project_dir: str = ".") -> bool:
         """Create a new project"""
         try:
             # Close current project
@@ -394,8 +261,13 @@ class ProjectManager(QObject):
             self.errorOccurred.emit(f"Error creating project: {e}")
             return False
             
-    def load_project(self, project_path: str) -> bool:
-        """Load an existing project"""
+    def create_new_project(self, name: str, description: str = "", author: str = "",
+                          target_system: str = "", project_dir: str = ".") -> bool:
+        """Alias for new_project"""
+        return self.new_project(name, description, author, target_system, project_dir)
+        
+    def open_project(self, project_path: str) -> bool:
+        """Open an existing project"""
         try:
             # Close current project
             self.close_current_project()
@@ -413,7 +285,11 @@ class ProjectManager(QObject):
             self.errorOccurred.emit(f"Error loading project: {e}")
             return False
             
-    def save_current_project(self, project_path: Optional[str] = None) -> bool:
+    def load_project(self, project_path: str) -> bool:
+        """Alias for open_project"""
+        return self.open_project(project_path)
+        
+    def save_project(self, project_path: Optional[str] = None) -> bool:
         """Save the current project"""
         try:
             if not self.current_project:
@@ -430,6 +306,14 @@ class ProjectManager(QObject):
             self.errorOccurred.emit(f"Error saving project: {e}")
             return False
             
+    def save_current_project(self, project_path: Optional[str] = None) -> bool:
+        """Alias for save_project"""
+        return self.save_project(project_path)
+        
+    def close_project(self) -> bool:
+        """Close the current project"""
+        return self.close_current_project()
+        
     def close_current_project(self) -> bool:
         """Close the current project"""
         try:
@@ -445,6 +329,87 @@ class ProjectManager(QObject):
         except Exception as e:
             self.errorOccurred.emit(f"Error closing project: {e}")
             return False
+            
+    def get_current_project(self) -> Optional[Project]:
+        """Get the current project"""
+        return self.current_project
+        
+    def get_current_file(self) -> Optional[str]:
+        """Get current project file path"""
+        if self.current_project:
+            return self.current_project.get_file_path()
+        return None
+        
+    def get_current_project_name(self) -> str:
+        """Get current project name"""
+        if self.current_project:
+            return self.current_project.get_name()
+        return "No Project"
+        
+    def is_project_loaded(self) -> bool:
+        """Check if a project is currently loaded"""
+        return self.current_project is not None
+        
+    def is_project_modified(self) -> bool:
+        """Check if current project is modified"""
+        return self.current_project.is_modified if self.current_project else False
+        
+    def has_project(self) -> bool:
+        """Check if there is a current project"""
+        return self.current_project is not None
+        
+    def get_project_info(self) -> Dict[str, Any]:
+        """Get current project information"""
+        if not self.current_project:
+            return {}
+            
+        info = {
+            'name': self.current_project.get_name(),
+            'path': self.current_project.get_file_path(),
+            'modified': self.current_project.is_modified,
+            'loaded': self.current_project.is_loaded
+        }
+        
+        if self.current_project.metadata:
+            info.update({
+                'description': self.current_project.metadata.description,
+                'author': self.current_project.metadata.author,
+                'version': self.current_project.metadata.version,
+                'created_date': self.current_project.metadata.created_date,
+                'modified_date': self.current_project.metadata.modified_date,
+                'target_system': self.current_project.metadata.target_system
+            })
+            
+        return info
+        
+    def mark_project_modified(self):
+        """Mark current project as modified"""
+        if self.current_project:
+            self.current_project.mark_modified()
+            self.projectModified.emit()
+            
+    def update_project_components(self, components_data: Dict[str, Any]):
+        """Update current project components"""
+        if self.current_project:
+            self.current_project.components_data = components_data
+            self.current_project.mark_modified()
+            self.projectModified.emit()
+            
+    def update_project_connections(self, connections_data: List[Tuple[str, str, str, str]]):
+        """Update current project connections"""
+        if self.current_project:
+            self.current_project.connections_data = connections_data
+            self.current_project.mark_modified()
+            self.projectModified.emit()
+            
+    def set_project_metadata(self, **kwargs):
+        """Update project metadata"""
+        if self.current_project and self.current_project.metadata:
+            for key, value in kwargs.items():
+                if hasattr(self.current_project.metadata, key):
+                    setattr(self.current_project.metadata, key, value)
+            self.current_project.mark_modified()
+            self.projectModified.emit()
             
     def export_project(self, archive_path: str) -> bool:
         """Export current project to archive"""
@@ -476,53 +441,6 @@ class ProjectManager(QObject):
             
         except Exception as e:
             self.errorOccurred.emit(f"Error importing project: {e}")
-            return False
-            
-    def duplicate_project(self, new_name: str, new_dir: str) -> bool:
-        """Duplicate the current project"""
-        try:
-            if not self.current_project:
-                self.errorOccurred.emit("No project to duplicate")
-                return False
-                
-            # Export current project to temporary archive
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
-                temp_archive = temp_file.name
-                
-            if not self.current_project.export_to_archive(temp_archive):
-                return False
-                
-            try:
-                # Create new project from archive
-                new_project = Project()
-                if new_project.import_from_archive(temp_archive, new_dir):
-                    # Update metadata
-                    if new_project.metadata:
-                        new_project.metadata.name = new_name
-                        current_time = datetime.now(timezone.utc).isoformat()
-                        new_project.metadata.created_date = current_time
-                        new_project.metadata.modified_date = current_time
-                        
-                    # Rename project directory
-                    old_dir = new_project.project_dir
-                    new_project.project_dir = os.path.join(new_dir, new_name)
-                    if os.path.exists(old_dir):
-                        shutil.move(old_dir, new_project.project_dir)
-                        
-                    # Save with new settings
-                    new_project.save()
-                    return True
-                    
-            finally:
-                # Clean up temporary file
-                if os.path.exists(temp_archive):
-                    os.unlink(temp_archive)
-                    
-            return False
-            
-        except Exception as e:
-            self.errorOccurred.emit(f"Error duplicating project: {e}")
             return False
             
     def add_to_recent_projects(self, project_path: str):
@@ -583,97 +501,14 @@ class ProjectManager(QObject):
             print(f"Error loading recent projects: {e}")
             self.recent_projects = []
             
-    def get_recent_projects(self) -> List[Dict[str, Any]]:
-        """Get recent projects with metadata"""
-        projects_info = []
+    def get_recent_projects(self) -> List[str]:
+        """Get recent projects list"""
+        return self.recent_projects.copy()
         
-        for project_path in self.recent_projects:
-            try:
-                # Try to load project metadata
-                project = Project()
-                if project.load(project_path):
-                    info = project.get_project_info()
-                    projects_info.append(info)
-                else:
-                    # Project couldn't be loaded, remove from recent
-                    self.remove_from_recent_projects(project_path)
-                    
-            except Exception as e:
-                print(f"Error loading project info for {project_path}: {e}")
-                
-        return projects_info
-        
-    def get_current_project(self) -> Optional[Project]:
-        """Get the current project"""
-        return self.current_project
-        
-    def is_project_loaded(self) -> bool:
-        """Check if a project is currently loaded"""
-        return self.current_project is not None
-        
-    def is_project_modified(self) -> bool:
-        """Check if current project is modified"""
-        return self.current_project.is_modified if self.current_project else False
-        
-    def update_project_components(self, components_data: Dict[str, Any]):
-        """Update current project components"""
-        if self.current_project:
-            self.current_project.update_components_data(components_data)
-            self.projectModified.emit()
-            
-    def update_project_connections(self, connections_data: List[Tuple[str, str, str, str]]):
-        """Update current project connections"""
-        if self.current_project:
-            self.current_project.update_connections_data(connections_data)
-            self.projectModified.emit()
-            
-    def set_project_metadata(self, **kwargs):
-        """Update project metadata"""
-        if self.current_project and self.current_project.metadata:
-            for key, value in kwargs.items():
-                if hasattr(self.current_project.metadata, key):
-                    setattr(self.current_project.metadata, key, value)
-            self.current_project.mark_modified()
-            self.projectModified.emit()
-            
-    def add_project_asset(self, asset_path: str, asset_name: Optional[str] = None) -> bool:
-        """Add asset to current project"""
-        if self.current_project:
-            if self.current_project.add_asset(asset_path, asset_name):
-                self.projectModified.emit()
-                return True
-        return False
-        
-    def remove_project_asset(self, asset_name: str) -> bool:
-        """Remove asset from current project"""
-        if self.current_project:
-            if self.current_project.remove_asset(asset_name):
-                self.projectModified.emit()
-                return True
-        return False
-        
-    def get_project_assets(self) -> List[str]:
-        """Get list of project assets"""
-        if self.current_project:
-            return self.current_project.get_assets()
-        return []
-        
-    def get_project_statistics(self) -> Dict[str, Any]:
-        """Get current project statistics"""
-        if not self.current_project:
-            return {}
-            
-        stats = self.current_project.get_project_info()
-        
-        # Add additional statistics
-        if self.current_project.components_data:
-            component_types = {}
-            for comp_data in self.current_project.components_data.values():
-                comp_type = comp_data.get('type', 'Unknown')
-                component_types[comp_type] = component_types.get(comp_type, 0) + 1
-            stats['component_types'] = component_types
-            
-        return stats
+    def clear_recent_projects(self):
+        """Clear recent projects list"""
+        self.recent_projects.clear()
+        self.save_recent_projects()
         
     def validate_current_project(self) -> Tuple[bool, List[str]]:
         """Validate current project"""
@@ -701,78 +536,20 @@ class ProjectManager(QObject):
             
         return len(errors) == 0, errors
         
-    def cleanup_temp_files(self):
-        """Clean up temporary files"""
-        try:
-            # This would clean up any temporary files created during operations
-            pass
-        except Exception as e:
-            print(f"Error cleaning up temp files: {e}")
+    def get_project_statistics(self) -> Dict[str, Any]:
+        """Get current project statistics"""
+        if not self.current_project:
+            return {}
             
-    def get_project_templates(self) -> List[Dict[str, Any]]:
-        """Get available project templates"""
-        # This would return predefined project templates
-        templates = [
-            {
-                'name': '8-bit Computer',
-                'description': 'Basic 8-bit computer with CPU, RAM, and I/O',
-                'target_system': '8-bit',
-                'components': ['6502 CPU', 'RAM 64KB', '6522 VIA'],
-                'template_file': 'templates/8bit_computer.json'
-            },
-            {
-                'name': 'Game Console',
-                'description': 'Retro game console with graphics and audio',
-                'target_system': 'Console',
-                'components': ['Z80 CPU', 'VIC-II', 'SID 6581', 'Joystick'],
-                'template_file': 'templates/game_console.json'
-            },
-            {
-                'name': 'Microcontroller',
-                'description': 'Simple microcontroller system',
-                'target_system': 'Microcontroller',
-                'components': ['68000 CPU', 'ROM 32KB', '8255 PPI'],
-                'template_file': 'templates/microcontroller.json'
-            }
-        ]
-        return templates
+        stats = {
+            'components_count': len(self.current_project.components_data),
+            'connections_count': len(self.current_project.connections_data),
+            'is_modified': self.current_project.is_modified,
+            'is_loaded': self.current_project.is_loaded
+        }
         
-    def create_from_template(self, template_name: str, project_name: str,
-                           project_dir: str, author: str) -> bool:
-        """Create new project from template"""
-        try:
-            templates = self.get_project_templates()
-            template = next((t for t in templates if t['name'] == template_name), None)
-            
-            if not template:
-                self.errorOccurred.emit(f"Template not found: {template_name}")
-                return False
-                
-            # Create basic project
-            if self.create_new_project(
-                project_name,
-                template['description'],
-                author,
-                template['target_system'],
-                project_dir
-            ):
-                # Load template data if file exists
-                template_file = template.get('template_file')
-                if template_file and os.path.exists(template_file):
-                    with open(template_file, 'r', encoding='utf-8') as f:
-                        template_data = json.load(f)
-                        
-                    # Apply template data to current project
-                    if 'components' in template_data:
-                        self.update_project_components(template_data['components'])
-                    if 'connections' in template_data:
-                        self.update_project_connections(template_data['connections'])
-                        
-                self.save_current_project()
-                return True
-                
-            return False
-            
-        except Exception as e:
-            self.errorOccurred.emit(f"Error creating from template: {e}")
-            return False
+        return stats
+
+# Aliases for backward compatibility
+CoreProjectManager = ProjectManager
+CoreProject = Project

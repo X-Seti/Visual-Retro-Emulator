@@ -1,638 +1,422 @@
 """
-X-Seti - June07 2025 - Core Component System
-Defines the base classes and systems for hardware components
+X-Seti - June07 2025 - Core Components Module
+Base component system with robust error handling
 """
 
-from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QGraphicsItem
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QObject, QPointF
-from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter
-from abc import ABCMeta, abstractmethod
-import uuid
+import os
 import json
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Union
+from dataclasses import dataclass, field
+from enum import Enum
+import uuid
 
+try:
+    from PyQt6.QtCore import QObject, pyqtSignal
+    from PyQt6.QtWidgets import QGraphicsRectItem
+    QT_AVAILABLE = True
+except ImportError:
+    print("⚠️ PyQt6 not available - using fallback base classes")
+    QT_AVAILABLE = False
+    
+    # Create fallback classes
+    class QObject:
+        def __init__(self):
+            pass
+    
+    class QGraphicsRectItem:
+        def __init__(self, *args):
+            self.rect_args = args
+        
+        def setRect(self, x, y, w, h):
+            self.rect_args = (x, y, w, h)
+    
+    def pyqtSignal(*args):
+        return None
+
+class ComponentType(Enum):
+    """Component type enumeration"""
+    CPU = "cpu"
+    MEMORY = "memory"
+    IO = "io"
+    LOGIC = "logic"
+    CUSTOM = "custom"
+    SOUND = "sound"
+    VIDEO = "video"
+    STORAGE = "storage"
+
+@dataclass
 class ComponentPort:
-    """Represents a connection port on a component"""
+    """Represents a component port/pin"""
+    name: str
+    pin_number: int
+    direction: str = "input"  # input, output, bidirectional
+    signal_type: str = "digital"  # digital, analog, power, ground
+    description: str = ""
     
-    def __init__(self, name: str, port_type: str, direction: str, position: QPointF, bit_width: int = 1):
-        self.name = name
-        self.port_type = port_type  # 'data', 'address', 'control', 'power', 'clock'
-        self.direction = direction  # 'input', 'output', 'bidirectional'
-        self.position = position  # Relative to component
-        self.bit_width = bit_width
-        self.connected_to: List['ComponentPort'] = []
-        self.signals: List[str] = []  # Signal names for multi-bit ports
+    def __post_init__(self):
+        if self.direction not in ["input", "output", "bidirectional"]:
+            self.direction = "bidirectional"
         
-    def connect(self, other_port: 'ComponentPort') -> bool:
-        """Connect this port to another port"""
-        if self.can_connect_to(other_port):
-            self.connected_to.append(other_port)
-            other_port.connected_to.append(self)
-            return True
-        return False
-        
-    def disconnect(self, other_port: 'ComponentPort') -> bool:
-        """Disconnect from another port"""
-        if other_port in self.connected_to:
-            self.connected_to.remove(other_port)
-            other_port.connected_to.remove(self)
-            return True
-        return False
-        
-    def can_connect_to(self, other_port: 'ComponentPort') -> bool:
-        """Check if this port can connect to another port"""
-        # Basic connection rules
-        if self.direction == 'output' and other_port.direction == 'input':
-            return True
-        if self.direction == 'input' and other_port.direction == 'output':
-            return True
-        if self.direction == 'bidirectional' or other_port.direction == 'bidirectional':
-            return True
-        return False
-        
-    def get_absolute_position(self, component_pos: QPointF) -> QPointF:
-        """Get absolute position of port given component position"""
-        return component_pos + self.position
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert port to dictionary for serialization"""
-        return {
-            'name': self.name,
-            'type': self.port_type,
-            'direction': self.direction,
-            'position': {'x': self.position.x(), 'y': self.position.y()},
-            'bit_width': self.bit_width,
-            'signals': self.signals
-        }
-        
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ComponentPort':
-        """Create port from dictionary"""
-        port = cls(
-            data['name'],
-            data['type'],
-            data['direction'],
-            QPointF(data['position']['x'], data['position']['y']),
-            data.get('bit_width', 1)
-        )
-        port.signals = data.get('signals', [])
-        return port
+        if self.signal_type not in ["digital", "analog", "power", "ground"]:
+            self.signal_type = "digital"
 
-class ComponentSignals(QObject):
-    """Signal emitter for component events"""
-    
-    positionChanged = pyqtSignal(QPointF)
-    propertiesChanged = pyqtSignal(dict)
-    connectionMade = pyqtSignal(str, str)  # from_port, to_port
-    connectionBroken = pyqtSignal(str, str)
-    stateChanged = pyqtSignal(dict)
+@dataclass
+class ComponentInfo:
+    """Component information structure"""
+    name: str
+    category: str
+    description: str = ""
+    manufacturer: str = ""
+    part_number: str = ""
+    package_type: str = "DIP"
+    pin_count: int = 40
+    year: str = ""
+    datasheet_url: str = ""
+    image_path: str = ""
+    ports: List[ComponentPort] = field(default_factory=list)
+    properties: Dict[str, Any] = field(default_factory=dict)
 
-class QGraphicsABCMeta(type(QGraphicsRectItem), ABCMeta):
-    """Metaclass that resolves the conflict between QGraphicsRectItem and ABC"""
-    pass
-
-class BaseComponent(QGraphicsRectItem, metaclass=QGraphicsABCMeta):
-    """Base class for all hardware components"""
+class BaseComponent(QGraphicsRectItem if QT_AVAILABLE else QObject):
+    """Base component class"""
     
     def __init__(self, component_type: str, name: str = None, parent=None):
-        super().__init__(parent)
+        if QT_AVAILABLE:
+            super().__init__(parent)
+        else:
+            super().__init__()
         
-        # Basic properties
         self.id = str(uuid.uuid4())
         self.component_type = component_type
         self.name = name or f"{component_type}_{self.id[:8]}"
-        
-        # Graphics properties
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.category = "Unknown"
         
         # Component properties
+        self.manufacturer = ""
+        self.part_number = ""
+        self.package_type = "DIP"
+        self.pin_count = 40
+        self.year = ""
+        self.datasheet_url = ""
+        self.description = ""
+        
+        # Physical properties
+        self.x = 0.0
+        self.y = 0.0
+        self.width = 60.0
+        self.height = 40.0
+        self.rotation = 0.0
+        
+        # Ports and connections
+        self.ports: List[ComponentPort] = []
+        self.connections: Dict[str, Any] = {}
+        
+        # Properties for emulation
         self.properties: Dict[str, Any] = {}
-        self.custom_properties: Dict[str, Any] = {}
-        self.ports: Dict[str, ComponentPort] = {}
         
-        # State and simulation
-        self.state: Dict[str, Any] = {}
+        # State
+        self.selected = False
         self.enabled = True
-        self.simulation_active = False
         
-        # Signals
-        self.signals = ComponentSignals()
+        # Setup the component
+        self.setup_component()
         
-        # Visual properties
-        self.selected_color = QColor(255, 215, 0)  # Gold
-        self.normal_color = QColor(200, 200, 200)  # Light gray
-        self.error_color = QColor(255, 100, 100)   # Light red
-        self.current_color = self.normal_color
-        
-        # Initialize component
-        self.setupComponent()
-        self.updateAppearance()
-        
-    @abstractmethod
-    def setupComponent(self):
-        """Setup component-specific properties and ports"""
+        if QT_AVAILABLE:
+            self.setRect(0, 0, self.width, self.height)
+    
+    def setup_component(self):
+        """Override this method to setup component-specific properties"""
         pass
+    
+    def add_port(self, name: str, pin_number: int, direction: str = "input", 
+                 signal_type: str = "digital", description: str = ""):
+        """Add a port to the component"""
+        port = ComponentPort(name, pin_number, direction, signal_type, description)
+        self.ports.append(port)
+        return port
+    
+    def get_port(self, name: str) -> Optional[ComponentPort]:
+        """Get port by name"""
+        for port in self.ports:
+            if port.name == name:
+                return port
+        return None
+    
+    def get_port_by_pin(self, pin_number: int) -> Optional[ComponentPort]:
+        """Get port by pin number"""
+        for port in self.ports:
+            if port.pin_number == pin_number:
+                return port
+        return None
+    
+    def connect_to_component(self, other_component: 'BaseComponent', 
+                           my_port: str, other_port: str) -> bool:
+        """Connect this component to another component"""
+        if my_port not in [p.name for p in self.ports]:
+            print(f"⚠️ Port {my_port} not found in {self.name}")
+            return False
         
-    def addPort(self, port: ComponentPort):
-        """Add a port to this component"""
-        self.ports[port.name] = port
+        if other_port not in [p.name for p in other_component.ports]:
+            print(f"⚠️ Port {other_port} not found in {other_component.name}")
+            return False
         
-    def removePort(self, port_name: str):
-        """Remove a port from this component"""
-        if port_name in self.ports:
-            port = self.ports[port_name]
-            # Disconnect all connections
-            for connected_port in port.connected_to[:]:
-                port.disconnect(connected_port)
-            del self.ports[port_name]
-            
-    def getPort(self, port_name: str) -> Optional[ComponentPort]:
-        """Get a port by name"""
-        return self.ports.get(port_name)
-        
-    def getAllPorts(self) -> List[ComponentPort]:
-        """Get all ports"""
-        return list(self.ports.values())
-        
-    def getPortsOfType(self, port_type: str) -> List[ComponentPort]:
-        """Get all ports of a specific type"""
-        return [port for port in self.ports.values() if port.port_type == port_type]
-        
-    def connectToComponent(self, other_component: 'BaseComponent', 
-                          my_port: str, other_port: str) -> bool:
-        """Connect to another component"""
-        if my_port in self.ports and other_port in other_component.ports:
-            port1 = self.ports[my_port]
-            port2 = other_component.ports[other_port]
-            if port1.connect(port2):
-                self.signals.connectionMade.emit(my_port, other_port)
-                return True
-        return False
-        
-    def disconnectFromComponent(self, other_component: 'BaseComponent',
-                               my_port: str, other_port: str) -> bool:
-        """Disconnect from another component"""
-        if my_port in self.ports and other_port in other_component.ports:
-            port1 = self.ports[my_port]
-            port2 = other_component.ports[other_port]
-            if port1.disconnect(port2):
-                self.signals.connectionBroken.emit(my_port, other_port)
-                return True
-        return False
-        
-    def setProperty(self, key: str, value: Any):
-        """Set a component property"""
-        old_value = self.properties.get(key)
-        self.properties[key] = value
-        if old_value != value:
-            self.signals.propertiesChanged.emit(self.properties)
-            self.updateAppearance()
-            
-    def getProperty(self, key: str, default: Any = None) -> Any:
-        """Get a component property"""
-        return self.properties.get(key, default)
-        
-    def setState(self, key: str, value: Any):
-        """Set component state"""
-        self.state[key] = value
-        self.signals.stateChanged.emit(self.state)
-        
-    def getState(self, key: str, default: Any = None) -> Any:
-        """Get component state"""
-        return self.state.get(key, default)
-        
-    def updateAppearance(self):
-        """Update component visual appearance"""
-        # Set colors based on state
-        if not self.enabled:
-            self.current_color = self.error_color
-        elif self.isSelected():
-            self.current_color = self.selected_color
-        else:
-            self.current_color = self.normal_color
-            
-        # Update graphics
-        pen = QPen(QColor(0, 0, 0), 2)
-        brush = QBrush(self.current_color)
-        self.setPen(pen)
-        self.setBrush(brush)
-        
-        self.update()
-        
-    def itemChange(self, change, value):
-        """Handle item changes"""
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
-            self.signals.positionChanged.emit(value)
-        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedChange:
-            self.updateAppearance()
-        return super().itemChange(change, value)
-        
-    def paint(self, painter: QPainter, option, widget):
-        """Custom paint method"""
-        super().paint(painter, option, widget)
-        
-        # Draw component name
-        painter.setFont(QFont("Arial", 8))
-        painter.setPen(QPen(QColor(0, 0, 0)))
-        
-        rect = self.boundingRect()
-        text_rect = QRectF(rect.x(), rect.y() - 15, rect.width(), 15)
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, self.name)
-        
-        # Draw ports
-        for port in self.ports.values():
-            self.drawPort(painter, port)
-            
-    def drawPort(self, painter: QPainter, port: ComponentPort):
-        """Draw a port on the component"""
-        pos = port.position
-        
-        # Port colors based on type
-        colors = {
-            'data': QColor(0, 0, 255),     # Blue
-            'address': QColor(255, 0, 0),   # Red
-            'control': QColor(0, 255, 0),   # Green
-            'power': QColor(255, 165, 0),   # Orange
-            'clock': QColor(255, 0, 255)    # Magenta
+        # Store connection
+        connection_key = f"{my_port}->{other_component.id}:{other_port}"
+        self.connections[connection_key] = {
+            'component': other_component,
+            'my_port': my_port,
+            'other_port': other_port
         }
         
-        color = colors.get(port.port_type, QColor(128, 128, 128))
-        painter.setBrush(QBrush(color))
-        painter.setPen(QPen(QColor(0, 0, 0), 1))
-        
-        # Draw port as small circle
-        port_rect = QRectF(pos.x() - 3, pos.y() - 3, 6, 6)
-        painter.drawEllipse(port_rect)
-        
-        # Draw port name
-        painter.setFont(QFont("Arial", 6))
-        text_rect = QRectF(pos.x() - 15, pos.y() + 5, 30, 8)
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, port.name)
-        
-    def clone(self) -> 'BaseComponent':
-        """Create a copy of this component"""
-        # This would need to be implemented by subclasses
-        raise NotImplementedError("Subclasses must implement clone method")
-        
+        print(f"✓ Connected {self.name}:{my_port} -> {other_component.name}:{other_port}")
+        return True
+    
+    def disconnect_from_component(self, other_component: 'BaseComponent', 
+                                my_port: str, other_port: str) -> bool:
+        """Disconnect from another component"""
+        connection_key = f"{my_port}->{other_component.id}:{other_port}"
+        if connection_key in self.connections:
+            del self.connections[connection_key]
+            print(f"✓ Disconnected {self.name}:{my_port} from {other_component.name}:{other_port}")
+            return True
+        return False
+    
+    def get_connections(self) -> List[Dict[str, Any]]:
+        """Get all connections for this component"""
+        return list(self.connections.values())
+    
+    def set_property(self, key: str, value: Any):
+        """Set a component property"""
+        self.properties[key] = value
+    
+    def get_property(self, key: str, default: Any = None) -> Any:
+        """Get a component property"""
+        return self.properties.get(key, default)
+    
+    def set_position(self, x: float, y: float):
+        """Set component position"""
+        self.x = x
+        self.y = y
+        if QT_AVAILABLE:
+            self.setPos(x, y)
+    
+    def get_position(self) -> Tuple[float, float]:
+        """Get component position"""
+        return (self.x, self.y)
+    
+    def set_size(self, width: float, height: float):
+        """Set component size"""
+        self.width = width
+        self.height = height
+        if QT_AVAILABLE:
+            self.setRect(0, 0, width, height)
+    
+    def get_size(self) -> Tuple[float, float]:
+        """Get component size"""
+        return (self.width, self.height)
+    
+    def set_rotation(self, angle: float):
+        """Set component rotation"""
+        self.rotation = angle % 360
+        if QT_AVAILABLE:
+            self.setRotation(self.rotation)
+    
+    def get_rotation(self) -> float:
+        """Get component rotation"""
+        return self.rotation
+    
     def validate(self) -> Tuple[bool, List[str]]:
         """Validate component configuration"""
         errors = []
         
-        # Basic validation
+        # Check basic properties
         if not self.name:
             errors.append("Component name is required")
-            
-        # Check for unconnected required ports
-        for port in self.ports.values():
-            if port.port_type == 'power' and not port.connected_to:
-                errors.append(f"Power port '{port.name}' is not connected")
-                
-        return len(errors) == 0, errors
         
+        if not self.component_type:
+            errors.append("Component type is required")
+        
+        # Check ports
+        pin_numbers = [p.pin_number for p in self.ports]
+        if len(pin_numbers) != len(set(pin_numbers)):
+            errors.append("Duplicate pin numbers found")
+        
+        # Check for required ports based on component type
+        if self.component_type == "cpu":
+            required_ports = ["VCC", "GND", "CLK"]
+            for port_name in required_ports:
+                if not self.get_port(port_name):
+                    errors.append(f"Required port missing: {port_name}")
+        
+        return len(errors) == 0, errors
+    
     def to_dict(self) -> Dict[str, Any]:
-        """Convert component to dictionary for serialization"""
+        """Convert component to dictionary"""
         return {
             'id': self.id,
-            'type': self.component_type,
+            'component_type': self.component_type,
             'name': self.name,
-            'position': {'x': self.x(), 'y': self.y()},
-            'rotation': self.rotation(),
+            'category': self.category,
+            'manufacturer': self.manufacturer,
+            'part_number': self.part_number,
+            'package_type': self.package_type,
+            'pin_count': self.pin_count,
+            'year': self.year,
+            'datasheet_url': self.datasheet_url,
+            'description': self.description,
+            'position': {'x': self.x, 'y': self.y},
+            'size': {'width': self.width, 'height': self.height},
+            'rotation': self.rotation,
+            'ports': [
+                {
+                    'name': p.name,
+                    'pin_number': p.pin_number,
+                    'direction': p.direction,
+                    'signal_type': p.signal_type,
+                    'description': p.description
+                } for p in self.ports
+            ],
             'properties': self.properties,
-            'custom_properties': self.custom_properties,
-            'ports': {name: port.to_dict() for name, port in self.ports.items()},
-            'state': self.state,
             'enabled': self.enabled
         }
+    
+    def from_dict(self, data: Dict[str, Any]):
+        """Load component from dictionary"""
+        self.id = data.get('id', self.id)
+        self.component_type = data.get('component_type', self.component_type)
+        self.name = data.get('name', self.name)
+        self.category = data.get('category', self.category)
+        self.manufacturer = data.get('manufacturer', '')
+        self.part_number = data.get('part_number', '')
+        self.package_type = data.get('package_type', 'DIP')
+        self.pin_count = data.get('pin_count', 40)
+        self.year = data.get('year', '')
+        self.datasheet_url = data.get('datasheet_url', '')
+        self.description = data.get('description', '')
         
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'BaseComponent':
-        """Create component from dictionary"""
-        # This would need to be implemented by subclasses
-        raise NotImplementedError("Subclasses must implement from_dict method")
+        # Position and size
+        if 'position' in data:
+            pos = data['position']
+            self.set_position(pos.get('x', 0), pos.get('y', 0))
         
-    def reset(self):
-        """Reset component to initial state"""
-        self.state.clear()
-        self.simulation_active = False
-        self.updateAppearance()
+        if 'size' in data:
+            size = data['size']
+            self.set_size(size.get('width', 60), size.get('height', 40))
         
-    def simulate_step(self, clock_cycle: int):
-        """Perform one simulation step"""
-        if not self.enabled or not self.simulation_active:
-            return
-            
-        # Implement in subclasses
-        pass
+        self.set_rotation(data.get('rotation', 0))
         
-    def getConnectedComponents(self) -> List['BaseComponent']:
-        """Get all components connected to this one"""
-        connected = set()
-        for port in self.ports.values():
-            for connected_port in port.connected_to:
-                # Find the component that owns this port
-                # This would need to be implemented based on your component management system
-                pass
-        return list(connected)
+        # Ports
+        self.ports = []
+        for port_data in data.get('ports', []):
+            port = ComponentPort(
+                name=port_data['name'],
+                pin_number=port_data['pin_number'],
+                direction=port_data.get('direction', 'input'),
+                signal_type=port_data.get('signal_type', 'digital'),
+                description=port_data.get('description', '')
+            )
+            self.ports.append(port)
         
-    def getConnectionCount(self) -> int:
-        """Get total number of connections"""
-        return sum(len(port.connected_to) for port in self.ports.values())
-        
-    def isFullyConnected(self) -> bool:
-        """Check if all required ports are connected"""
-        for port in self.ports.values():
-            if port.port_type == 'power' and not port.connected_to:
-                return False
-        return True
-        
+        # Properties
+        self.properties = data.get('properties', {})
+        self.enabled = data.get('enabled', True)
+    
     def __str__(self) -> str:
-        return f"{self.component_type}({self.name})"
-        
+        return f"{self.name} ({self.component_type})"
+    
     def __repr__(self) -> str:
-        return f"<{self.component_type} '{self.name}' at {self.x()},{self.y()}>"
-
-class ProcessorComponent(BaseComponent):
-    """Processor/CPU component"""
-    
-    def setupComponent(self):
-        """Setup processor-specific properties and ports"""
-        self.setRect(0, 0, 80, 60)
-        
-        # Processor properties
-        self.setProperty('architecture', '8-bit')
-        self.setProperty('clock_speed', '1 MHz')
-        self.setProperty('instruction_set', '6502')
-        self.setProperty('cache_size', 0)
-        self.setProperty('pipeline_stages', 1)
-        
-        # Add standard processor ports
-        self.addPort(ComponentPort('CLK', 'clock', 'input', QPointF(-5, 0)))
-        self.addPort(ComponentPort('RST', 'control', 'input', QPointF(-5, 15)))
-        self.addPort(ComponentPort('IRQ', 'control', 'input', QPointF(-5, 30)))
-        self.addPort(ComponentPort('NMI', 'control', 'input', QPointF(-5, 45)))
-        
-        # Data and address buses
-        self.addPort(ComponentPort('D0-D7', 'data', 'bidirectional', QPointF(85, 0), 8))
-        self.addPort(ComponentPort('A0-A15', 'address', 'output', QPointF(85, 30), 16))
-        
-        # Control signals
-        self.addPort(ComponentPort('RW', 'control', 'output', QPointF(40, -5)))
-        self.addPort(ComponentPort('RDY', 'control', 'input', QPointF(40, 65)))
-        
-        # Power
-        self.addPort(ComponentPort('VCC', 'power', 'input', QPointF(0, -5)))
-        self.addPort(ComponentPort('GND', 'power', 'input', QPointF(0, 65)))
-
-class MemoryComponent(BaseComponent):
-    """Memory component (RAM/ROM)"""
-    
-    def setupComponent(self):
-        """Setup memory-specific properties and ports"""
-        self.setRect(0, 0, 60, 40)
-        
-        # Memory properties
-        self.setProperty('capacity', '64KB')
-        self.setProperty('memory_type', 'RAM')
-        self.setProperty('access_time', '150ns')
-        self.setProperty('data_width', 8)
-        self.setProperty('address_width', 16)
-        
-        # Memory ports
-        self.addPort(ComponentPort('D0-D7', 'data', 'bidirectional', QPointF(65, 10), 8))
-        self.addPort(ComponentPort('A0-A15', 'address', 'input', QPointF(-5, 10), 16))
-        self.addPort(ComponentPort('CS', 'control', 'input', QPointF(-5, 25)))
-        self.addPort(ComponentPort('WE', 'control', 'input', QPointF(30, -5)))
-        self.addPort(ComponentPort('OE', 'control', 'input', QPointF(30, 45)))
-        
-        # Power
-        self.addPort(ComponentPort('VCC', 'power', 'input', QPointF(0, -5)))
-        self.addPort(ComponentPort('GND', 'power', 'input', QPointF(0, 45)))
-
-class GraphicsComponent(BaseComponent):
-    """Graphics/Video component"""
-    
-    def setupComponent(self):
-        """Setup graphics-specific properties and ports"""
-        self.setRect(0, 0, 70, 50)
-        
-        # Graphics properties
-        self.setProperty('resolution', '320x200')
-        self.setProperty('colors', 16)
-        self.setProperty('sprites', 8)
-        self.setProperty('video_ram', '16KB')
-        self.setProperty('refresh_rate', '60Hz')
-        
-        # Graphics ports
-        self.addPort(ComponentPort('CLK', 'clock', 'input', QPointF(-5, 0)))
-        self.addPort(ComponentPort('D0-D7', 'data', 'bidirectional', QPointF(75, 10), 8))
-        self.addPort(ComponentPort('A0-A13', 'address', 'input', QPointF(-5, 15), 14))
-        self.addPort(ComponentPort('CS', 'control', 'input', QPointF(-5, 30)))
-        self.addPort(ComponentPort('RW', 'control', 'input', QPointF(-5, 45)))
-        
-        # Video output
-        self.addPort(ComponentPort('HSYNC', 'control', 'output', QPointF(75, 25)))
-        self.addPort(ComponentPort('VSYNC', 'control', 'output', QPointF(75, 40)))
-        self.addPort(ComponentPort('RGB', 'data', 'output', QPointF(35, 55), 3))
-        
-        # Power
-        self.addPort(ComponentPort('VCC', 'power', 'input', QPointF(0, -5)))
-        self.addPort(ComponentPort('GND', 'power', 'input', QPointF(0, 55)))
-
-class AudioComponent(BaseComponent):
-    """Audio/Sound component"""
-    
-    def setupComponent(self):
-        """Setup audio-specific properties and ports"""
-        self.setRect(0, 0, 60, 45)
-        
-        # Audio properties
-        self.setProperty('voices', 3)
-        self.setProperty('waveforms', ['Square', 'Sawtooth', 'Triangle', 'Noise'])
-        self.setProperty('frequency_range', '20Hz-20kHz')
-        self.setProperty('bit_depth', 8)
-        self.setProperty('sample_rate', '44.1kHz')
-        
-        # Audio ports
-        self.addPort(ComponentPort('CLK', 'clock', 'input', QPointF(-5, 0)))
-        self.addPort(ComponentPort('D0-D7', 'data', 'input', QPointF(-5, 15), 8))
-        self.addPort(ComponentPort('A0-A4', 'address', 'input', QPointF(-5, 30), 5))
-        self.addPort(ComponentPort('CS', 'control', 'input', QPointF(-5, 45)))
-        
-        # Audio output
-        self.addPort(ComponentPort('AUDIO_L', 'data', 'output', QPointF(65, 15)))
-        self.addPort(ComponentPort('AUDIO_R', 'data', 'output', QPointF(65, 30)))
-        
-        # Power
-        self.addPort(ComponentPort('VCC', 'power', 'input', QPointF(0, -5)))
-        self.addPort(ComponentPort('GND', 'power', 'input', QPointF(0, 50)))
-
-class IOComponent(BaseComponent):
-    """Input/Output component"""
-    
-    def setupComponent(self):
-        """Setup I/O-specific properties and ports"""
-        self.setRect(0, 0, 65, 55)
-        
-        # I/O properties
-        self.setProperty('ports', '3x8-bit')
-        self.setProperty('modes', ['Input', 'Output', 'Bidirectional'])
-        self.setProperty('interrupt_capable', True)
-        self.setProperty('handshake_support', True)
-        
-        # I/O ports
-        self.addPort(ComponentPort('CLK', 'clock', 'input', QPointF(-5, 0)))
-        self.addPort(ComponentPort('D0-D7', 'data', 'bidirectional', QPointF(-5, 15), 8))
-        self.addPort(ComponentPort('A0-A1', 'address', 'input', QPointF(-5, 30), 2))
-        self.addPort(ComponentPort('CS', 'control', 'input', QPointF(-5, 45)))
-        self.addPort(ComponentPort('RW', 'control', 'input', QPointF(-5, 60)))
-        
-        # External I/O ports
-        self.addPort(ComponentPort('PA0-PA7', 'data', 'bidirectional', QPointF(70, 0), 8))
-        self.addPort(ComponentPort('PB0-PB7', 'data', 'bidirectional', QPointF(70, 20), 8))
-        self.addPort(ComponentPort('PC0-PC7', 'data', 'bidirectional', QPointF(70, 40), 8))
-        
-        # Interrupt
-        self.addPort(ComponentPort('IRQ', 'control', 'output', QPointF(35, -5)))
-        
-        # Power
-        self.addPort(ComponentPort('VCC', 'power', 'input', QPointF(0, -5)))
-        self.addPort(ComponentPort('GND', 'power', 'input', QPointF(0, 60)))
-
-class ComponentFactory:
-    """Factory for creating components"""
-    
-    _component_types = {
-        'Processor': ProcessorComponent,
-        'Memory': MemoryComponent,
-        'Graphics': GraphicsComponent,
-        'Audio': AudioComponent,
-        'I/O': IOComponent
-    }
-    
-    @classmethod
-    def create_component(cls, component_type: str, name: str = None, **kwargs) -> Optional[BaseComponent]:
-        """Create a component of the specified type"""
-        if component_type in cls._component_types:
-            component_class = cls._component_types[component_type]
-            component = component_class(component_type, name)
-            
-            # Set any additional properties
-            for key, value in kwargs.items():
-                component.setProperty(key, value)
-                
-            return component
-        return None
-        
-    @classmethod
-    def get_available_types(cls) -> List[str]:
-        """Get list of available component types"""
-        return list(cls._component_types.keys())
-        
-    @classmethod
-    def register_component_type(cls, type_name: str, component_class):
-        """Register a new component type"""
-        cls._component_types[type_name] = component_class
-        
-    @classmethod
-    def create_from_dict(cls, data: Dict[str, Any]) -> Optional[BaseComponent]:
-        """Create component from dictionary data"""
-        component_type = data.get('type')
-        if component_type in cls._component_types:
-            component_class = cls._component_types[component_type]
-            component = component_class(component_type, data.get('name'))
-            
-            # Restore position and rotation
-            if 'position' in data:
-                pos = data['position']
-                component.setPos(pos['x'], pos['y'])
-            if 'rotation' in data:
-                component.setRotation(data['rotation'])
-                
-            # Restore properties
-            if 'properties' in data:
-                component.properties.update(data['properties'])
-            if 'custom_properties' in data:
-                component.custom_properties.update(data['custom_properties'])
-                
-            # Restore state
-            if 'state' in data:
-                component.state.update(data['state'])
-            if 'enabled' in data:
-                component.enabled = data['enabled']
-                
-            # Restore ports (connections will be restored separately)
-            if 'ports' in data:
-                component.ports.clear()
-                for port_name, port_data in data['ports'].items():
-                    port = ComponentPort.from_dict(port_data)
-                    component.ports[port_name] = port
-                    
-            component.updateAppearance()
-            return component
-        return None
+        return f"BaseComponent(id='{self.id}', type='{self.component_type}', name='{self.name}')"
 
 class ComponentManager:
-    """Manages components in the system"""
+    """Manages a collection of components"""
     
     def __init__(self):
         self.components: Dict[str, BaseComponent] = {}
+        self.connections: List[Tuple[str, str, str, str]] = []  # comp1_id, port1, comp2_id, port2
         self.component_groups: Dict[str, List[str]] = {}
-        self.connections: List[Tuple[str, str, str, str]] = []  # (comp1_id, port1, comp2_id, port2)
         
-    def add_component(self, component: BaseComponent):
+        print("✓ ComponentManager initialized")
+    
+    def add_component(self, component: BaseComponent) -> bool:
         """Add a component to the manager"""
-        self.components[component.id] = component
+        if component.id in self.components:
+            print(f"⚠️ Component {component.id} already exists")
+            return False
         
-    def remove_component(self, component_id: str):
+        self.components[component.id] = component
+        print(f"✓ Added component: {component.name} ({component.id})")
+        return True
+    
+    def remove_component(self, component_id: str) -> bool:
         """Remove a component from the manager"""
-        if component_id in self.components:
-            component = self.components[component_id]
-            
-            # Remove all connections
-            self.disconnect_all(component_id)
-            
-            # Remove from groups
-            for group_components in self.component_groups.values():
-                if component_id in group_components:
-                    group_components.remove(component_id)
-                    
-            del self.components[component_id]
-            
+        if component_id not in self.components:
+            print(f"⚠️ Component {component_id} not found")
+            return False
+        
+        # Remove all connections involving this component
+        self.disconnect_all(component_id)
+        
+        # Remove from groups
+        for group_name in list(self.component_groups.keys()):
+            if component_id in self.component_groups[group_name]:
+                self.component_groups[group_name].remove(component_id)
+                if not self.component_groups[group_name]:
+                    del self.component_groups[group_name]
+        
+        # Remove component
+        component = self.components.pop(component_id)
+        print(f"✓ Removed component: {component.name} ({component_id})")
+        return True
+    
     def get_component(self, component_id: str) -> Optional[BaseComponent]:
         """Get a component by ID"""
         return self.components.get(component_id)
-        
+    
+    def get_component_by_name(self, name: str) -> Optional[BaseComponent]:
+        """Get a component by name"""
+        for component in self.components.values():
+            if component.name == name:
+                return component
+        return None
+    
+    def get_all_components(self) -> List[BaseComponent]:
+        """Get all components"""
+        return list(self.components.values())
+    
     def get_components_by_type(self, component_type: str) -> List[BaseComponent]:
-        """Get all components of a specific type"""
+        """Get components by type"""
         return [comp for comp in self.components.values() 
                 if comp.component_type == component_type]
-                
+    
     def connect_components(self, comp1_id: str, port1: str, comp2_id: str, port2: str) -> bool:
         """Connect two components"""
         comp1 = self.components.get(comp1_id)
         comp2 = self.components.get(comp2_id)
         
-        if comp1 and comp2:
-            if comp1.connectToComponent(comp2, port1, port2):
-                self.connections.append((comp1_id, port1, comp2_id, port2))
-                return True
-        return False
+        if not comp1 or not comp2:
+            print(f"⚠️ One or both components not found: {comp1_id}, {comp2_id}")
+            return False
         
+        if comp1.connect_to_component(comp2, port1, port2):
+            connection = (comp1_id, port1, comp2_id, port2)
+            if connection not in self.connections:
+                self.connections.append(connection)
+            return True
+        
+        return False
+    
     def disconnect_components(self, comp1_id: str, port1: str, comp2_id: str, port2: str) -> bool:
         """Disconnect two components"""
         comp1 = self.components.get(comp1_id)
         comp2 = self.components.get(comp2_id)
         
         if comp1 and comp2:
-            if comp1.disconnectFromComponent(comp2, port1, port2):
+            if comp1.disconnect_from_component(comp2, port1, port2):
                 connection = (comp1_id, port1, comp2_id, port2)
                 if connection in self.connections:
                     self.connections.remove(connection)
                 return True
         return False
-        
+    
     def disconnect_all(self, component_id: str):
         """Disconnect all connections for a component"""
         connections_to_remove = []
@@ -641,28 +425,55 @@ class ComponentManager:
             if comp1_id == component_id or comp2_id == component_id:
                 self.disconnect_components(comp1_id, port1, comp2_id, port2)
                 connections_to_remove.append(connection)
-                
+        
         for connection in connections_to_remove:
             if connection in self.connections:
                 self.connections.remove(connection)
-                
+    
     def create_group(self, group_name: str, component_ids: List[str]):
         """Create a group of components"""
-        self.component_groups[group_name] = component_ids[:]
+        # Validate all component IDs exist
+        valid_ids = [cid for cid in component_ids if cid in self.components]
+        if len(valid_ids) != len(component_ids):
+            print(f"⚠️ Some component IDs not found when creating group {group_name}")
         
+        self.component_groups[group_name] = valid_ids
+        print(f"✓ Created group {group_name} with {len(valid_ids)} components")
+    
     def add_to_group(self, group_name: str, component_id: str):
         """Add component to group"""
+        if component_id not in self.components:
+            print(f"⚠️ Component {component_id} not found")
+            return False
+        
         if group_name not in self.component_groups:
             self.component_groups[group_name] = []
+        
         if component_id not in self.component_groups[group_name]:
             self.component_groups[group_name].append(component_id)
-            
+            print(f"✓ Added {component_id} to group {group_name}")
+        
+        return True
+    
     def remove_from_group(self, group_name: str, component_id: str):
         """Remove component from group"""
         if group_name in self.component_groups:
             if component_id in self.component_groups[group_name]:
                 self.component_groups[group_name].remove(component_id)
+                print(f"✓ Removed {component_id} from group {group_name}")
                 
+                # Remove empty groups
+                if not self.component_groups[group_name]:
+                    del self.component_groups[group_name]
+    
+    def get_group(self, group_name: str) -> List[BaseComponent]:
+        """Get components in a group"""
+        if group_name not in self.component_groups:
+            return []
+        
+        return [self.components[cid] for cid in self.component_groups[group_name] 
+                if cid in self.components]
+    
     def validate_system(self) -> Tuple[bool, List[str]]:
         """Validate the entire system"""
         errors = []
@@ -673,68 +484,153 @@ class ComponentManager:
             if not is_valid:
                 for error in comp_errors:
                     errors.append(f"{component.name}: {error}")
-                    
+        
         # Check for connection issues
         for comp1_id, port1, comp2_id, port2 in self.connections:
             comp1 = self.components.get(comp1_id)
             comp2 = self.components.get(comp2_id)
             
             if not comp1:
-                errors.append(f"Connection references missing component: {comp1_id}")
-            elif not comp2:
-                errors.append(f"Connection references missing component: {comp2_id}")
-            elif port1 not in comp1.ports:
-                errors.append(f"Component {comp1.name} missing port: {port1}")
-            elif port2 not in comp2.ports:
-                errors.append(f"Component {comp2.name} missing port: {port2}")
-                
-        return len(errors) == 0, errors
+                errors.append(f"Connection refers to missing component: {comp1_id}")
+            elif not comp1.get_port(port1):
+                errors.append(f"Connection refers to missing port: {comp1.name}:{port1}")
+            
+            if not comp2:
+                errors.append(f"Connection refers to missing component: {comp2_id}")
+            elif not comp2.get_port(port2):
+                errors.append(f"Connection refers to missing port: {comp2.name}:{port2}")
         
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert entire system to dictionary"""
-        return {
-            'components': {comp_id: comp.to_dict() for comp_id, comp in self.components.items()},
-            'connections': self.connections,
-            'groups': self.component_groups
+        return len(errors) == 0, errors
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get system statistics"""
+        stats = {
+            'total_components': len(self.components),
+            'total_connections': len(self.connections),
+            'total_groups': len(self.component_groups),
+            'components_by_type': {},
+            'components_by_category': {}
         }
         
-    def from_dict(self, data: Dict[str, Any]):
-        """Load system from dictionary"""
-        self.clear()
-        
-        # Load components
-        if 'components' in data:
-            for comp_id, comp_data in data['components'].items():
-                component = ComponentFactory.create_from_dict(comp_data)
-                if component:
-                    component.id = comp_id  # Preserve original ID
-                    self.components[comp_id] = component
-                    
-        # Restore connections
-        if 'connections' in data:
-            for comp1_id, port1, comp2_id, port2 in data['connections']:
-                self.connect_components(comp1_id, port1, comp2_id, port2)
-                
-        # Restore groups
-        if 'groups' in data:
-            self.component_groups = data['groups'].copy()
+        for component in self.components.values():
+            # Count by type
+            comp_type = component.component_type
+            stats['components_by_type'][comp_type] = stats['components_by_type'].get(comp_type, 0) + 1
             
+            # Count by category
+            category = component.category
+            stats['components_by_category'][category] = stats['components_by_category'].get(category, 0) + 1
+        
+        return stats
+    
+    def save_to_file(self, filename: str) -> bool:
+        """Save system to file"""
+        try:
+            data = {
+                'metadata': {
+                    'version': '1.0',
+                    'type': 'component_system'
+                },
+                'components': [comp.to_dict() for comp in self.components.values()],
+                'connections': self.connections,
+                'groups': self.component_groups
+            }
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✓ System saved to {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Error saving system: {e}")
+            return False
+    
+    def load_from_file(self, filename: str) -> bool:
+        """Load system from file"""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Clear current system
+            self.components.clear()
+            self.connections.clear()
+            self.component_groups.clear()
+            
+            # Load components
+            for comp_data in data.get('components', []):
+                component = BaseComponent(comp_data['component_type'])
+                component.from_dict(comp_data)
+                self.components[component.id] = component
+            
+            # Load connections
+            self.connections = data.get('connections', [])
+            
+            # Load groups
+            self.component_groups = data.get('groups', {})
+            
+            print(f"✓ System loaded from {filename}")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Error loading system: {e}")
+            return False
+    
     def clear(self):
         """Clear all components and connections"""
         self.components.clear()
         self.connections.clear()
         self.component_groups.clear()
+        print("✓ System cleared")
+
+class ComponentFactory:
+    """Factory for creating components"""
+    
+    _component_registry: Dict[str, type] = {}
+    
+    @classmethod
+    def register_component_class(cls, component_type: str, component_class: type):
+        """Register a component class"""
+        cls._component_registry[component_type] = component_class
+        print(f"✓ Registered component class: {component_type}")
+    
+    @classmethod
+    def create_component(cls, component_type: str, name: str = None, **kwargs) -> Optional[BaseComponent]:
+        """Create a component instance"""
+        if component_type in cls._component_registry:
+            component_class = cls._component_registry[component_type]
+            return component_class(component_type, name, **kwargs)
+        else:
+            # Create generic component
+            return BaseComponent(component_type, name, **kwargs)
+    
+    @classmethod
+    def create_from_dict(cls, data: Dict[str, Any]) -> Optional[BaseComponent]:
+        """Create component from dictionary data"""
+        component_type = data.get('component_type')
+        if not component_type:
+            return None
         
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get system statistics"""
-        type_counts = {}
-        for component in self.components.values():
-            comp_type = component.component_type
-            type_counts[comp_type] = type_counts.get(comp_type, 0) + 1
-            
-        return {
-            'total_components': len(self.components),
-            'total_connections': len(self.connections),
-            'component_types': type_counts,
-            'groups': len(self.component_groups)
-        }
+        component = cls.create_component(component_type)
+        if component:
+            component.from_dict(data)
+        
+        return component
+    
+    @classmethod
+    def get_registered_types(cls) -> List[str]:
+        """Get list of registered component types"""
+        return list(cls._component_registry.keys())
+
+# Register the base component
+ComponentFactory.register_component_class("base", BaseComponent)
+
+# Export main classes
+__all__ = [
+    'BaseComponent', 
+    'ComponentManager', 
+    'ComponentFactory', 
+    'ComponentPort', 
+    'ComponentInfo', 
+    'ComponentType'
+]
