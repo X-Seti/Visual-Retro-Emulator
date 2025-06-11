@@ -1,5 +1,5 @@
 """
-Property Editor System
+X-Seti - June11 2025 - Property Editor System
 Advanced property editing widgets and dialogs
 """
 

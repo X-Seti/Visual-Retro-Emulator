@@ -1,5 +1,5 @@
 """
-Layer Controls Widget
+X-Seti - June11 2025 - Layer Controls Widget
 Manages different layers in the PCB/canvas view (components, connections, etc.)
 """
 
@@ -136,14 +136,18 @@ class LayerListWidget(QListWidget):
 class LayerControlsWidget(QWidget):
     """Main layer controls widget"""
     
+    # All the signals that main_window.py might need
     layerAdded = pyqtSignal(str)  # layer_name
     layerRemoved = pyqtSignal(str)  # layer_name
     layerVisibilityChanged = pyqtSignal(str, bool)  # layer_name, visible
     layerPropertiesChanged = pyqtSignal(str, dict)  # layer_name, properties
+    layerChanged = pyqtSignal(str)  # layer_name - THIS IS THE MISSING SIGNAL
+    currentLayerChanged = pyqtSignal(str)  # layer_name
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_layer: Optional[str] = None
+        self.property_editors = {}
         self.setupUI()
         self.create_default_layers()
         
@@ -272,6 +276,11 @@ class LayerControlsWidget(QWidget):
             layer.layer_type = layer.name.lower()
             self.layer_list.add_layer(layer)
             
+        # Set components as current layer and emit signal
+        self.current_layer = "Components"
+        self.layerChanged.emit("Components")
+        self.currentLayerChanged.emit("Components")
+            
     def add_new_layer(self):
         """Add a new layer"""
         from PyQt6.QtWidgets import QInputDialog
@@ -342,6 +351,10 @@ class LayerControlsWidget(QWidget):
         else:
             self.enable_properties(False)
             
+        # Emit BOTH signals that main_window.py might be looking for
+        self.layerChanged.emit(layer_name)
+        self.currentLayerChanged.emit(layer_name)
+            
     def update_properties_display(self, layer: LayerItem):
         """Update properties display for selected layer"""
         self.layer_name_edit.setText(layer.name)
@@ -389,6 +402,7 @@ class LayerControlsWidget(QWidget):
                 self.current_layer = new_name
                 
                 self.layer_list.layerRenamed.emit(old_name, new_name)
+                self.layerChanged.emit(new_name)
                 
     def choose_layer_color(self):
         """Choose layer color"""
@@ -466,26 +480,6 @@ class LayerControlsWidget(QWidget):
     def get_all_layers(self) -> Dict[str, LayerItem]:
         """Get all layers"""
         return self.layer_list.layers.copy()
-        
-    def export_layers(self) -> Dict[str, Any]:
-        """Export layer configuration"""
-        return {
-            'layers': {name: layer.to_dict() for name, layer in self.layer_list.layers.items()},
-            'current_layer': self.current_layer
-        }
-        
-    def import_layers(self, data: Dict[str, Any]):
-        """Import layer configuration"""
-        if 'layers' in data:
-            self.layer_list.layers.clear()
-            for name, layer_data in data['layers'].items():
-                layer = LayerItem.from_dict(layer_data)
-                self.layer_list.layers[name] = layer
-                
-            self.layer_list.refresh_display()
-            
-            if 'current_layer' in data:
-                self.current_layer = data['current_layer']
 
 # Aliases for backward compatibility
 EnhancedLayerControls = LayerControlsWidget

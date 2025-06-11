@@ -1,5 +1,5 @@
 """
-Application Status Bar
+X-Seti - June11 2025 - Application Status Bar
 Provides status information and quick controls for the retro emulator
 """
 
@@ -69,29 +69,17 @@ class RetroEmulatorStatusBar(QStatusBar):
         self.status_label = QLabel("Ready")
         self.addWidget(self.status_label)
         
-        # Add separator
-        self.addSeparator()
-        
         # Project info section
         self.project_section = self.create_project_section()
         self.addWidget(self.project_section)
-        
-        # Add separator
-        self.addSeparator()
         
         # View controls section
         self.view_section = self.create_view_section()
         self.addWidget(self.view_section)
         
-        # Add separator  
-        self.addSeparator()
-        
         # Component info section
         self.component_section = self.create_component_section()
         self.addWidget(self.component_section)
-        
-        # Add separator
-        self.addSeparator()
         
         # Simulation status section
         self.simulation_section = self.create_simulation_section()
@@ -102,9 +90,6 @@ class RetroEmulatorStatusBar(QStatusBar):
         self.progress_bar.setVisible(False)
         self.progress_bar.setMaximumWidth(200)
         self.addPermanentWidget(self.progress_bar)
-        
-        # Add separator
-        self.addSeparator()
         
         # System info section (permanent)
         self.system_section = self.create_system_section()
@@ -144,7 +129,6 @@ class RetroEmulatorStatusBar(QStatusBar):
         for level in zoom_levels:
             action = zoom_menu.addAction(f"{level}%")
             action.triggered.connect(lambda checked, z=level: self.set_zoom(z))
-        zoom_menu.addSeparator()
         zoom_menu.addAction("Fit to Window").triggered.connect(lambda: self.set_zoom(-1))
         zoom_menu.addAction("Actual Size").triggered.connect(lambda: self.set_zoom(100))
         
@@ -234,6 +218,10 @@ class RetroEmulatorStatusBar(QStatusBar):
         section.addWidget(self.time_label)
         
         return section
+        
+    def create_status_bar(self):
+        """Compatibility method for main window"""
+        return self
         
     # Public methods for updating status
     def set_project_name(self, name: str):
@@ -366,45 +354,7 @@ class RetroEmulatorStatusBar(QStatusBar):
             gc.collect()
             # Very rough estimate
             objects = len(gc.get_objects())
-            estimated_mb = objects / 1000  # Very rough estimate
             self.memory_label.setText(f"Objects: {objects}")
-            
-    # Coordinate display methods
-    def set_mouse_coordinates(self, x: float, y: float):
-        """Set mouse coordinates display"""
-        coord_text = f"X: {x:.2f} Y: {y:.2f} {self.current_units}"
-        # You could add this to a coordinates section if needed
-        
-    def set_canvas_info(self, width: float, height: float):
-        """Set canvas size information"""
-        # Could be displayed in system section or as tooltip
-        canvas_info = f"Canvas: {width:.1f}×{height:.1f} {self.current_units}"
-        
-    # Convenience methods
-    def reset_status(self):
-        """Reset status to default"""
-        self.set_project_name("")
-        self.set_project_modified(False)
-        self.set_component_count(0)
-        self.set_connection_count(0)
-        self.set_selection_info("")
-        self.set_simulation_status(False)
-        self.set_clock_speed("")
-        self.hide_progress()
-        
-    def get_status_info(self) -> Dict[str, Any]:
-        """Get current status information"""
-        return {
-            'zoom': self.current_zoom,
-            'grid_visible': self.grid_visible,
-            'snap_enabled': self.snap_enabled,
-            'units': self.current_units,
-            'component_count': self.component_count,
-            'connection_count': self.connection_count,
-            'simulation_running': self.simulation_running,
-            'current_operation': self.current_operation,
-            'progress': self.progress_value
-        }
 
 # Aliases for backward compatibility
 EnhancedStatusBar = RetroEmulatorStatusBar

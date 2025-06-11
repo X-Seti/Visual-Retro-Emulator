@@ -1,644 +1,791 @@
 """
-X-Seti - June07 2025 - Enhanced Canvas Implementation
-Handles the main drawing area with component placement and interaction
+X-Seti - June11 2025 - Enhanced PCB Canvas
+Visual Retro Emulator - Canvas Module
 """
 
-from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsRectItem,
-                            QMessageBox, QMenu, QGraphicsItem, QApplication)
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QPointF, QMimeData
-from PyQt6.QtGui import (QPainter, QBrush, QColor, QPen, QDrag, QPixmap,
-                        QTransform, QFont, QPolygonF)
-import math
-import json
-from typing import List, Optional, Dict, Any
+import os
+import sys
+from typing import Dict, List, Any, Optional, Union, Tuple
+from dataclasses import dataclass
 
-# Import our connection system
-from connection_system import Connection, EnhancedConnection, connection_manager
-from core.components import BaseComponent
+from PyQt6.QtWidgets import *
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
 
-# Check if we have a rendering module, otherwise create placeholder classes
+# Import fallback components first
 try:
-    from core.rendering import EnhancedHardwareComponent, LayerManager
-except ImportError:
-    # Create placeholder classes if rendering module doesn't exist
-    class EnhancedHardwareComponent(BaseComponent):
-        """Placeholder for enhanced hardware component"""
-        def __init__(self, component_type: str, name: str = None, parent=None):
-            super().__init__(component_type, name, parent)
+    from core.components import BaseComponent, ProcessorComponent, HardwareComponent
+    CORE_COMPONENTS_AVAILABLE = True
+    print("✓ Core components imported successfully")
+except ImportError as e:
+    print(f"⚠️ Core components not available: {e}")
+    CORE_COMPONENTS_AVAILABLE = False
+    
+    # Create fallback base component that's always visible
+    class VisibleBaseComponent(QGraphicsRectItem):
+        """Guaranteed visible fallback component"""
+        
+        def __init__(self, component_type: str = "unknown", name: str = None):
+            super().__init__()
+            
+            # Generate unique ID
+            import uuid
+            self.id = str(uuid.uuid4())
+            
+            # Basic properties
+            self.component_type = component_type
+            self.name = name or f"{component_type}_{self.id[:8]}"
+            
+            # Visual properties
+            self.width = 120
+            self.height = 80
+            self.pinout_pixmap = None
+            
+            # Set rectangle bounds
+            self.setRect(0, 0, self.width, self.height)
+            
+            # Force visibility
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+            self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            self.setVisible(True)
+            self.setOpacity(1.0)
+            
+            # Default colors
+            self.setBrush(QBrush(QColor(80, 80, 120)))  # Dark blue-gray
+            self.setPen(QPen(QColor(200, 200, 200), 2))  # Light border
+            
+            print(f"🔧 Created VisibleBaseComponent: {self.name}")
+        
+        def paint(self, painter: QPainter, option, widget=None):
+            """Custom paint method for realistic chip appearance"""
+            # If we have a pinout image, draw it
+            if hasattr(self, 'pinout_pixmap') and self.pinout_pixmap:
+                print(f"🖼️ Drawing pinout image for: {self.name}")
+                painter.drawPixmap(self.boundingRect().toRect(), self.pinout_pixmap)
+            else:
+                # Realistic chip appearance fallback
+                rect = self.boundingRect()
+                
+                # Draw chip body (dark gray/black like real chips)
+                painter.fillRect(rect, QColor(40, 40, 40))  # Dark chip body
+                
+                # Draw chip border (metallic look)
+                painter.setPen(QPen(QColor(160, 160, 160), 2))  # Light gray border
+                painter.drawRect(rect)
+                
+                # Draw pin indicators (small rectangles on sides)
+                pin_width = 3
+                pin_height = 8
+                pin_spacing = 8
+                
+                # Left side pins
+                y_start = 10
+                for i in range(int((rect.height() - 20) / pin_spacing)):
+                    y_pos = y_start + i * pin_spacing
+                    if y_pos + pin_height < rect.height() - 10:
+                        painter.fillRect(0, y_pos, pin_width, pin_height, QColor(200, 200, 200))
+                
+                # Right side pins
+                for i in range(int((rect.height() - 20) / pin_spacing)):
+                    y_pos = y_start + i * pin_spacing
+                    if y_pos + pin_height < rect.height() - 10:
+                        painter.fillRect(rect.width() - pin_width, y_pos, pin_width, pin_height, QColor(200, 200, 200))
+                
+                # Draw chip label (white text on dark background)
+                painter.setPen(QPen(QColor(255, 255, 255)))
+                font = QFont("Arial", 8, QFont.Weight.Bold)
+                painter.setFont(font)
+                
+                # Draw text with background
+                text_rect = rect.adjusted(5, 5, -5, -5)
+                painter.fillRect(text_rect, QColor(0, 0, 0, 100))  # Semi-transparent background
+                painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self.name)
+                
+                # Draw notch (chip orientation indicator)
+                notch_size = 8
+                notch_rect = QRectF(rect.center().x() - notch_size/2, rect.top(), notch_size, notch_size/2)
+                painter.fillRect(notch_rect, QColor(20, 20, 20))
+            
+            # Selection highlight
+            if self.isSelected():
+                painter.setPen(QPen(QColor(0, 150, 255), 3))  # Blue selection
+                painter.setBrush(QBrush())
+                painter.drawRect(self.boundingRect().adjusted(-2, -2, 2, 2))
+        
+        def shape(self):
+            """Return the shape for selection"""
+            path = QPainterPath()
+            path.addRect(self.boundingRect())
+            return path
 
-        def setupComponent(self):
-            """Setup component-specific properties and ports"""
-            self.setRect(0, 0, 60, 40)
+    # Use our guaranteed visible component at module level
+    BaseComponent = VisibleBaseComponent
 
-    class LayerManager:
-        """Placeholder for layer manager"""
-        def __init__(self):
-            self.layers = {}
+# Try to import hardware components
+try:
+    from hardware.components import EnhancedHardwareComponent
+    HARDWARE_COMPONENTS_AVAILABLE = True
+    print("✓ Hardware components imported")
+except ImportError as e:
+    print(f"⚠️ Hardware components not available: {e}")
+    HARDWARE_COMPONENTS_AVAILABLE = False
+    EnhancedHardwareComponent = VisibleBaseComponent
 
-        def add_layer(self, name: str, visible: bool = True):
-            self.layers[name] = visible
+# Try to import connections
+try:
+    from connections.connection_system import Connection, EnhancedConnection
+    CONNECTION_SYSTEM_AVAILABLE = True
+    print("✓ Connection system imported")
+except ImportError as e:
+    print(f"⚠️ Connection system not available: {e}")
+    CONNECTION_SYSTEM_AVAILABLE = False
+    
+    # Create fallback connection
+    class Connection(QGraphicsLineItem):
+        def __init__(self, start_point: QPointF, end_point: QPointF):
+            super().__init__(QLineF(start_point, end_point))
+            self.setPen(QPen(QColor(255, 255, 0), 2))  # Yellow connection
+    
+    EnhancedConnection = Connection
 
-        def get_layer_visibility(self, name: str) -> bool:
-            return self.layers.get(name, True)
-
-
-class SelectionRectangle(QGraphicsRectItem):
-    """Visual selection rectangle for multi-select operations"""
+# Layer Manager
+class LayerManager:
+    """Manage canvas layers"""
     
     def __init__(self):
-        super().__init__()
-        self.setPen(QPen(QColor(0, 120, 255, 150), 2, Qt.PenStyle.DashLine))
-        self.setBrush(QBrush(QColor(0, 120, 255, 30)))
-        self.setZValue(1000)  # Always on top
+        self.layers = {
+            "chip": {"visible": True, "opacity": 1.0},
+            "pcb": {"visible": False, "opacity": 0.5},
+            "gerber": {"visible": False, "opacity": 0.3}
+        }
+        self.current_layer = "chip"
+    
+    def set_layer_visibility(self, name: str, visible: bool):
+        """Set layer visibility"""
+        if name in self.layers:
+            self.layers[name]["visible"] = visible
+    
+    def get_layer_visibility(self, name: str) -> bool:
+        """Get layer visibility"""
+        return self.layers.get(name, {}).get("visible", False)
+    
+    def set_current_layer(self, name: str):
+        """Set current active layer"""
+        if name in self.layers:
+            self.current_layer = name
+    
+    def get_current_layer(self) -> str:
+        """Get current active layer"""
+        return self.current_layer
 
+# Try to import database
+try:
+    from database.retro_database import retro_database
+    DATABASE_AVAILABLE = True
+    print("✓ Retro database imported")
+except ImportError as e:
+    print(f"⚠️ Retro database not available: {e}")
+    DATABASE_AVAILABLE = False
+    
+    # Create placeholder database
+    class PlaceholderDatabase:
+        def __init__(self):
+            self.components = []
+        
+        def get_component(self, name: str):
+            return None
+        
+        def get_all_components(self):
+            return []
+        
+        def search_components(self, query: str):
+            return []
+    
+    retro_database = PlaceholderDatabase()
 
 class EnhancedPCBCanvas(QGraphicsView):
-    """Enhanced canvas with hotkey support and improved selection"""
+    """Enhanced PCB Canvas with robust error handling"""
     
-    # Signals for communicating with main window
-    selectionChanged = pyqtSignal()
-    componentsDeleted = pyqtSignal(int)
+    # Signals
+    component_selected = pyqtSignal(object)
+    component_moved = pyqtSignal(object, QPointF, QPointF)
+    component_added = pyqtSignal(object)
+    component_removed = pyqtSignal(object)
+    connection_created = pyqtSignal(object, object, str, str)
     
-    def __init__(self):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # Create scene
         self.scene = QGraphicsScene()
-        super().__init__(self.scene)
+        self.setScene(self.scene)
         
-        # Set up scene
-        self.scene.setSceneRect(0, 0, 2000, 2000)
-        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
-        
-        # Layer management
+        # Initialize managers
         self.layer_manager = LayerManager()
-        self.current_layer = "chip"
         
-        # Selection management
+        # Component tracking
         self.selected_components = []
-        self.selection_rectangle = None
-        self.selection_start = None
-        self.is_selecting = False
+        self.components = {}  # id -> component mapping
+        self.connections = []
         
-        # Clipboard for copy/paste
-        self.clipboard_components = []
+        # Canvas settings
+        self.grid_size = 20
+        self.grid_visible = True
+        self.snap_to_grid = True
+        self.zoom_factor = 1.0
         
-        # Setup appearance and interactions
-        self._update_layer_appearance("chip")
+        # Interaction state
+        self.drag_mode = False
+        self.drag_start_pos = None
+        self.current_tool = "select"  # select, place, connect, delete
+        self.component_to_place = None
+        
+        # Connection state
+        self.connection_start_component = None
+        self.connection_start_port = None
+        self.temp_connection_line = None
+        
+        # Setup canvas
+        self._setup_canvas()
+        self._setup_interactions()
+        
+        print("✓ Enhanced PCB Canvas initialized")
+    
+    def _setup_canvas(self):
+        """Setup canvas properties"""
+        # Set scene size
+        self.scene.setSceneRect(-2000, -2000, 4000, 4000)
+        
+        # Configure view
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        
+        # Set background
+        self.setBackgroundBrush(QBrush(QColor(20, 20, 30)))  # Dark background
+        
+        # Grid drawing will be handled in drawBackground
+    
+    def _setup_interactions(self):
+        """Setup mouse and keyboard interactions"""
         self.setAcceptDrops(True)
-        self.setRenderHint(self.RenderHint.Antialiasing)
         self.setMouseTracking(True)
-        
-        # Setup hotkeys
-        self._setup_hotkeys()
-        
-        # Connect scene selection changes
-        self.scene.selectionChanged.connect(self._on_selection_changed)
     
-    def _setup_hotkeys(self):
-        """Setup keyboard shortcuts"""
-        # Delete selected components
-        self.delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
-        self.delete_shortcut.activated.connect(self._delete_selected)
+    def drawBackground(self, painter: QPainter, rect: QRectF):
+        """Draw grid background"""
+        super().drawBackground(painter, rect)
         
-        # Alternative delete key
-        self.delete_shortcut2 = QShortcut(QKeySequence("Backspace"), self)
-        self.delete_shortcut2.activated.connect(self._delete_selected)
-        
-        # Copy/paste operations
-        self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
-        self.copy_shortcut.activated.connect(self._copy_selected)
-        
-        self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
-        self.paste_shortcut.activated.connect(self._paste_components)
-        
-        self.cut_shortcut = QShortcut(QKeySequence.StandardKey.Cut, self)
-        self.cut_shortcut.activated.connect(self._cut_selected)
-        
-        # Selection operations
-        self.select_all_shortcut = QShortcut(QKeySequence.StandardKey.SelectAll, self)
-        self.select_all_shortcut.activated.connect(self._select_all)
-        
-        self.duplicate_shortcut = QShortcut(QKeySequence("Ctrl+D"), self)
-        self.duplicate_shortcut.activated.connect(self._duplicate_selected)
-        
-        # Clear selection
-        self.escape_shortcut = QShortcut(QKeySequence("Escape"), self)
-        self.escape_shortcut.activated.connect(self._clear_selection)
-    
-    def _on_selection_changed(self):
-        """Handle scene selection changes"""
-        # Update our internal selection list
-        self.selected_components = [
-            item for item in self.scene.selectedItems() 
-            if isinstance(item, EnhancedHardwareComponent)
-        ]
-        
-        # Emit signal for main window
-        self.selectionChanged.emit()
-        
-        # Update status message
-        count = len(self.selected_components)
-        if hasattr(self, 'parent') and hasattr(self.parent(), 'status_manager'):
-            if count == 0:
-                self.parent().status_manager.set_message("No components selected")
-            elif count == 1:
-                comp_name = self.selected_components[0].name
-                self.parent().status_manager.set_message(f"Selected: {comp_name}")
-            else:
-                self.parent().status_manager.set_message(f"Selected: {count} components")
-    
-    # ========== SELECTION OPERATIONS ==========
-    
-    def _delete_selected(self):
-        """Delete selected components (Delete/Backspace key)"""
-        if not self.selected_components:
+        if not self.grid_visible:
             return
         
-        # Confirm deletion if multiple components
-        if len(self.selected_components) > 1:
-            reply = QMessageBox.question(
-                self, 
-                "Delete Components",
-                f"Delete {len(self.selected_components)} selected components?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
+        # Set grid pen
+        painter.setPen(QPen(QColor(60, 60, 80), 1, Qt.PenStyle.DotLine))
         
-        # Delete components
-        deleted_count = 0
-        for component in self.selected_components.copy():
-            self._delete_component(component, confirm=False)
-            deleted_count += 1
+        # Draw grid lines
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
         
-        # Clear selection
-        self.selected_components.clear()
+        # Vertical lines
+        x = left
+        while x < rect.right():
+            painter.drawLine(x, rect.top(), x, rect.bottom())
+            x += self.grid_size
         
-        # Emit signal
-        self.componentsDeleted.emit(deleted_count)
-        
-        print(f"✓ Deleted {deleted_count} component(s)")
+        # Horizontal lines
+        y = top
+        while y < rect.bottom():
+            painter.drawLine(rect.left(), y, rect.right(), y)
+            y += self.grid_size
     
-    def _copy_selected(self):
-        """Copy selected components to clipboard (Ctrl+C)"""
-        if not self.selected_components:
-            return
+    def wheelEvent(self, event: QWheelEvent):
+        """Handle zoom with mouse wheel"""
+        zoom_in_factor = 1.25
+        zoom_out_factor = 1 / zoom_in_factor
         
-        self.clipboard_components = []
+        # Get mouse position in scene coordinates
+        old_pos = self.mapToScene(event.position().toPoint())
         
-        for component in self.selected_components:
-            # Store component data for copying
-            comp_data = {
-                'component_def': component.component_def,
-                'package_type': component.package_type,
-                'position': component.pos(),
-                'properties': getattr(component, 'properties', {}),
-                'layer': component.layer if hasattr(component, 'layer') else self.current_layer
-            }
-            self.clipboard_components.append(comp_data)
+        # Zoom
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
         
-        print(f"✓ Copied {len(self.clipboard_components)} component(s) to clipboard")
+        self.scale(zoom_factor, zoom_factor)
+        
+        # Get new mouse position
+        new_pos = self.mapToScene(event.position().toPoint())
+        
+        # Move scene to keep mouse position constant
+        delta = new_pos - old_pos
+        self.translate(delta.x(), delta.y())
+        
+        self.zoom_factor *= zoom_factor
     
-    def _paste_components(self):
-        """Paste components from clipboard (Ctrl+V)"""
-        if not self.clipboard_components:
-            return
-        
-        # Clear current selection
-        self.scene.clearSelection()
-        self.selected_components.clear()
-        
-        # Paste components with slight offset
-        offset_x, offset_y = 20, 20
-        pasted_components = []
-        
-        for comp_data in self.clipboard_components:
-            try:
-                # Create new component
-                component = EnhancedHardwareComponent(
-                    comp_data['component_def'],
-                    comp_data['package_type'],
-                    comp_data['layer']
-                )
-                
-                # Set position with offset
-                new_pos = comp_data['position'] + QPointF(offset_x, offset_y)
-                component.setPos(new_pos)
-                
-                # Restore properties
-                if 'properties' in comp_data:
-                    if hasattr(component, 'properties'):
-                        component.properties.update(comp_data['properties'])
-                
-                # Add to scene
-                self.scene.addItem(component)
-                self.layer_manager.add_component(component)
-                
-                # Select the new component
-                component.setSelected(True)
-                pasted_components.append(component)
-                
-            except Exception as e:
-                print(f"Error pasting component: {e}")
-        
-        # Update selection list
-        self.selected_components = pasted_components
-        
-        print(f"✓ Pasted {len(pasted_components)} component(s)")
-    
-    def _cut_selected(self):
-        """Cut selected components (Ctrl+X)"""
-        if not self.selected_components:
-            return
-        
-        # Copy first, then delete
-        self._copy_selected()
-        self._delete_selected()
-        
-        print(f"✓ Cut {len(self.clipboard_components)} component(s)")
-    
-    def _select_all(self):
-        """Select all components (Ctrl+A)"""
-        components = [
-            item for item in self.scene.items() 
-            if isinstance(item, EnhancedHardwareComponent)
-        ]
-        
-        # Clear current selection
-        self.scene.clearSelection()
-        
-        # Select all components
-        for component in components:
-            component.setSelected(True)
-        
-        print(f"✓ Selected all {len(components)} components")
-    
-    def _duplicate_selected(self):
-        """Duplicate selected components (Ctrl+D)"""
-        if not self.selected_components:
-            return
-        
-        # Copy and immediately paste
-        self._copy_selected()
-        self._paste_components()
-        
-        print(f"✓ Duplicated {len(self.selected_components)} component(s)")
-    
-    def _clear_selection(self):
-        """Clear selection (Escape key)"""
-        self.scene.clearSelection()
-        self.selected_components.clear()
-        print("✓ Selection cleared")
-    
-    # ========== MOUSE INTERACTION ==========
-    
-    def mousePressEvent(self, event):
-        """Enhanced mouse press with selection support"""
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Check if clicking on a component
-            item = self.itemAt(event.position().toPoint())
-            
-            if isinstance(item, EnhancedHardwareComponent):
-                # Component clicked
-                if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    # Clear selection unless Ctrl is held
-                    if not item.isSelected():
-                        self.scene.clearSelection()
-                
-                # Select/deselect the item
-                item.setSelected(not item.isSelected() if event.modifiers() & Qt.KeyboardModifier.ControlModifier else True)
-                
-            else:
-                # Empty space clicked - start selection rectangle
-                if not (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
-                    self.scene.clearSelection()
-                
-                # Start selection rectangle
-                self.selection_start = self.mapToScene(event.position().toPoint())
-                self.is_selecting = True
-        
-        elif event.button() == Qt.MouseButton.RightButton:
-            # Right click - context menu
-            item = self.itemAt(event.position().toPoint())
-            if isinstance(item, EnhancedHardwareComponent):
-                # Select the item if not already selected
-                if not item.isSelected():
-                    self.scene.clearSelection()
-                    item.setSelected(True)
-                
-                self._show_context_menu(item, event.globalPosition().toPoint())
-                return
-            else:
-                # Right click on empty space
-                self._show_canvas_context_menu(event.globalPosition().toPoint())
-                return
+    def mousePressEvent(self, event: QMouseEvent):
+        """Handle mouse press events"""
+        if event.button() == Qt.MouseButton.MiddleButton:
+            # Pan mode
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.drag_start_pos = event.position()
         
         super().mousePressEvent(event)
     
-    def mouseMoveEvent(self, event):
-        """Handle mouse move for selection rectangle"""
-        if self.is_selecting and self.selection_start:
-            current_pos = self.mapToScene(event.position().toPoint())
-            
-            # Create or update selection rectangle
-            if not self.selection_rectangle:
-                self.selection_rectangle = SelectionRectangle()
-                self.scene.addItem(self.selection_rectangle)
-            
-            # Update rectangle
-            rect = QRectF(self.selection_start, current_pos).normalized()
-            self.selection_rectangle.setRect(rect)
-        
-        super().mouseMoveEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        """Handle mouse release for selection"""
-        if event.button() == Qt.MouseButton.LeftButton and self.is_selecting:
-            if self.selection_rectangle:
-                # Select items within rectangle
-                rect = self.selection_rectangle.rect()
-                items_in_rect = [
-                    item for item in self.scene.items(rect)
-                    if isinstance(item, EnhancedHardwareComponent)
-                ]
-                
-                # Select items
-                for item in items_in_rect:
-                    item.setSelected(True)
-                
-                # Remove selection rectangle
-                self.scene.removeItem(self.selection_rectangle)
-                self.selection_rectangle = None
-            
-            self.is_selecting = False
-            self.selection_start = None
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """Handle mouse release events"""
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         
         super().mouseReleaseEvent(event)
     
-    def keyPressEvent(self, event):
-        """Handle additional key presses"""
-        # Arrow keys for fine movement
-        if self.selected_components and event.key() in [Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_Left, Qt.Key.Key_Right]:
-            step = 10 if event.modifiers() & Qt.KeyboardModifier.ShiftModifier else 1
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """Handle drag enter for component drops"""
+        if event.mimeData().hasFormat("application/x-component"):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        """Handle drag move events"""
+        if event.mimeData().hasFormat("application/x-component"):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dropEvent(self, event: QDropEvent):
+        """Handle component drops onto canvas"""
+        try:
+            if not event.mimeData().hasFormat("application/x-component"):
+                event.ignore()
+                return
             
-            for component in self.selected_components:
-                pos = component.pos()
-                if event.key() == Qt.Key.Key_Up:
-                    pos.setY(pos.y() - step)
-                elif event.key() == Qt.Key.Key_Down:
-                    pos.setY(pos.y() + step)
-                elif event.key() == Qt.Key.Key_Left:
-                    pos.setX(pos.x() - step)
-                elif event.key() == Qt.Key.Key_Right:
-                    pos.setX(pos.x() + step)
+            # Get component data
+            component_data_bytes = event.mimeData().data("application/x-component")
+            component_data_str = component_data_bytes.data().decode('utf-8')
+            
+            try:
+                import json
+                component_data = json.loads(component_data_str)
+            except json.JSONDecodeError:
+                # Fallback to simple parsing
+                component_data = {"name": component_data_str, "type": "unknown"}
+            
+            # Convert drop position to scene coordinates
+            drop_pos = self.mapToScene(event.position().toPoint())
+            
+            # Create component
+            component = self.add_component(
+                component_data.get('type', 'unknown'),
+                component_data.get('name'),
+                drop_pos
+            )
+            
+            if component:
+                event.acceptProposedAction()
+                print(f"✅ Component dropped successfully: {component_data.get('name')} at {drop_pos}")
+                print(f"📊 Total components on canvas: {len(self.components)}")
+            else:
+                print("❌ Failed to create component")
+                event.ignore()
                 
-                component.setPos(pos)
+        except Exception as e:
+            print(f"💥 Error handling drop: {e}")
+            import traceback
+            traceback.print_exc()
+            event.ignore()
+    
+    def add_component(self, component_type: str, name: str = None, 
+                     position: QPointF = None) -> Optional[VisibleBaseComponent]:
+        """Add a component to the canvas"""
+        try:
+            # FORCE use of our VisibleBaseComponent - guaranteed to work
+            component = VisibleBaseComponent(component_type, name)
+            print(f"🔧 FORCED VisibleBaseComponent creation: {component.name}")
             
+            print(f"🔧 Created component: {component.name}, bounding rect: {component.boundingRect()}")
+            
+            # Set position
+            if position:
+                if self.snap_to_grid:
+                    position = self._snap_to_grid(position)
+                component.setPos(position)
+                print(f"📍 Set position: {position}")
+            else:
+                # Default position at center
+                center = self.mapToScene(self.viewport().rect().center())
+                if self.snap_to_grid:
+                    center = self._snap_to_grid(center)
+                component.setPos(center)
+            
+            # Add to scene and tracking
+            self.scene.addItem(component)
+            self.components[component.id] = component
+            print(f"📦 Added to scene, total items: {len(self.scene.items())}")
+            
+            # Make selectable and movable
+            component.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+            component.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+            
+            # Force component to front and make fully visible
+            component.setZValue(100)  # Bring to front
+            component.setOpacity(1.0)  # Full opacity
+            component.setVisible(True)  # Explicitly visible
+            
+            # Debug component state
+            print(f"🔍 Component visibility: {component.isVisible()}")
+            print(f"🔍 Component opacity: {component.opacity()}")
+            print(f"🔍 Component z-value: {component.zValue()}")
+            print(f"🔍 Component flags: {component.flags()}")
+            
+            # Load actual chip image from your images directory
+            self._load_chip_image(component, name)
+            
+            # Force immediate visual update
+            component.update()
+            self.scene.update()
+            self.viewport().update()
+            
+            # Emit signal
+            self.component_added.emit(component)
+            
+            print(f"✓ Added component: {component.name} at {component.pos()}")
+            return component
+            
+        except Exception as e:
+            print(f"⚠️ Error adding component: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _load_chip_image(self, component, name: str):
+        """Load actual chip image from your images/components directory"""
+        if not name:
             return
         
-        super().keyPressEvent(event)
-    
-    # ========== CONTEXT MENUS ==========
-    
-    def _show_context_menu(self, component, global_pos):
-        """Show enhanced context menu for component"""
-        menu = QMenu()
+        # Clean name for filename matching
+        clean_name = name.lower().replace(" ", "_").replace("-", "_")
         
-        # Properties action
-        props_action = menu.addAction("🔧 Properties...")
-        props_action.triggered.connect(lambda: show_component_properties(component, self))
-        
-        # CHIP EDITOR ACTION
-        edit_action = menu.addAction("✏️ Edit Chip...")
-        edit_action.triggered.connect(lambda: self._edit_component_chip(component))
-        
-        menu.addSeparator()
-        
-        # Copy action
-        copy_action = menu.addAction("📋 Copy")
-        copy_action.setShortcut(QKeySequence.StandardKey.Copy)
-        copy_action.triggered.connect(self._copy_selected)
-        
-        # Cut action
-        cut_action = menu.addAction("✂️ Cut")
-        cut_action.setShortcut(QKeySequence.StandardKey.Cut)
-        cut_action.triggered.connect(self._cut_selected)
-        
-        # Duplicate action
-        duplicate_action = menu.addAction("📑 Duplicate")
-        duplicate_action.setShortcut(QKeySequence("Ctrl+D"))
-        duplicate_action.triggered.connect(self._duplicate_selected)
-        
-        menu.addSeparator()
-        
-        # Rotate actions
-        rotate_cw_action = menu.addAction("↻ Rotate 90° CW")
-        rotate_cw_action.triggered.connect(lambda: self._rotate_selected(90))
-        
-        rotate_ccw_action = menu.addAction("↺ Rotate 90° CCW")
-        rotate_ccw_action.triggered.connect(lambda: self._rotate_selected(-90))
-        
-        menu.addSeparator()
-        
-        # Delete action
-        delete_action = menu.addAction("🗑️ Delete")
-        delete_action.setShortcut(QKeySequence.StandardKey.Delete)
-        delete_action.triggered.connect(self._delete_selected)
-        
-        menu.exec(global_pos)
-    
-    def _edit_component_chip(self, component):
-        """Edit the component's chip definition"""
-        if hasattr(component, 'component_def'):
-            # Get parent main window
-            main_window = self.window()
-            if hasattr(main_window, '_edit_selected_chip'):
-                main_window._edit_selected_chip()
-    
-    def _show_canvas_context_menu(self, global_pos):
-        """Show context menu for empty canvas area"""
-        menu = QMenu()
-        
-        # NEW CHIP ACTION
-        new_chip_action = menu.addAction("🆕 New Chip...")
-        new_chip_action.triggered.connect(self._create_new_chip)
-        
-        menu.addSeparator()
-        
-        # Paste action
-        paste_action = menu.addAction("📋 Paste")
-        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
-        paste_action.setEnabled(len(self.clipboard_components) > 0)
-        paste_action.triggered.connect(self._paste_components)
-        
-        menu.addSeparator()
-        
-        # Select all action
-        select_all_action = menu.addAction("🔘 Select All")
-        select_all_action.setShortcut(QKeySequence.StandardKey.SelectAll)
-        select_all_action.triggered.connect(self._select_all)
-        
-        menu.addSeparator()
-        
-        # Layer switching
-        layer_menu = menu.addMenu("📋 Switch Layer")
-        
-        chip_action = layer_menu.addAction("🔌 Chip Placement")
-        chip_action.triggered.connect(lambda: self._switch_layer("chip"))
-        
-        pcb_action = layer_menu.addAction("🖨️ PCB Layout")
-        pcb_action.triggered.connect(lambda: self._switch_layer("pcb"))
-        
-        gerber_action = layer_menu.addAction("🏭 Gerber/Manufacturing")
-        gerber_action.triggered.connect(lambda: self._switch_layer("gerber"))
-        
-        menu.exec(global_pos)
-    
-    def _create_new_chip(self):
-        """Create a new chip component"""
-        main_window = self.window()
-        if hasattr(main_window, '_open_chip_editor'):
-            main_window._open_chip_editor()
-    
-    # ========== COMPONENT OPERATIONS ==========
-    
-    def _rotate_selected(self, angle):
-        """Rotate selected components"""
-        for component in self.selected_components:
-            current_rotation = component.rotation()
-            component.setRotation(current_rotation + angle)
-        
-        print(f"✓ Rotated {len(self.selected_components)} component(s) by {angle}°")
-    
-    def _switch_layer(self, layer_name):
-        """Switch to different layer"""
-        main_window = self.window()
-        if hasattr(main_window, 'layer_controls'):
-            if layer_name == "chip":
-                main_window.layer_controls.chip_radio.setChecked(True)
-            elif layer_name == "pcb":
-                main_window.layer_controls.pcb_radio.setChecked(True)
-            elif layer_name == "gerber":
-                main_window.layer_controls.gerber_radio.setChecked(True)
+        # Map component names to your actual image files
+        image_mappings = {
+            # CPUs
+            "6502 cpu": "images/components/cpu-6502_dip_40.png",
+            "68000 cpu": "images/components/cpu-68000_dip_40.png", 
+            "68020 cpu": "images/components/cpu-68000_dip_40.png",  # Use 68000 for 68020
+            "8502 cpu": "images/components/cpu-6502_dip_40.png",    # Use 6502 for 8502
+            "z80 cpu": "images/components/cpu-z80_dip_40.png",
+            "6507 cpu": "images/components/cpu-6502_dip_40.png",    # Use 6502 for 6507
             
-            main_window.layer_controls._switch_layer(layer_name)
-    
-    def _delete_component(self, component, confirm=True):
-        """Delete a single component"""
-        if confirm:
-            reply = QMessageBox.question(
-                self, 
-                "Delete Component",
-                f"Delete {component.name}?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return False
+            # Commodore chips
+            "6567 vic-ii": "images/components/c64_vic2_dip_40.png",
+            "6581 sid": "images/components/c64_sid_dip_28.png",
+            "8563 vdc": "images/components/c64_vic2_dip_40.png",    # Use VIC-II for VDC
+            
+            # Amiga chips  
+            "agnus": "images/components/amiga_agnus_dip_84.png",
+            "denise": "images/components/amiga_denise_dip_48.png", 
+            "paula": "images/components/amiga_paula_dip_48.png",
+            
+            # Atari chips
+            "antic": "images/components/atari_antic_dip_40.png",
+            "gtia": "images/components/atari_gtia_dip_40.png",
+            "pokey": "images/components/atari_pokey_dip_40.png",
+        }
         
-        # Remove from layer manager
-        self.layer_manager.remove_component(component)
+        # Try exact match first
+        image_path = image_mappings.get(clean_name)
         
-        # Remove from scene
-        self.scene.removeItem(component)
+        # If no exact match, try pattern matching
+        if not image_path:
+            for key, path in image_mappings.items():
+                if key in clean_name or clean_name in key:
+                    image_path = path
+                    break
         
-        # Remove from selection if present
-        if component in self.selected_components:
-            self.selected_components.remove(component)
-        
-        return True
-    
-    # ========== DRAG AND DROP ==========
-    
-    def dropEvent(self, event):
-        """Enhanced drop event handling"""
-        if event.mimeData().hasFormat("application/x-component"):
+        # Try loading the image - FIXED: Complete try-except block
+        if image_path and os.path.exists(image_path):
             try:
-                data = event.mimeData().data("application/x-component").data().decode()
-                component_id = data
-                
-                # Get component from retro database
-                component_def = retro_database.get_component(component_id)
-                
-                if component_def:
-                    # Create enhanced hardware component
-                    pos = self.mapToScene(event.position().toPoint())
+                pixmap = QPixmap(image_path)
+                if not pixmap.isNull():
+                    # Scale to component size while keeping aspect ratio
+                    scaled = pixmap.scaled(component.width, component.height, 
+                                         Qt.AspectRatioMode.KeepAspectRatio,
+                                         Qt.TransformationMode.SmoothTransformation)
                     
-                    # Determine package type
-                    package_type = getattr(component_def, 'package_type', 'DIP-40')
+                    # Store pixmap for painting
+                    component.pinout_pixmap = scaled
                     
-                    component = EnhancedHardwareComponent(
-                        component_def, package_type, self.current_layer
-                    )
-                    component.setPos(pos.x(), pos.y())
+                    # Adjust component size to match image
+                    component.width = scaled.width()
+                    component.height = scaled.height()
                     
-                    self.scene.addItem(component)
-                    self.layer_manager.add_component(component)
-                    
-                    # Clear selection and select new component
-                    self.scene.clearSelection()
-                    component.setSelected(True)
-                    
-                    event.acceptProposedAction()
-                    print(f"✓ Dropped component: {component_def.name}")
-                else:
-                    print(f"✗ Component not found: {component_id}")
+                    print(f"🖼️ Loaded chip image: {image_path} for {name}")
+                    return
             except Exception as e:
-                print(f"Error dropping component: {e}")
-    
-    def dragEnterEvent(self, event):
-        """Handle drag enter"""
-        if event.mimeData().hasFormat("application/x-component"):
-            event.acceptProposedAction()
-    
-    def dragMoveEvent(self, event):
-        """Handle drag move"""
-        if event.mimeData().hasFormat("application/x-component"):
-            event.acceptProposedAction()
-    
-    # ========== LAYER MANAGEMENT ==========
-    
-    def _update_layer_appearance(self, layer_name):
-        """Update canvas appearance for different layers"""
-        self.current_layer = layer_name
+                print(f"⚠️ Error loading image {image_path}: {e}")
         
-        if layer_name == "chip":
-            # Chip placement - neutral background with grid
-            self.setStyleSheet("background-color: #f0f0f0;")
-            self._draw_grid(QColor(200, 200, 200))
+        print(f"📷 No chip image found for {name}, using realistic chip drawing")
+    
+    def _try_load_component_image(self, component, name: str):
+        """Try to load component image from your images directory"""
+        if not name:
+            return
+        
+        # Clean name for filename matching
+        clean_name = name.lower().replace(" ", "_").replace("-", "_")
+        
+        # Try various image path combinations based on your file list
+        image_patterns = [
+            f"images/components/c64_vic2_dip_40.png",  # VIC-II
+            f"images/components/cpu-6502_dip_40.png",  # 6502
+            f"images/components/cpu-68000_dip_40.png", # 68000
+            f"images/components/c64_sid_dip_28.png",   # SID
+            f"images/components/{clean_name}_dip_40.png",
+            f"images/cpu_{clean_name}_dip_40.png",
+            f"images/{clean_name}.png"
+        ]
+        
+        for pattern in image_patterns:
+            if os.path.exists(pattern):
+                try:
+                    pixmap = QPixmap(pattern)
+                    if not pixmap.isNull():
+                        # Scale to reasonable size
+                        scaled = pixmap.scaled(120, 80, 
+                                             Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+                        
+                        # Store pixmap for painting
+                        component.pinout_pixmap = scaled
+                        component.setRect(0, 0, scaled.width(), scaled.height())
+                        print(f"🖼️ Loaded image: {pattern} for {name}")
+                        return
+                except Exception as e:
+                    print(f"⚠️ Error loading image {pattern}: {e}")
+        
+        print(f"📷 No image found for {name}, using colored rectangle")
+    
+    def remove_component(self, component) -> bool:
+        """Remove a component from the canvas"""
+        try:
+            if hasattr(component, 'id') and component.id in self.components:
+                # Remove connections
+                self._remove_component_connections(component)
+                
+                # Remove from scene and tracking
+                self.scene.removeItem(component)
+                del self.components[component.id]
+                
+                # Remove from selection
+                if component in self.selected_components:
+                    self.selected_components.remove(component)
+                
+                # Emit signal
+                self.component_removed.emit(component)
+                
+                print(f"✓ Removed component: {component.name}")
+                return True
+        except Exception as e:
+            print(f"⚠️ Error removing component: {e}")
+        
+        return False
+    
+    def _remove_component_connections(self, component):
+        """Remove all connections for a component"""
+        connections_to_remove = []
+        
+        for connection in self.connections:
+            if (hasattr(connection, 'start_component') and connection.start_component == component) or \
+               (hasattr(connection, 'end_component') and connection.end_component == component):
+                connections_to_remove.append(connection)
+        
+        for connection in connections_to_remove:
+            self.remove_connection(connection)
+    
+    def add_connection(self, start_component, start_port: str, 
+                      end_component, end_port: str) -> Optional[Connection]:
+        """Add a connection between components"""
+        try:
+            if CONNECTION_SYSTEM_AVAILABLE:
+                connection = EnhancedConnection(start_component.pos(), end_component.pos())
+            else:
+                connection = Connection(start_component.pos(), end_component.pos())
             
-        elif layer_name == "pcb":
-            # PCB layout - green background
-            self.setStyleSheet("background-color: #2d5016;")
-            self._draw_grid(QColor(100, 150, 50))
+            # Set connection properties
+            connection.start_component = start_component
+            connection.start_port = start_port
+            connection.end_component = end_component
+            connection.end_port = end_port
             
-        else:  # gerber
-            # Manufacturing - dark background
-            self.setStyleSheet("background-color: #1a1a1a;")
-            self._draw_grid(QColor(64, 64, 64))
+            # Add to scene and tracking
+            self.scene.addItem(connection)
+            self.connections.append(connection)
+            
+            # Connect components
+            if hasattr(start_component, 'connect_to_component'):
+                start_component.connect_to_component(end_component, start_port, end_port)
+            
+            # Emit signal
+            self.connection_created.emit(start_component, end_component, start_port, end_port)
+            
+            print(f"✓ Connected {start_component.name}:{start_port} -> {end_component.name}:{end_port}")
+            return connection
+            
+        except Exception as e:
+            print(f"⚠️ Error creating connection: {e}")
+            return None
     
-    def _draw_grid(self, color):
-        """Draw grid with specified color"""
-        # Clear existing grid
-        for item in self.scene.items():
-            if hasattr(item, '_is_grid_line'):
-                self.scene.removeItem(item)
+    def remove_connection(self, connection) -> bool:
+        """Remove a connection"""
+        try:
+            if connection in self.connections:
+                # Disconnect components
+                if (hasattr(connection, 'start_component') and 
+                    hasattr(connection, 'end_component') and
+                    hasattr(connection.start_component, 'disconnect_from_component')):
+                    connection.start_component.disconnect_from_component(
+                        connection.end_component, 
+                        connection.start_port, 
+                        connection.end_port
+                    )
+                
+                # Remove from scene and tracking
+                self.scene.removeItem(connection)
+                self.connections.remove(connection)
+                
+                print("✓ Connection removed")
+                return True
+        except Exception as e:
+            print(f"⚠️ Error removing connection: {e}")
         
-        # Draw new grid
-        grid_size = 20
-        pen = QPen(color, 1)
+        return False
+    
+    def _snap_to_grid(self, point: QPointF) -> QPointF:
+        """Snap point to grid"""
+        if not self.snap_to_grid:
+            return point
         
-        # Vertical lines
-        for x in range(0, int(self.scene.width()), grid_size):
-            line = self.scene.addLine(x, 0, x, self.scene.height(), pen)
-            line._is_grid_line = True
-        
-        # Horizontal lines
-        for y in range(0, int(self.scene.height()), grid_size):
-            line = self.scene.addLine(0, y, self.scene.width(), y, pen)
-            line._is_grid_line = True
+        x = round(point.x() / self.grid_size) * self.grid_size
+        y = round(point.y() / self.grid_size) * self.grid_size
+        return QPointF(x, y)
+    
+    def get_component_at_position(self, position: QPointF):
+        """Get component at given position"""
+        items = self.scene.items(position)
+        for item in items:
+            if isinstance(item, (BaseComponent, EnhancedHardwareComponent)):
+                return item
+        return None
+    
+    def clear_canvas(self):
+        """Clear all components and connections"""
+        try:
+            if self.scene:
+                self.scene.clear()
+            self.components.clear()
+            self.connections.clear()
+            self.selected_components.clear()
+            print("✓ Canvas cleared")
+        except Exception as e:
+            print(f"⚠️ Error clearing canvas: {e}")
+    
+    def cleanup(self):
+        """Clean up canvas resources"""
+        try:
+            # Disconnect signals
+            if self.scene:
+                self.scene.deleteLater()
+            print("✓ Canvas cleanup completed")
+        except Exception as e:
+            print(f"⚠️ Error during canvas cleanup: {e}")
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Export canvas state to dictionary"""
+        try:
+            # Export components
+            components_data = []
+            for component in self.components.values():
+                comp_data = {
+                    'id': component.id,
+                    'type': getattr(component, 'component_type', 'unknown'),
+                    'name': getattr(component, 'name', ''),
+                    'position': {'x': component.pos().x(), 'y': component.pos().y()},
+                    'rotation': component.rotation()
+                }
+                
+                # Add custom properties if available
+                if hasattr(component, 'to_dict'):
+                    comp_data.update(component.to_dict())
+                
+                components_data.append(comp_data)
+            
+            # Export connections
+            connections_data = []
+            for connection in self.connections:
+                connections_data.append({
+                    'start_component': getattr(connection, 'start_component', {}).get('id', ''),
+                    'start_port': getattr(connection, 'start_port', ''),
+                    'end_component': getattr(connection, 'end_component', {}).get('id', ''),
+                    'end_port': getattr(connection, 'end_port', '')
+                })
+            
+            return {
+                'components': components_data,
+                'connections': connections_data,
+                'grid_size': self.grid_size,
+                'grid_visible': self.grid_visible,
+                'snap_to_grid': self.snap_to_grid
+            }
+            
+        except Exception as e:
+            print(f"⚠️ Error saving canvas: {e}")
+            return {}
+    
+    def load_from_dict(self, data: Dict[str, Any]) -> bool:
+        """Load canvas state from dictionary"""
+        try:
+            # Clear current state
+            self.clear_canvas()
+            
+            # Load settings
+            self.grid_size = data.get('grid_size', 20)
+            self.grid_visible = data.get('grid_visible', True)
+            self.snap_to_grid = data.get('snap_to_grid', True)
+            
+            # Load components
+            for comp_data in data.get('components', []):
+                component_type = comp_data.get('type', 'unknown')
+                component = self.add_component(
+                    component_type,
+                    comp_data.get('name'),
+                    QPointF(comp_data.get('position', {}).get('x', 0),
+                           comp_data.get('position', {}).get('y', 0))
+                )
+                
+                if component:
+                    component.setRotation(comp_data.get('rotation', 0))
+                    if hasattr(component, 'from_dict'):
+                        component.from_dict(comp_data)
+            
+            # Load connections (after components are loaded)
+            for conn_data in data.get('connections', []):
+                start_comp_id = conn_data.get('start_component')
+                end_comp_id = conn_data.get('end_component')
+                
+                start_comp = self.components.get(start_comp_id)
+                end_comp = self.components.get(end_comp_id)
+                
+                if start_comp and end_comp:
+                    self.add_connection(
+                        start_comp, conn_data.get('start_port', ''),
+                        end_comp, conn_data.get('end_port', '')
+                    )
+            
+            print("✓ Canvas loaded from data")
+            return True
+            
+        except Exception as e:
+            print(f"⚠️ Error loading canvas: {e}")
+            return False
 
-# Add missing alias for compatibility
-if 'EnhancedCanvas' not in globals():
-    # Create alias to whatever your main canvas class is called
-    # Look for something like: class PCBCanvas, class MainCanvas, etc.
-    EnhancedCanvas = YourMainCanvasClass  # Replace with actual class name
+# Create alias for backward compatibility
+PCBCanvas = EnhancedPCBCanvas

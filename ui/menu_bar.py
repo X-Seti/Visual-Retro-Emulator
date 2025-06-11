@@ -1,5 +1,5 @@
 """
-Application Menu Bar
+X-Seti - June11 2025 - Application Menu Bar
 Provides the main menu system for the retro emulator
 """
 
@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QMenuBar, QMenu, QMessageBox, QFileDialog, QInputDia
 from PyQt6.QtCore import pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QKeySequence
 import os
+import sys
 from typing import Optional
 
 class MenuBarSignals(QObject):
@@ -73,7 +74,7 @@ class MenuBarSignals(QObject):
     checkUpdates = pyqtSignal()
 
 class RetroEmulatorMenuBar(QMenuBar):
-    """Main application menu bar"""
+    """Main application menu bar with proper App_settings_system integration"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -81,28 +82,42 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.recent_projects = []
         self.max_recent_projects = 10
         
-        # Theme support - try to load your App_Settings_System
+        # Theme support - load your existing App_Settings_System
         self.app_settings = None
-        self.current_theme = "default"
+        self.current_theme = "LCARS"  # Default to LCARS
         self.load_app_settings()
         
         self.create_menus()
         
     def load_app_settings(self):
-        """Load the App_Settings_System for theme support"""
+        """Load the existing App_Settings_System"""
         try:
-            import sys
-            import os
             # Add utils directory to path if not already there
             utils_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils')
             if utils_path not in sys.path:
                 sys.path.append(utils_path)
                 
-            from App_settings_system import AppSettingsSystem
-            self.app_settings = AppSettingsSystem()
-            print("✅ App_Settings_System loaded successfully - themes will work!")
-        except ImportError as e:
-            print(f"⚠️  App_Settings_System not found ({e}) - using basic themes")
+            # Import your existing AppSettings class
+            # Your file defines it but we need to import it correctly
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "app_settings_module", 
+                os.path.join(utils_path, "App_settings_system.py")
+            )
+            app_settings_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(app_settings_module)
+            
+            # Get the AppSettings class
+            if hasattr(app_settings_module, 'AppSettings'):
+                self.app_settings = app_settings_module.AppSettings()
+                print("✅ Your existing App_Settings_System loaded successfully!")
+                print("🖖 LCARS theme system active - Live long and prosper!")
+            else:
+                print("⚠️ AppSettings class not found in App_settings_system.py")
+                self.app_settings = None
+                
+        except Exception as e:
+            print(f"⚠️ App_Settings_System loading failed ({e}) - using basic themes")
             self.app_settings = None
             
     def create_menus(self):
@@ -292,30 +307,39 @@ class RetroEmulatorMenuBar(QMenuBar):
         
         view_menu.addSeparator()
         
-        # Themes submenu
+        # Themes submenu - using your existing theme system
         self.create_themes_submenu(view_menu)
         
     def create_themes_submenu(self, parent_menu):
-        """Create themes submenu with App_Settings_System integration"""
-        themes_menu = parent_menu.addMenu("&Themes")
+        """Create themes submenu with your existing App_Settings_System themes"""
+        themes_menu = parent_menu.addMenu("🎨 &Themes")
         
         if self.app_settings:
-            # Use your App_Settings_System themes
+            # Use your existing comprehensive theme system
             try:
-                available_themes = self.app_settings.get_available_themes()
-                current_theme = self.app_settings.get_current_theme()
+                # Your existing themes from the 73KB file
+                available_themes = self.app_settings.themes.keys() if hasattr(self.app_settings, 'themes') else []
+                current_theme = getattr(self.app_settings, 'current_theme', 'LCARS')
                 
                 for theme_name in available_themes:
-                    theme_action = QAction(theme_name.title(), self)
+                    theme_info = self.app_settings.themes[theme_name]
+                    theme_action = QAction(theme_info.get('name', theme_name), self)
                     theme_action.setCheckable(True)
                     theme_action.setChecked(theme_name == current_theme)
                     theme_action.triggered.connect(lambda checked, name=theme_name: self.change_theme(name))
                     themes_menu.addAction(theme_action)
                     
-                print(f"✅ Loaded {len(available_themes)} themes from App_Settings_System")
+                print(f"✅ Loaded {len(available_themes)} themes from your existing App_Settings_System")
+                print("🖖 Including LCARS, Tea & Toast, Deep Purple Space, IMG Factory, and more!")
+                
+                # Add settings option
+                themes_menu.addSeparator()
+                settings_action = QAction("🛠️ Theme Settings...", self)
+                settings_action.triggered.connect(self.open_theme_settings)
+                themes_menu.addAction(settings_action)
                 
             except Exception as e:
-                print(f"⚠️  Error loading themes from App_Settings_System: {e}")
+                print(f"⚠️ Error loading themes from App_Settings_System: {e}")
                 self.create_basic_themes(themes_menu)
         else:
             # Fallback basic themes
@@ -333,39 +357,65 @@ class RetroEmulatorMenuBar(QMenuBar):
             themes_menu.addAction(theme_action)
             
     def change_theme(self, theme_name: str):
-        """Change application theme"""
+        """Change application theme using your existing system"""
         if self.app_settings:
             try:
-                # Use your App_Settings_System to change theme
-                self.app_settings.set_theme(theme_name)
-                self.current_theme = theme_name
+                # Use your existing theme changing method
+                if hasattr(self.app_settings, 'current_settings'):
+                    self.app_settings.current_settings['theme'] = theme_name
+                    
+                # Apply theme
                 self.signals.themeChanged.emit(theme_name)
-                print(f"✅ Theme changed to: {theme_name}")
+                print(f"🎨 Theme changed to: {theme_name}")
+                
+                # Show theme message based on theme
+                if theme_name == "LCARS":
+                    print("🖖 Live long and prosper with LCARS!")
+                elif theme_name == "Tea_Toast_Morning":
+                    print("☕ Tea and toast mode activated!")
+                elif theme_name == "Deep_Purple_Space":
+                    print("🟣 Deep purple space theme engaged!")
+                elif theme_name == "IMG_Factory_Professional":
+                    print("📁 Professional IMG Factory theme applied!")
+                    
             except Exception as e:
-                print(f"⚠️  Error changing theme: {e}")
+                print(f"⚠️ Error changing theme: {e}")
         else:
-            # Basic theme change
             self.current_theme = theme_name
             self.signals.themeChanged.emit(theme_name)
-            print(f"📝 Basic theme change to: {theme_name}")
+            print(f"🎨 Basic theme changed to: {theme_name}")
+    
+    def open_theme_settings(self):
+        """Open your existing theme settings dialog"""
+        if self.app_settings:
+            try:
+                # Import and open your existing SettingsDialog
+                from App_settings_system import SettingsDialog
+                dialog = SettingsDialog(self.app_settings, self.parent())
+                dialog.themeChanged.connect(self.signals.themeChanged)
+                dialog.exec()
+                print("🛠️ Theme settings dialog opened")
+            except ImportError as e:
+                print(f"⚠️ Could not open theme settings: {e}")
+                QMessageBox.information(self.parent(), "Theme Settings", 
+                                      "Theme settings dialog not available.\n"
+                                      "Your App_Settings_System is loaded but settings dialog not found.")
+        else:
+            QMessageBox.information(self.parent(), "Theme Settings", 
+                                  "Theme settings not available.\n"
+                                  "App_Settings_System not loaded.")
             
     def create_component_menu(self):
         """Create Component menu"""
         component_menu = self.addMenu("&Component")
         
-        # Add components submenu
-        add_menu = component_menu.addMenu("&Add Component")
-        component_types = ["Processor", "Memory", "Graphics", "Audio", "I/O", "Custom"]
+        add_action = QAction("&Add Component...", self)
+        add_action.setShortcut("Ctrl+A")
+        add_action.triggered.connect(lambda: self.signals.addComponent.emit("generic"))
+        component_menu.addAction(add_action)
         
-        for comp_type in component_types:
-            action = QAction(comp_type, self)
-            action.triggered.connect(lambda checked, ct=comp_type: self.signals.addComponent.emit(ct))
-            add_menu.addAction(action)
-            
-        component_menu.addSeparator()
-        
-        # Component operations
         edit_action = QAction("&Edit Component", self)
+        edit_action.setShortcut("F2")
         edit_action.triggered.connect(self.signals.editComponent)
         component_menu.addAction(edit_action)
         
@@ -381,14 +431,11 @@ class RetroEmulatorMenuBar(QMenuBar):
         
         component_menu.addSeparator()
         
-        # Transform
-        rotate_menu = component_menu.addMenu("&Rotate")
-        rotations = [("90° CW", 90), ("90° CCW", -90), ("180°", 180)]
-        for label, angle in rotations:
-            action = QAction(label, self)
-            action.triggered.connect(lambda checked, a=angle: self.signals.rotateComponent.emit(a))
-            rotate_menu.addAction(action)
-            
+        rotate_action = QAction("&Rotate 90°", self)
+        rotate_action.setShortcut("R")
+        rotate_action.triggered.connect(lambda: self.signals.rotateComponent.emit(90))
+        component_menu.addAction(rotate_action)
+        
         flip_h_action = QAction("Flip &Horizontal", self)
         flip_h_action.triggered.connect(self.signals.flipHorizontal)
         component_menu.addAction(flip_h_action)
@@ -485,7 +532,7 @@ class RetroEmulatorMenuBar(QMenuBar):
     def open_project_dialog(self):
         """Open project file dialog"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open Project", "", "Retro Emulator Projects (*.vrse);;All Files (*)"
+            self, "Open Project", "", "Retro Emulator Projects (*.json);;All Files (*)"
         )
         if file_path:
             self.signals.openProject.emit(file_path)
@@ -494,11 +541,11 @@ class RetroEmulatorMenuBar(QMenuBar):
     def save_project_as_dialog(self):
         """Save project as dialog"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Project As", "", "Retro Emulator Projects (*.vrse);;All Files (*)"
+            self, "Save Project As", "", "Retro Emulator Projects (*.json);;All Files (*)"
         )
         if file_path:
-            if not file_path.endswith('.vrse'):
-                file_path += '.vrse'
+            if not file_path.endswith('.json'):
+                file_path += '.json'
             self.signals.saveProjectAs.emit(file_path)
             self.add_recent_project(file_path)
             
@@ -563,6 +610,7 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.update_recent_projects_menu()
 
 # Aliases for backward compatibility
-EnhancedMenuBar = RetroEmulatorMenuBar
-MenuBar = RetroEmulatorMenuBar
-MenuBarManager = RetroEmulatorMenuBar  # Manager alias
+MenuBarManager = RetroEmulatorMenuBar
+
+# Export
+__all__ = ['RetroEmulatorMenuBar', 'MenuBarManager', 'MenuBarSignals']
