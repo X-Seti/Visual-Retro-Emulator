@@ -1,0 +1,87 @@
+images/
+├── components
+│   ├── amiga_agnus_dip_84.png
+│   ├── amiga_agnus_plcc_84.png
+│   ├── amiga_denise_dip_48.png
+│   ├── amiga_denise_plcc_48.png
+│   ├── amiga_denise_qfp_52.png
+│   ├── amiga_paula_dip_48.png
+│   ├── amiga_paula_plcc_48.png
+│   ├── apple2_iou_dip_28.png
+│   ├── apple2_iou_qfp_32.png
+│   ├── apple2_mmu_dip_28.png
+│   ├── apple2_mmu_qfp_32.png
+│   ├── atari_antic_dip_40.png
+│   ├── atari_antic_qfp_44.png
+│   ├── atari_gtia_dip_40.png
+│   ├── atari_gtia_qfp_44.png
+│   ├── atari_pokey_dip_40.png
+│   ├── atari_pokey_qfp_44.png
+│   ├── bbc_crtc_dip_40.png
+│   ├── bbc_crtc_qfp_44.png
+│   ├── bbc_electron_ula_dip_40.png
+│   ├── bbc_electron_ula_qfp_44.png
+│   ├── bbc_integra_b_plcc_84.png
+│   ├── bbc_integra_b_qfp_84.png
+│   ├── bbc_system_via_dip_40.png
+│   ├── bbc_system_via_qfp_44.png
+│   ├── bbc_video_ula_dip_40.png
+│   ├── bbc_video_ula_qfp_44.png
+│   ├── c64_sid_dip_28.png
+│   ├── c64_sid_qfp_44.png
+│   ├── c64_vic2_dip_40.png
+│   ├── c64_vic2_qfp_44.png
+│   ├── cpu-6502_dip_40.png
+│   ├── cpu_6502_dip_40.png
+│   ├── cpu-6502_qfp_44.png
+│   ├── cpu_6502_qfp_44.png
+│   ├── cpu-68000_dip_40.png
+│   ├── cpu_68000_dip_64.png
+│   ├── cpu-68000_pga_68.png
+│   ├── cpu_68000_pga_68.png
+│   ├── cpu-68000_qfp_68.png
+│   ├── cpu_68000_qfp_68.png
+│   ├── cpu-z80_dip_40.png
+│   ├── cpu_z80_dip_40.png
+│   ├── cpu-z80_plcc_44.png
+│   ├── cpu_z80_plcc_44.png
+│   ├── cpu-z80_qfp_44.png
+│   ├── cpu_z80_qfp_44.png
+│   ├── dragon_sam_dip_40.png
+│   ├── dragon_sam_qfp_44.png
+│   ├── genesis_vdp_qfp_64.png
+│   ├── genesis_vdp_qfp_68.png
+│   ├── msx_ay3_8910_dip_28.png
+│   ├── msx_ay3_8910_dip_40.png
+│   ├── msx_s1985_dip_64.png
+│   ├── msx_s1985_qfp_64.png
+│   ├── msx_tms9918a_dip_40.png
+│   ├── msx_tms9918a_qfp_44.png
+│   ├── nes_apu_dip_40.png
+│   ├── nes_apu_qfp_44.png
+│   ├── nes_ppu_dip_40.png
+│   ├── nes_ppu_qfp_44.png
+│   ├── oric_ula_dip_40.png
+│   ├── oric_ula_qfp_44.png
+│   ├── spectrum_ula_dip_40.png
+│   ├── spectrum_ula_qfp_44.png
+│   ├── test_z80_qfp44.png
+│   ├── ti99_tms9900_dip_64.png
+│   ├── ti99_tms9900_qfp_64.png
+│   ├── ti99_tms9901_dip_40.png
+│   └── ti99_tms9901_qfp_44.png
+├── cpu_6502_dip_40.png
+├── cpu_6502_qfp_44.png
+├── cpu_68000_dip_64.png
+├── cpu_68000_pga_68.png
+├── cpu_68000_qfp_68.png
+├── cpu_z80_dip_40.png
+├── cpu_z80_plcc_44.png
+├── cpu_z80_qfp_44.png
+├── test_z80_qfp44.png
+├── Zilog-Z0840008PSC-Z80-CPU.jpg
+├── Zilog Z180.jpg
+├── Zilog Z8018008VSG-pinout.jpg
+└── Zilog-Z84C0010FEC_LQFP.jpg
+
+2 directories, 83 files
