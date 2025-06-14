@@ -1,8 +1,8 @@
 """
-Layer Manager - Manages canvas layers
+X-Seti - June12 2025 - Layer Manager - Manages canvas layers
 Provides layer management functionality for the canvas system
 """
-
+#this goes in managers/
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QColor
 from typing import Dict, List, Any, Optional

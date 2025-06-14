@@ -1,8 +1,8 @@
 """
-Project Manager - Managers Package Version
+X-Seti - June12 2025 - Project Manager - Managers Package Version
 Provides project management within the managers package structure
 """
-
+#this goes in managers/
 import sys
 import os
 
@@ -70,4 +70,9 @@ except ImportError as e:
                 print(f"⚠️ Using fallback Project: {name}")
 
 # Make available for import
+
+# Alias for backward compatibility - core/__init__.py expects ProjectMetadata
+
+
+# Compatibility alias - ProjectMetadata points to ProjectSettings
 __all__ = ['ProjectManager', 'Project']

@@ -1,60 +1,33 @@
 """
-Managers Package
-Central management systems for the retro emulator
+X-Seti - June07 2025 - Managers Package
+Project and Layer Management System
 """
-
-# Import from root level modules and core
+#this belongs in managers/
+# Import only what actually exists and works
 try:
-    from project_manager import ProjectManager, Project
-    from core.project_manager import ProjectManager as CoreProjectManager, Project as CoreProject
-except ImportError:
-    # Fallback if imports fail
-    print("Warning: Could not import project managers")
+    from .project_manager import ProjectManager, Project, ProjectSettings
+    print("✓ Successfully imported from managers.project_manager")
+except ImportError as e:
+    print(f"⚠️ Could not import from managers.project_manager: {e}")
     ProjectManager = None
     Project = None
-    CoreProjectManager = None
-    CoreProject = None
+    ProjectSettings = None
 
 try:
-    from component_library import ComponentLibrary, component_library
-except ImportError:
-    print("Warning: Could not import component library")
-    ComponentLibrary = None
-    component_library = None
-
-try:
-    from core.components import ComponentManager
-except ImportError:
-    print("Warning: Could not import component manager")
-    ComponentManager = None
-
-try:
-    from core.simulation import SimulationEngine
-except ImportError:
-    print("Warning: Could not import simulation engine")
-    SimulationEngine = None
-
-# Import layer manager
-try:
-    from .layer_manager import LayerManager, Layer, EnhancedLayerManager
-except ImportError:
-    print("Warning: Could not import layer manager")
+    from .layer_manager import LayerManager
+    print("✓ Successfully imported LayerManager")
+except ImportError as e:
+    print(f"⚠️ Could not import LayerManager: {e}")
     LayerManager = None
-    Layer = None
-    EnhancedLayerManager = None
+
+# Don't try to import ProjectMetadata from here - it's in the root project_manager.py
+# Let other modules import it directly from where it actually exists
 
 __all__ = [
     'ProjectManager',
     'Project', 
-    'CoreProjectManager',
-    'CoreProject',
-    'ComponentLibrary',
-    'component_library',
-    'ComponentManager',
-    'SimulationEngine',
-    'LayerManager',
-    'Layer',
-    'EnhancedLayerManager'
+    'ProjectSettings',
+    'LayerManager'
 ]
 
 __version__ = '1.0.0'
