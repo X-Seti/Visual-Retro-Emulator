@@ -3,7 +3,7 @@ X-Seti - June12 2025 - UI Package - Visual Retro Emulator
 Contains all user interface components with robust error handling
 """
 
-#This belongs in ui/
+#this belongs in ui/__init__.py
 import sys
 import os
 

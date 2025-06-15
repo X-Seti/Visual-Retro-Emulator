@@ -1,516 +1,668 @@
 """
-X-Seti - June12 2025 - Enhanced Component Palette with Drag/Drop Support
-Organized by computer type and brand with proper pinout support
+X-Seti - June12 2025 - Enhanced Component Palette with Drag & Drop
+Visual Retro System Emulator Builder - Complete Component Palette
 """
 
-#this goes in ui/
+#this belongs in ui/component_palette.py
+
 import os
-from typing import Dict, List, Optional
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem, 
-                           QLineEdit, QLabel, QSplitter, QTextEdit, QGroupBox,
-                           QHBoxLayout, QPushButton, QComboBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
-from PyQt6.QtGui import QDrag, QPainter, QPixmap, QIcon
+import sys
+import json
+from typing import Dict, List, Optional, Tuple
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, 
+                           QTreeWidgetItem, QLabel, QTextEdit, QLineEdit, 
+                           QPushButton, QComboBox, QSplitter, QFrame, QScrollArea)
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QByteArray, QSize, QPoint
+from PyQt6.QtGui import QPixmap, QPainter, QDrag, QFont, QMouseEvent
 
 class ComponentTreeItem(QTreeWidgetItem):
-    """Custom tree item that stores component data"""
+    """Custom tree item that holds component data"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self.component_data = {}
-        self.component_type = ""
         self.is_component = False
-        
-    def set_component_data(self, data: Dict):
-        """Set component data for this item"""
-        self.component_data = data
-        self.component_type = data.get('type', 'unknown')
-        self.is_component = True
+        self.is_category = False
 
-class EnhancedComponentPalette(QWidget):
-    """Enhanced component palette with drag/drop and organized structure"""
-    
-    # Signals
-    componentSelected = pyqtSignal(dict)  # component_data
-    componentDoubleClicked = pyqtSignal(dict)  # component_data
+class DraggableTreeWidget(QTreeWidget):
+    """Custom QTreeWidget with drag and drop functionality"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumWidth(280)
+        self.parent_palette = parent
+        self.drag_start_position = QPoint()
         
-        # Component organization structure - COMPLETE WITH ALL SYSTEMS
-        self.computer_systems = {
-            "Commodore": {
-                "icon": "🖥️",
-                "systems": {
-                    "C64": ["6502 CPU", "6581 SID", "6567 VIC-II", "6526 CIA"],
-                    "C128": ["8502 CPU", "Z80 CPU", "8563 VDC", "6581 SID"],
-                    "PET": ["6502 CPU", "6520 PIA", "6522 VIA"],
-                    
-                    # Amiga Models - Organized by system
-                    "Amiga A1000": ["68000 CPU", "Paula", "Denise", "Agnus", "8520 CIA"],
-                    "Amiga A500": ["68000 CPU", "Paula", "Denise", "Fat Agnus", "8520 CIA", "Gary"],
-                    "Amiga A2000": ["68000 CPU", "Paula", "Denise", "Fat Agnus", "8520 CIA", "Gary", "Buster"],
-                    "Amiga A3000": ["68030 CPU", "Paula", "Denise", "Fat Agnus", "8520 CIA", "Gary", "Ramsey"],
-                    "Amiga A4000": ["68040 CPU", "Paula", "AGA Alice", "AGA Lisa", "8520 CIA", "Ramsey"],
-                    "Amiga A1200": ["68020 CPU", "Paula", "AGA Alice", "AGA Lisa", "8520 CIA", "Gayle"],
-                    "Amiga A600": ["68000 CPU", "Paula", "Denise", "Fat Agnus", "8520 CIA", "Gary", "Gayle"],
-                    "Amiga CD32": ["68020 CPU", "Paula", "AGA Alice", "AGA Lisa", "Akiko"]
-                }
-            },
-            "Atari": {
-                "icon": "🕹️", 
-                "systems": {
-                    "2600": ["6507 CPU", "TIA", "6532 RIOT"],
-                    "800/XL": ["6502 CPU", "ANTIC", "GTIA", "POKEY"],
-                    "ST": ["68000 CPU", "YM2149", "Shifter"],
-                    "Lynx": ["65C02 CPU", "Mikey", "Suzy"],
-                    "Jaguar": ["68000 CPU", "Tom", "Jerry"]
-                }
-            },
-            "Apple": {
-                "icon": "🍎",
-                "systems": {
-                    "Apple II": ["6502 CPU", "6502A CPU"],
-                    "Apple IIe": ["65C02 CPU"],
-                    "Apple IIgs": ["65816 CPU", "Ensoniq DOC"],
-                    "Macintosh": ["68000 CPU", "68020 CPU", "68030 CPU", "68040 CPU"]
-                }
-            },
-            "Sinclair": {
-                "icon": "💻",
-                "systems": {
-                    "ZX Spectrum": ["Z80 CPU", "ULA"],
-                    "ZX81": ["Z80 CPU"],
-                    "QL": ["68008 CPU"]
-                }
-            },
-            "Nintendo": {
-                "icon": "🎮",
-                "systems": {
-                    "NES": ["6502 CPU", "PPU", "APU"],
-                    "SNES": ["65816 CPU", "PPU1", "PPU2", "DSP-1"],
-                    "Game Boy": ["LR35902 CPU", "PPU"]
-                }
-            },
-            "Sega": {
-                "icon": "🎮", 
-                "systems": {
-                    "Master System": ["Z80 CPU", "VDP"],
-                    "Genesis": ["68000 CPU", "Z80 CPU", "VDP", "YM2612"],
-                    "Saturn": ["SH-2 CPU", "VDP1", "VDP2"]
-                }
-            },
-            "Generic": {
-                "icon": "🔧",
-                "systems": {
-                    "TEST": ["TEST COMPONENT", "BRIGHT RED CHIP", "YELLOW BORDER CHIP"],
-                    "CPU": ["Z80 CPU", "6502 CPU", "68000 CPU", "8080 CPU", "6809 CPU", "65816 CPU"],
-                    "Memory": ["RAM 6464", "ROM 2764", "EPROM 2732", "SRAM 6116", "DRAM 4164"],
-                    "I/O": ["6520 PIA", "6522 VIA", "8255 PPI", "6821 PIA", "6840 PTM"],
-                    "Logic": ["74LS00", "74LS04", "74LS08", "74LS32", "74LS74", "74LS138"],
-                    "Sound": ["AY-3-8910", "YM2149", "SN76489", "YM2612"],
-                    "Video": ["TMS9918A", "6845 CRTC", "MC6847"]
-                }
-            }
-        }
+    def mousePressEvent(self, event: QMouseEvent):
+        """Handle mouse press to prepare for potential drag"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_start_position = event.position().toPoint()
+        super().mousePressEvent(event)
+    
+    def mouseMoveEvent(self, event: QMouseEvent):
+        """Handle mouse move to start drag operation"""
+        if not (event.buttons() & Qt.MouseButton.LeftButton):
+            return
         
-        # Initialize UI
-        self._create_ui()
+        if ((event.position().toPoint() - self.drag_start_position).manhattanLength() < 
+            QApplication.startDragDistance()):
+            return
+        
+        # Check if we have a valid component item
+        current_item = self.currentItem()
+        if (current_item and isinstance(current_item, ComponentTreeItem) and 
+            current_item.is_component):
+            # Start the drag operation
+            if self.parent_palette:
+                self.parent_palette._start_drag_from_tree(current_item)
+        
+        super().mouseMoveEvent(event)
+
+class EnhancedComponentPalette(QWidget):
+    """
+    COMPLETE Enhanced Component Palette with Drag & Drop Support
+    
+    Features:
+    - Hierarchical component browser
+    - Image previews and component details
+    - Full drag and drop support
+    - Search and filtering
+    - Retro computer component library
+    """
+    
+    # Signals
+    componentSelected = pyqtSignal(dict)
+    componentDoubleClicked = pyqtSignal(dict)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # Component data storage
+        self.categories = {}
+        self.all_components = []
+        self.filtered_components = []
+        
+        # Setup UI
+        self._setup_ui()
+        self._load_component_data()
         self._populate_tree()
         
-        print("✓ Enhanced Component Palette initialized")
+        print("✓ Enhanced Component Palette initialized with drag & drop")
     
-    def _create_ui(self):
-        """Create the user interface"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+    def _setup_ui(self):
+        """Setup the main UI layout"""
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(6)
         
         # Title
         title_label = QLabel("Component Palette")
-        title_label.setStyleSheet("font-weight: bold; font-size: 12px; padding: 5px;")
-        layout.addWidget(title_label)
+        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #2c3e50; margin: 4px;")
+        main_layout.addWidget(title_label)
         
-        # Search box
-        search_layout = QHBoxLayout()
-        self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Search Components...")
-        self.search_edit.textChanged.connect(self._filter_components)
-        search_layout.addWidget(self.search_edit)
+        # Search controls
+        self._create_search_controls(main_layout)
         
-        # Filter combo
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["All", "CPU", "Memory", "I/O", "Logic", "Sound", "Video"])
-        self.filter_combo.currentTextChanged.connect(self._filter_by_type)
-        search_layout.addWidget(self.filter_combo)
-        
-        layout.addLayout(search_layout)
-        
-        # Create splitter for tree and details
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        layout.addWidget(splitter)
+        # Main splitter
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(splitter)
         
         # Component tree
-        self.tree = QTreeWidget()
+        self._create_component_tree(splitter)
+        
+        # Details panel
+        self._create_details_panel(splitter)
+        
+        # Set splitter proportions
+        splitter.setSizes([300, 200])
+    
+    def _create_search_controls(self, layout):
+        """Create search and filter controls"""
+        search_frame = QFrame()
+        search_frame.setFrameStyle(QFrame.Shape.Box)
+        search_layout = QVBoxLayout(search_frame)
+        
+        # Search box
+        search_row = QHBoxLayout()
+        search_row.addWidget(QLabel("Search:"))
+        
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Type to search components...")
+        self.search_box.textChanged.connect(self._filter_components)
+        search_row.addWidget(self.search_box)
+        
+        search_layout.addLayout(search_row)
+        
+        # Filter by type
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Filter:"))
+        
+        self.type_filter = QComboBox()
+        self.type_filter.addItems(["All Types", "CPU", "Memory", "Audio", "Video", "I/O", "Custom"])
+        self.type_filter.currentTextChanged.connect(self._filter_by_type)
+        filter_row.addWidget(self.type_filter)
+        
+        search_layout.addLayout(filter_row)
+        layout.addWidget(search_frame)
+    
+    def _create_component_info_display(self, layout):
+        """Create component information display UI"""
+        info_frame = QFrame()
+        info_frame.setFrameStyle(QFrame.Shape.Box)
+        info_layout = QVBoxLayout(info_frame)
+
+        # Component name
+        self.name_label = QLabel("Select a component")
+        self.name_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.name_label.setStyleSheet("color: #2c3e50;")
+        info_layout.addWidget(self.name_label)
+
+        # Component details
+        self.details_text = QTextEdit()
+        self.details_text.setMaximumHeight(80)
+        self.details_text.setReadOnly(True)
+        self.details_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                font-size: 9px;
+            }
+        """)
+        info_layout.addWidget(self.details_text)
+
+        layout.addWidget(info_frame)
+
+    def _create_component_tree(self, parent):
+        """Create the component tree widget with drag support"""
+        tree_frame = QFrame()
+        tree_frame.setFrameStyle(QFrame.Shape.StyledPanel)
+        tree_layout = QVBoxLayout(tree_frame)
+        
+        # Create custom draggable tree widget
+        self.tree = DraggableTreeWidget(self)
         self.tree.setHeaderLabel("Components")
         self.tree.setDragEnabled(True)
         self.tree.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
+        
+        # Connect signals
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         
-        # Enable custom drag handling
-        self.tree.startDrag = self._start_drag
-        
-        splitter.addWidget(self.tree)
-        
-        # Component details section
-        details_widget = self._create_details_section()
-        splitter.addWidget(details_widget)
-        
-        # Set splitter proportions
-        splitter.setSizes([400, 200])
-        
-        # Add component button
-        add_button = QPushButton("+ Add Custom Component")
-        add_button.clicked.connect(self._add_custom_component)
-        layout.addWidget(add_button)
+        tree_layout.addWidget(self.tree)
+        parent.addWidget(tree_frame)
     
-    def _create_details_section(self):
-        """Create component details section"""
-        details_group = QGroupBox("Component Details")
-        layout = QVBoxLayout(details_group)
+    def _create_details_panel(self, parent):
+        """Create the component details panel"""
+        details_frame = QFrame()
+        details_frame.setFrameStyle(QFrame.Shape.StyledPanel)
+        details_layout = QVBoxLayout(details_frame)
         
-        # Component info labels
-        self.name_label = QLabel("Name: Select a component")
-        self.type_label = QLabel("Type: -")
-        self.pins_label = QLabel("Pins: -")
-        self.package_label = QLabel("Package: -")
+        # Image preview
+        self._create_image_preview(details_layout)
         
-        layout.addWidget(self.name_label)
-        layout.addWidget(self.type_label) 
-        layout.addWidget(self.pins_label)
-        layout.addWidget(self.package_label)
+        # Component info
+        #self._create_component_info(details_layout)
+        self._create_component_info_display(details_layout)
+        # Action buttons
+        self._create_action_buttons(details_layout)
         
-        # Description text
+        parent.addWidget(details_frame)
+    
+    def _create_image_preview(self, layout):
+        """Create image preview area"""
+        image_frame = QFrame()
+        image_frame.setFrameStyle(QFrame.Shape.Box)
+        image_frame.setMaximumHeight(120)
+        image_layout = QVBoxLayout(image_frame)
+        
+        self.image_label = QLabel("No Preview")
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setStyleSheet("""
+            QLabel {
+                background-color: #f0f0f0;
+                border: 1px dashed #ccc;
+                color: #666;
+                font-size: 11px;
+            }
+        """)
+        self.image_label.setMinimumSize(100, 80)
+        image_layout.addWidget(self.image_label)
+        
+        layout.addWidget(image_frame)
+    
+    def _create_component_info(self, layout):
+        """Create component information display"""
+        info_frame = QFrame()
+        info_frame.setFrameStyle(QFrame.Shape.Box)
+        info_layout = QVBoxLayout(info_frame)
+        
+        # Component name
+        self.name_label = QLabel("Select a component")
+        self.name_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.name_label.setStyleSheet("color: #2c3e50;")
+        info_layout.addWidget(self.name_label)
+        
+        # Component details
+        self.details_text = QTextEdit()
+        self.details_text.setMaximumHeight(80)
+        self.details_text.setReadOnly(True)
+        self.details_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                font-size: 9px;
+            }
+        """)
+        info_layout.addWidget(self.details_text)
+        
+        layout.addWidget(info_frame)
+    
+    def _create_description_section(self, layout):
+        """Create component description section"""
+        desc_frame = QFrame()
+        desc_frame.setFrameStyle(QFrame.Shape.Box)
+        desc_layout = QVBoxLayout(desc_frame)
+        
+        desc_label = QLabel("Description:")
+        desc_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        desc_layout.addWidget(desc_label)
+        
         self.description_text = QTextEdit()
-        self.description_text.setMaximumHeight(80)
-        self.description_text.setPlaceholderText("Component description will appear here...")
-        layout.addWidget(self.description_text)
+        self.description_text.setMaximumHeight(60)
+        self.description_text.setReadOnly(True)
+        desc_layout.addWidget(self.description_text)
         
-        return details_group
+        layout.addWidget(desc_frame)
+    
+    def _create_action_buttons(self, layout):
+        """Create action buttons"""
+        button_layout = QHBoxLayout()
+        
+        self.add_button = QPushButton("Add Custom")
+        self.add_button.clicked.connect(self._add_custom_component)
+        button_layout.addWidget(self.add_button)
+        
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.refresh_palette)
+        button_layout.addWidget(self.refresh_button)
+        
+        layout.addLayout(button_layout)
     
     def _populate_tree(self):
-        """Populate the component tree with organized structure"""
+        """Populate the component tree"""
         self.tree.clear()
         
-        try:
-            for brand, brand_data in self.computer_systems.items():
-                # Create brand-level item
-                brand_item = ComponentTreeItem()
-                brand_item.setText(0, f"{brand_data['icon']} {brand}")
-                brand_item.setExpanded(True)
-                self.tree.addTopLevelItem(brand_item)
+        # Create category structure
+        category_items = {}
+        
+        for category_name, components in self.categories.items():
+            if not components:  # Skip empty categories
+                continue
                 
-                # Add systems under each brand
-                for system, components in brand_data["systems"].items():
-                    system_item = ComponentTreeItem(brand_item)
-                    system_item.setText(0, f"📦 {system}")
-                    system_item.setExpanded(True)
-                    
-                    # Add components under each system
-                    for component_name in components:
-                        comp_item = ComponentTreeItem(system_item)
-                        comp_item.setText(0, f"🔧 {component_name}")
-                        
-                        # Set component data
-                        component_data = self._get_component_data(component_name, brand, system)
-                        comp_item.set_component_data(component_data)
-                        
-                        # Set icon based on component type
-                        icon = self._get_component_icon(component_data.get('category', 'unknown'))
-                        comp_item.setText(0, f"{icon} {component_name}")
+            # Create category item
+            category_item = ComponentTreeItem()
+            category_item.setText(0, category_name.upper())
+            category_item.is_category = True
+            category_item.setFont(0, QFont("Arial", 9, QFont.Weight.Bold))
+            category_item.setExpanded(True)
             
-            print("✓ Component tree populated with organized structure")
-            print(f"✓ Total brands: {len(self.computer_systems)}")
+            # Add components to category
+            for component in components:
+                comp_item = ComponentTreeItem(category_item)
+                comp_item.setText(0, component['name'])
+                comp_item.component_data = component
+                comp_item.is_component = True
+                
+                # Set component icon/styling
+                comp_item.setFont(0, QFont("Arial", 8))
+                
+                # Add tooltip
+                tooltip = f"Type: {component.get('type', 'Unknown')}\n"
+                tooltip += f"System: {component.get('system', 'Unknown')}\n"
+                tooltip += f"Package: {component.get('package', 'Unknown')}"
+                comp_item.setToolTip(0, tooltip)
             
-        except Exception as e:
-            print(f"⚠️ Error populating component tree: {e}")
-            import traceback
-            traceback.print_exc()
+            self.tree.addTopLevelItem(category_item)
+            category_items[category_name] = category_item
+        
+        print(f"✓ Component tree populated with {len(category_items)} categories")
     
-    def _get_component_data(self, name: str, brand: str, system: str) -> Dict:
-        """Get component data including pinout information"""
-        # Extract component type and details
-        component_type = "unknown"
-        pin_count = 40
-        package = "DIP"
-        category = "unknown"
-        
-        name_lower = name.lower()
-        
-        # Determine component type and properties
-        if "cpu" in name_lower or any(x in name_lower for x in ["6502", "68000", "z80", "8080", "6809", "65816"]):
-            category = "cpu"
-            component_type = "processor"
-            if "68000" in name_lower:
-                pin_count = 64  # 64-pin DIP for Amiga
-            elif "68020" in name_lower or "68030" in name_lower or "68040" in name_lower:
-                pin_count = 68  # PGA packages
-            else:
-                pin_count = 40
-        elif "sid" in name_lower or "pokey" in name_lower or "ym" in name_lower or "ay-3" in name_lower:
-            category = "sound" 
-            component_type = "sound_chip"
-            pin_count = 28 if "sid" in name_lower else 40
-        elif "vic" in name_lower or "antic" in name_lower or "gtia" in name_lower or "ppu" in name_lower:
-            category = "video"
-            component_type = "video_chip" 
-            pin_count = 40
-        elif "paula" in name_lower or "denise" in name_lower or "agnus" in name_lower:
-            category = "custom"
-            component_type = "custom_chip"
-            if "agnus" in name_lower:
-                pin_count = 84
-            else:
-                pin_count = 48
-        elif "cia" in name_lower or "pia" in name_lower or "via" in name_lower:
-            category = "io"
-            component_type = "io_chip"
-            pin_count = 40
-        elif "ram" in name_lower or "rom" in name_lower or "eprom" in name_lower:
-            category = "memory"
-            component_type = "memory_chip"
-            pin_count = 28
-        elif "74ls" in name_lower:
-            category = "logic"
-            component_type = "logic_gate"
-            pin_count = 14
-        elif "test" in name_lower:
-            category = "test"
-            component_type = "test_chip"
-            pin_count = 40
-        
-        # Look for pinout image
-        image_path = self._find_component_image(name, brand, system)
-        
-        return {
-            'name': name,
-            'type': component_type,
-            'category': category,
-            'brand': brand,
-            'system': system,
-            'pin_count': pin_count,
-            'package': package,
-            'image_path': image_path,
-            'description': f"{name} - {category.title()} component for {brand} {system}",
-            'pinout_data': self._get_pinout_data(name)
+    def _load_component_data(self):
+        """Load component data with proper image mapping"""
+        self.categories = {
+            "cpu": [],
+            "memory": [],
+            "io": [],
+            "sound": [],
+            "video": [],
+            "custom": []
         }
-    
-    def _find_component_image(self, name: str, brand: str, system: str) -> Optional[str]:
-        """Find component image in images/ directory"""
-        # Clean name for filename matching
-        clean_name = name.lower().replace(" ", "_").replace("-", "_")
         
-        # Try various image path combinations
-        image_patterns = [
-            f"images/{clean_name}.png",
-            f"images/components/{clean_name}.png", 
-            f"images/{brand.lower()}/{clean_name}.png",
-            f"images/{brand.lower()}/{system.lower()}/{clean_name}.png",
-            f"images/chips/{clean_name}.png"
+        # Define retro computer components
+        components_data = [
+            # === CPU COMPONENTS ===
+            {"name": "6502 CPU", "brand": "MOS", "system": "Apple II/C64", "type": "cpu", "package": "DIP-40"},
+            {"name": "MC68000", "brand": "Motorola", "system": "Amiga/Atari ST", "type": "cpu", "package": "DIP-64"},
+            {"name": "Z80", "brand": "Zilog", "system": "Amstrad/Spectrum", "type": "cpu", "package": "DIP-40"},
+            {"name": "6809", "brand": "Motorola", "system": "Dragon/CoCo", "type": "cpu", "package": "DIP-40"},
+            {"name": "8086", "brand": "Intel", "system": "IBM PC", "type": "cpu", "package": "DIP-40"},
+            
+            # === AMIGA CUSTOM CHIPS ===
+            {"name": "Paula", "brand": "Commodore", "system": "Amiga", "type": "sound", "package": "PLCC-48"},
+            {"name": "Denise", "brand": "Commodore", "system": "Amiga", "type": "video", "package": "PLCC-48"},
+            {"name": "Agnus", "brand": "Commodore", "system": "Amiga", "type": "video", "package": "PLCC-84"},
+            {"name": "Gary", "brand": "Commodore", "system": "Amiga", "type": "io", "package": "PLCC-48"},
+            
+            # === C64 CHIPS ===
+            {"name": "VIC-II", "brand": "Commodore", "system": "C64", "type": "video", "package": "DIP-40"},
+            {"name": "SID", "brand": "Commodore", "system": "C64", "type": "sound", "package": "DIP-28"},
+            {"name": "CIA", "brand": "Commodore", "system": "C64", "type": "io", "package": "DIP-40"},
+            
+            # === ATARI CHIPS ===
+            {"name": "ANTIC", "brand": "Atari", "system": "8-bit", "type": "video", "package": "DIP-40"},
+            {"name": "GTIA", "brand": "Atari", "system": "8-bit", "type": "video", "package": "DIP-40"},
+            {"name": "POKEY", "brand": "Atari", "system": "8-bit", "type": "sound", "package": "DIP-40"},
+            
+            # === BBC MICRO CHIPS ===
+            {"name": "System VIA", "brand": "BBC", "system": "Micro", "type": "io", "package": "DIP-40"},
+            {"name": "Video ULA", "brand": "BBC", "system": "Micro", "type": "video", "package": "DIP-40"},
+            {"name": "CRTC", "brand": "BBC", "system": "Micro", "type": "video", "package": "DIP-40"},
+            
+            # === MEMORY COMPONENTS ===
+            {"name": "2114 SRAM", "brand": "Generic", "system": "Various", "type": "memory", "package": "DIP-18"},
+            {"name": "4116 DRAM", "brand": "Generic", "system": "Various", "type": "memory", "package": "DIP-16"},
+            {"name": "2732 EPROM", "brand": "Generic", "system": "Various", "type": "memory", "package": "DIP-24"},
+            
+            # === TEST COMPONENTS ===
+            {"name": "Test Chip", "brand": "Generic", "system": "Test", "type": "custom", "package": "DIP-14"}
         ]
         
-        for pattern in image_patterns:
-            if os.path.exists(pattern):
-                return pattern
+        for comp_data in components_data:
+            component = self._create_component_info(
+                comp_data["name"], 
+                comp_data["brand"], 
+                comp_data["system"],
+                comp_data["type"],
+                comp_data["package"]
+            )
+            if component:
+                category = component['category']
+                if category in self.categories:
+                    self.categories[category].append(component)
+                else:
+                    self.categories['custom'].append(component)
+        
+        print(f"✓ Loaded {sum(len(comps) for comps in self.categories.values())} components")
+    
+    def _create_component_info(self, name: str, brand: str, system: str, comp_type: str = "unknown", package: str = "DIP"):
+        """Create component information dictionary"""
+        
+        # Map component types to categories
+        type_to_category = {
+            "cpu": "cpu",
+            "memory": "memory", 
+            "sound": "sound",
+            "video": "video",
+            "io": "io",
+            "custom": "custom"
+        }
+        
+        category = type_to_category.get(comp_type.lower(), "custom")
+        
+        # Find component image
+        image_path = self._find_component_image_with_priority(name, comp_type, package)
+        
+        # Get pinout data
+        pinout_data = self._get_pinout_data(name, comp_type)
+        
+        component_info = {
+            'name': name,
+            'brand': brand,
+            'system': system,
+            'type': comp_type,
+            'category': category,
+            'package': package,
+            'image_path': image_path,
+            'pinout': pinout_data,
+            'description': f"{brand} {name} - Used in {system} systems",
+            'pins': pinout_data.get('pins', []),
+            'voltage': pinout_data.get('voltage', '5V'),
+            'frequency': pinout_data.get('frequency', 'N/A')
+        }
+        
+        return component_info
+    
+    def _find_component_image_with_priority(self, name: str, comp_type: str, package: str) -> Optional[str]:
+        """Find component image with priority search"""
+        search_paths = [
+            "images/components",
+            "images/chips",
+            "images/retro_chips", 
+            "images",
+            "assets/components",
+            "assets/chips"
+        ]
+        
+        # Generate search filenames
+        name_clean = name.replace(' ', '_').replace('-', '_').lower()
+        type_clean = comp_type.replace(' ', '_').lower()
+        package_clean = package.replace('-', '_').lower()
+        
+        search_filenames = [
+            f"{name_clean}.png",
+            f"{name_clean}.jpg",
+            f"{name}.png", 
+            f"{name}.jpg",
+            f"{name_clean}_{package_clean}.png",
+            f"{type_clean}.png",
+            f"generic_{type_clean}.png",
+            "generic_ic.png"
+        ]
+        
+        # Search for image
+        for path in search_paths:
+            if not os.path.exists(path):
+                continue
+            for filename in search_filenames:
+                full_path = os.path.join(path, filename)
+                if os.path.exists(full_path):
+                    return full_path
         
         return None
     
-    def _get_pinout_data(self, component_name: str) -> Dict:
-        """Get pinout data for component with color coding"""
-        # This would ideally load from a database, but for now return structured data
-        pinouts = {
-            "6502 CPU": {
-                "pins": {
-                    1: {"name": "VSS", "type": "power", "color": "#000000"},
-                    2: {"name": "RDY", "type": "control", "color": "#FF6600"},
-                    3: {"name": "φ1", "type": "clock", "color": "#0066FF"},
-                    4: {"name": "IRQ", "type": "interrupt", "color": "#FF0066"},
-                    5: {"name": "NC", "type": "unused", "color": "#CCCCCC"},
-                    6: {"name": "NMI", "type": "interrupt", "color": "#FF0066"},
-                    7: {"name": "SYNC", "type": "control", "color": "#FF6600"},
-                    8: {"name": "VCC", "type": "power", "color": "#FF0000"},
-                }
-            },
-            "68000 CPU": {
-                "pins": {
-                    1: {"name": "D4", "type": "data", "color": "#00FF00"},
-                    2: {"name": "D3", "type": "data", "color": "#00FF00"},
-                    3: {"name": "D2", "type": "data", "color": "#00FF00"},
-                }
-            }
+    def _get_pinout_data(self, name: str, comp_type: str) -> Dict:
+        """Get pinout data for component"""
+        # This would typically load from a pinout database
+        # For now, return basic structure
+        return {
+            'pins': [],
+            'voltage': '5V',
+            'frequency': 'N/A',
+            'description': f"Pinout data for {name}"
         }
-        
-        return pinouts.get(component_name, {})
     
-    def _get_component_icon(self, category: str) -> str:
-        """Get icon for component category"""
-        icons = {
-            "cpu": "🧠",
-            "processor": "🧠",
-            "memory": "💾", 
-            "io": "🔌",
-            "sound": "🔊",
-            "video": "📺",
-            "custom": "⚡",
-            "logic": "⚡",
-            "test": "🔧",
-            "unknown": "🔧"
-        }
-        return icons.get(category, "🔧")
-    
-    def _start_drag(self, supportedActions):
-        """Custom drag start implementation"""
-        current_item = self.tree.currentItem()
-        if not current_item or not isinstance(current_item, ComponentTreeItem):
+    def _start_drag_from_tree(self, tree_item: ComponentTreeItem):
+        """Start drag operation from tree widget (ENHANCED)"""
+        if not tree_item or not tree_item.is_component:
             return
-        
-        if not current_item.is_component:
-            return  # Only allow dragging actual components
         
         # Create drag object
         drag = QDrag(self.tree)
         mime_data = QMimeData()
         
-        # Set component data as JSON
-        import json
-        component_json = json.dumps(current_item.component_data)
-        mime_data.setText(component_json)
-        mime_data.setData("application/x-component", component_json.encode())
+        # Set component data in the proper format for canvas
+        component_data = tree_item.component_data
+        drag_text = f"component:{component_data.get('type', 'unknown')}:{component_data.get('name', 'Unknown')}"
+        mime_data.setText(drag_text)
+        
+        # Also set as JSON for advanced handling
+        mime_data.setData("application/x-component", json.dumps(component_data).encode())
         
         drag.setMimeData(mime_data)
         
         # Create drag pixmap
-        pixmap = self._create_drag_pixmap(current_item.component_data)
+        pixmap = self._create_drag_pixmap(component_data)
         drag.setPixmap(pixmap)
         drag.setHotSpot(pixmap.rect().center())
         
         # Execute drag
-        drag.exec(Qt.DropAction.CopyAction)
+        result = drag.exec(Qt.DropAction.CopyAction)
         
-        print(f"✓ Started drag for component: {current_item.component_data.get('name')}")
+        print(f"✓ Drag started for component: {component_data.get('name')} (result: {result})")
+    
+    def _start_drag(self, supportedActions):
+        """Legacy drag start method for compatibility"""
+        current_item = self.tree.currentItem()
+        if current_item and isinstance(current_item, ComponentTreeItem):
+            self._start_drag_from_tree(current_item)
     
     def _create_drag_pixmap(self, component_data: Dict) -> QPixmap:
-        """Create pixmap for drag operation"""
-        # Try to load component image first
+        """Create drag pixmap for component"""
+        # Try to load component image
         image_path = component_data.get('image_path')
         if image_path and os.path.exists(image_path):
             pixmap = QPixmap(image_path)
             if not pixmap.isNull():
                 # Scale to reasonable drag size
-                return pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, 
-                                   Qt.TransformationMode.SmoothTransformation)
+                if pixmap.width() > 64 or pixmap.height() > 64:
+                    pixmap = pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio,
+                                         Qt.TransformationMode.SmoothTransformation)
+                return pixmap
         
-        # Create text-based pixmap as fallback
-        pixmap = QPixmap(80, 40)
+        # Create fallback drag pixmap
+        pixmap = QPixmap(64, 48)
         pixmap.fill(Qt.GlobalColor.lightGray)
         
         painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.GlobalColor.black)
+        painter.drawRect(0, 0, 63, 47)
         painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, 
-                        component_data.get('name', 'Component'))
+                        component_data.get('name', 'Component')[:8])
         painter.end()
         
         return pixmap
     
-    def _filter_components(self, text: str):
-        """Filter components based on search text"""
-        def hide_show_item(item: QTreeWidgetItem, show_parent: bool = False):
-            if isinstance(item, ComponentTreeItem) and item.is_component:
-                # Component item - check if it matches
-                matches = text.lower() in item.text(0).lower()
-                item.setHidden(not matches and not show_parent)
-                return matches
-            else:
-                # Category item - check children
-                has_visible_children = False
-                for i in range(item.childCount()):
-                    child_matches = hide_show_item(item.child(i), show_parent)
-                    has_visible_children = has_visible_children or child_matches
-                
-                item.setHidden(not has_visible_children and not show_parent)
-                return has_visible_children
-        
-        # If no search text, show all
-        if not text.strip():
-            for i in range(self.tree.topLevelItemCount()):
-                hide_show_item(self.tree.topLevelItem(i), True)
-        else:
-            for i in range(self.tree.topLevelItemCount()):
-                hide_show_item(self.tree.topLevelItem(i), False)
-    
-    def _filter_by_type(self, filter_type: str):
-        """Filter components by type"""
-        def hide_show_by_type(item: QTreeWidgetItem, show_parent: bool = False):
-            if isinstance(item, ComponentTreeItem) and item.is_component:
-                # Component item - check if type matches
-                if filter_type == "All":
-                    matches = True
-                else:
-                    component_category = item.component_data.get('category', 'unknown')
-                    matches = filter_type.lower() in component_category.lower()
-                
-                item.setHidden(not matches and not show_parent)
-                return matches
-            else:
-                # Category item - check children
-                has_visible_children = False
-                for i in range(item.childCount()):
-                    child_matches = hide_show_by_type(item.child(i), show_parent)
-                    has_visible_children = has_visible_children or child_matches
-                
-                item.setHidden(not has_visible_children and not show_parent)
-                return has_visible_children
-        
-        # Apply filter
-        show_all = (filter_type == "All")
-        for i in range(self.tree.topLevelItemCount()):
-            hide_show_by_type(self.tree.topLevelItem(i), show_all)
-    
     def _on_selection_changed(self):
-        """Handle selection change"""
+        """Handle tree selection change"""
         current_item = self.tree.currentItem()
         if current_item and isinstance(current_item, ComponentTreeItem) and current_item.is_component:
-            data = current_item.component_data
-            
-            # Update details panel
-            self.name_label.setText(f"Name: {data.get('name', 'Unknown')}")
-            self.type_label.setText(f"Type: {data.get('category', 'Unknown')}")
-            self.pins_label.setText(f"Pins: {data.get('pin_count', 'Unknown')}")
-            self.package_label.setText(f"Package: {data.get('package', 'Unknown')}")
-            self.description_text.setText(data.get('description', 'No description available'))
-            
-            # Emit signal
-            self.componentSelected.emit(data)
-        else:
-            # Clear details
-            self.name_label.setText("Name: Select a component")
-            self.type_label.setText("Type: -")
-            self.pins_label.setText("Pins: -")
-            self.package_label.setText("Package: -")
-            self.description_text.setText("")
+            self._update_image_preview(current_item.component_data)
+            self.componentSelected.emit(current_item.component_data)
     
-    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
+    def _update_image_preview(self, component_data: Dict):
+        """Update the image preview and component details"""
+        # Update component name
+        self.name_label.setText(component_data.get('name', 'Unknown Component'))
+        
+        # Update details
+        details = f"Brand: {component_data.get('brand', 'Unknown')}\n"
+        details += f"System: {component_data.get('system', 'Unknown')}\n"
+        details += f"Type: {component_data.get('type', 'Unknown')}\n"
+        details += f"Package: {component_data.get('package', 'Unknown')}"
+        self.details_text.setPlainText(details)
+        
+        # Update image
+        image_path = component_data.get('image_path')
+        if image_path and os.path.exists(image_path):
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                # Scale to fit preview area
+                scaled_pixmap = pixmap.scaled(
+                    self.image_label.size(), 
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                self.image_label.setPixmap(scaled_pixmap)
+                self.image_label.setText("")
+            else:
+                self.image_label.setText("Image Load Failed")
+                self.image_label.setPixmap(QPixmap())
+        else:
+            self.image_label.setText("No Preview Available")
+            self.image_label.setPixmap(QPixmap())
+    
+    def _clear_details(self):
+        """Clear the details panel"""
+        self.name_label.setText("Select a component")
+        self.details_text.clear()
+        self.image_label.setText("No Preview")
+        self.image_label.setPixmap(QPixmap())
+    
+    def _filter_components(self):
+        """Filter components based on search text"""
+        search_text = self.search_box.text().lower()
+        self.hide_show_item(self.tree.invisibleRootItem(), search_text)
+    
+    def hide_show_item(self, item, search_text):
+        """Recursively hide/show items based on search"""
+        item_visible = False
+        
+        # Check children first
+        for i in range(item.childCount()):
+            child = item.child(i)
+            child_visible = self.hide_show_item(child, search_text)
+            if child_visible:
+                item_visible = True
+        
+        # Check if this item matches search
+        if isinstance(item, ComponentTreeItem):
+            if item.is_component:
+                item_matches = (search_text in item.text(0).lower() or
+                               search_text in item.component_data.get('brand', '').lower() or
+                               search_text in item.component_data.get('system', '').lower())
+                if item_matches:
+                    item_visible = True
+            elif item.is_category:
+                # Categories are visible if they have visible children
+                pass
+        
+        item.setHidden(not item_visible)
+        return item_visible
+    
+    def _filter_by_type(self, type_filter):
+        """Filter components by type"""
+        self.hide_show_by_type(self.tree.invisibleRootItem(), type_filter)
+    
+    def hide_show_by_type(self, item, type_filter):
+        """Recursively filter by component type"""
+        item_visible = False
+        
+        # Check children first
+        for i in range(item.childCount()):
+            child = item.child(i)
+            child_visible = self.hide_show_by_type(child, type_filter)
+            if child_visible:
+                item_visible = True
+        
+        # Check if this item matches type filter
+        if isinstance(item, ComponentTreeItem):
+            if item.is_component:
+                if type_filter == "All Types":
+                    item_visible = True
+                else:
+                    component_type = item.component_data.get('type', '').upper()
+                    if component_type == type_filter.upper():
+                        item_visible = True
+            elif item.is_category:
+                # Categories are visible if they have visible children
+                pass
+        
+        item.setHidden(not item_visible)
+        return item_visible
+    
+    def _on_item_double_clicked(self, item, column):
         """Handle item double click"""
         if isinstance(item, ComponentTreeItem) and item.is_component:
             self.componentDoubleClicked.emit(item.component_data)
     
     def _add_custom_component(self):
-        """Add a custom component"""
-        print("Add custom component dialog - not implemented yet")
-        # This would open a dialog to create a custom component
+        """Add custom component"""
+        print("Add custom component requested")
     
     def refresh_palette(self):
         """Refresh the component palette"""
+        self._load_component_data()
         self._populate_tree()
+        self._clear_details()
+        print("✓ Component palette refreshed")
