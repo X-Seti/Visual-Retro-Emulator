@@ -1,112 +1,102 @@
 .
+├── asi_instructions.md
 ├── assets
+│   ├── CD32_Chipset_Documentation.md.pdf
+│   ├── CD32 vs CDTV Chipset Summary.pdf
+│   ├── CDTV_Chipset_Documentation.md.pdf
+│   └── Commodore_Multimedia_Systems_Summary.md.pdf
 ├── chip_editor
 │   ├── chip_editor_dialog.py
 │   ├── chip_editor.py
-│   ├── __init__.py
-│   └── __pycache__
-│       ├── chip_editor_dialog.cpython-312.pyc
-│       └── __init__.cpython-312.pyc
+│   └── __init__.py
 ├── chip_image_display_fix.py
 ├── chip_image_loader.py
-├── chipset_acorn_chips.py
-├── chipset_amiga_chips.py
-├── chipset_apple_ii_chips.py
-├── chipset_atari_chips.py
-├── chipset_c64_chips.py
-├── chipset_dragon_chips.py
-├── chipset_msx_chips.py
-├── chipset_nes_chips.py
-├── chipset_oric_chips.py
-├── chipset_sega_chips.py
-├── chipset_ti99_chips.py
-├── chipset_zx80_chips.py
+├── chipsets
+│   ├── chipset_acorn_chips.py
+│   ├── chipset_amiga_chips.py
+│   ├── chipset_amstrad_chips.py
+│   ├── chipset_apple_ii_chips.py
+│   ├── chipset_atari_chips.py
+│   ├── chipset_c64_chips.py
+│   ├── chipset_cd32_chips.py
+│   ├── chipset_cdtv_chips.py
+│   ├── chipset_dragon_chips.py
+│   ├── chipset_msx_chips.py
+│   ├── chipset_nes_chips.py
+│   ├── chipset_nintendo_chips.py
+│   ├── chipset_oric_chips.py
+│   ├── chipset_playstation_chips.py
+│   ├── chipset_russian_chips.py
+│   ├── chipset_sega_chips.py
+│   ├── chipset_sinclair_ql_chips.py
+│   ├── chipset_spectrum_next_chips.py
+│   ├── chipset_spectrum_plus_chips.py
+│   ├── chipset_tandy_chips.py
+│   ├── chipset_ti99_chips.py
+│   ├── chipset_x68000_chips.py
+│   ├── chipset_xbox_chips.py
+│   └── chipset_zx80_chips.py
 ├── component_library.py
 ├── components
 │   ├── amiga
 │   │   ├── amiga_agnus.py
 │   │   ├── amiga_denise.py
-│   │   ├── amiga_paula.py
-│   │   └── __pycache__
-│   │       ├── amiga_agnus.cpython-312.pyc
-│   │       ├── amiga_denise.cpython-312.pyc
-│   │       └── amiga_paula.cpython-312.pyc
+│   │   └── amiga_paula.py
+│   ├── Capacitors
 │   ├── commodore
 │   │   ├── c64_sid.py
-│   │   ├── c64_vic2.py
-│   │   └── __pycache__
-│   │       ├── c64_sid.cpython-312.pyc
-│   │       └── c64_vic2.cpython-312.pyc
-│   └── custom
-│       ├── apple2_iou.py
-│       ├── apple2_mmu.py
-│       ├── atari_antic.py
-│       ├── atari_gtia.py
-│       ├── atari_pokey.py
-│       ├── bbc_crtc.py
-│       ├── bbc_electron_ula.py
-│       ├── bbc_integra_b.py
-│       ├── bbc_system_via.py
-│       ├── bbc_video_ula.py
-│       ├── dragon_sam.py
-│       ├── genesis_vdp.py
-│       ├── msx_ay3_8910.py
-│       ├── msx_s1985.py
-│       ├── msx_tms9918a.py
-│       ├── nes_apu.py
-│       ├── nes_ppu.py
-│       ├── oric_ula.py
-│       ├── __pycache__
-│       │   ├── apple2_iou.cpython-312.pyc
-│       │   ├── apple2_mmu.cpython-312.pyc
-│       │   ├── atari_antic.cpython-312.pyc
-│       │   ├── atari_gtia.cpython-312.pyc
-│       │   ├── atari_pokey.cpython-312.pyc
-│       │   ├── bbc_crtc.cpython-312.pyc
-│       │   ├── bbc_electron_ula.cpython-312.pyc
-│       │   ├── bbc_integra_b.cpython-312.pyc
-│       │   ├── bbc_system_via.cpython-312.pyc
-│       │   ├── bbc_video_ula.cpython-312.pyc
-│       │   ├── dragon_sam.cpython-312.pyc
-│       │   ├── genesis_vdp.cpython-312.pyc
-│       │   ├── msx_ay3_8910.cpython-312.pyc
-│       │   ├── msx_s1985.cpython-312.pyc
-│       │   ├── msx_tms9918a.cpython-312.pyc
-│       │   ├── nes_apu.cpython-312.pyc
-│       │   ├── nes_ppu.cpython-312.pyc
-│       │   ├── oric_ula.cpython-312.pyc
-│       │   ├── spectrum_ula.cpython-312.pyc
-│       │   ├── ti99_tms9900.cpython-312.pyc
-│       │   └── ti99_tms9901.cpython-312.pyc
-│       ├── spectrum_ula.py
-│       ├── ti99_tms9900.py
-│       └── ti99_tms9901.py
+│   │   └── c64_vic2.py
+│   ├── custom
+│   │   ├── apple2_iou.py
+│   │   ├── apple2_mmu.py
+│   │   ├── atari_antic.py
+│   │   ├── atari_gtia.py
+│   │   ├── atari_pokey.py
+│   │   ├── bbc_crtc.py
+│   │   ├── bbc_electron_ula.py
+│   │   ├── bbc_integra_b.py
+│   │   ├── bbc_system_via.py
+│   │   ├── bbc_video_ula.py
+│   │   ├── dragon_sam.py
+│   │   ├── genesis_vdp.py
+│   │   ├── msx_ay3_8910.py
+│   │   ├── msx_s1985.py
+│   │   ├── msx_tms9918a.py
+│   │   ├── nes_apu.py
+│   │   ├── nes_ppu.py
+│   │   ├── oric_ula.py
+│   │   ├── spectrum_ula.py
+│   │   ├── ti99_tms9900.py
+│   │   └── ti99_tms9901.py
+│   ├── Diodes
+│   ├── fet
+│   ├── Inductors
+│   ├── Integrated Circuits
+│   ├── mosfet
+│   ├── Resistors
+│   ├── Switches
+│   ├── Thyristors
+│   ├── Transformers
+│   ├── Transistors
+│   └── Zener Diodes
+├── computer_zx_spectrum_48k.py
 ├── connection_system.py
 ├── core
 │   ├── components.py
-│   ├── components.py.backup_20250613_164126
 │   ├── __init__.py
-│   ├── __init__.py.backup_20250613_164126
-│   ├── __init__.py.backup_20250613_165626
 │   ├── project_manager.py
 │   ├── property_dialog.py
-│   ├── __pycache__
-│   │   ├── components.cpython-312.pyc
-│   │   ├── __init__.cpython-312.pyc
-│   │   ├── project_manager.cpython-312.pyc
-│   │   ├── rendering.cpython-312.pyc
-│   │   └── simulation.cpython-312.pyc
 │   ├── rendering.py
 │   ├── simulation_old.py
 │   └── simulation.py
 ├── database
-│   ├── components
 │   ├── __init__.py
-│   ├── __pycache__
-│   │   ├── __init__.cpython-312.pyc
-│   │   └── retro_database.cpython-312.pyc
 │   └── retro_database.py
 ├── debug_startup.py
+├── examples
+│   ├── cd32_example_file.py
+│   ├── cdtv_chipset_usage.py
+│   └── cdtv_example_file.py
 ├── hardware.py
 ├── images
 │   ├── components
@@ -207,183 +197,45 @@
 │   ├── Zilog Z8018008VSG-pinout.jpg
 │   └── Zilog-Z84C0010FEC_LQFP.jpg
 ├── integration_component_loader.py
+├── issues.png
 ├── main_app.py
+├── Main Window Functionality Checklist & Status.pdf
 ├── main_window_old.py
 ├── main_window.py
 ├── managers
-│   ├── __init__old.py
 │   ├── __init__.py
-│   ├── __init__.py.backup_20250613_165626
 │   ├── layer_manager.py
-│   ├── project_manager.py
-│   ├── project_manager.py.backup_20250613_164126
-│   ├── project_manager.py.backup_20250613_164549
-│   ├── project_manager.py.backup_20250613_164951
-│   ├── project_manager.py.backup_20250613_165016
-│   ├── project_manager.py.backup_20250613_165422
-│   ├── project_manager.py.backup_20250613_165626
-│   └── __pycache__
-│       ├── __init__.cpython-312.pyc
-│       ├── layer_manager.cpython-312.pyc
-│       └── project_manager.cpython-312.pyc
-├── old_scripts.py
-│   ├── components
-│   │   ├── amiga
-│   │   │   ├── amiga_agnus.py
-│   │   │   ├── amiga_denise.py
-│   │   │   └── amiga_paula.py
-│   │   ├── commodore
-│   │   │   ├── c64_sid.py
-│   │   │   └── c64_vic2.py
-│   │   └── custom
-│   │       ├── apple2_iou.py
-│   │       ├── apple2_mmu.py
-│   │       ├── atari_antic.py
-│   │       ├── atari_gtia.py
-│   │       ├── atari_pokey.py
-│   │       ├── bbc_crtc.py
-│   │       ├── bbc_electron_ula.py
-│   │       ├── bbc_integra_b.py
-│   │       ├── bbc_system_via.py
-│   │       ├── bbc_video_ula.py
-│   │       ├── dragon_sam.py
-│   │       ├── genesis_vdp.py
-│   │       ├── msx_ay3_8910.py
-│   │       ├── msx_s1985.py
-│   │       ├── msx_tms9918a.py
-│   │       ├── nes_apu.py
-│   │       ├── nes_ppu.py
-│   │       ├── oric_ula.py
-│   │       ├── spectrum_ula.py
-│   │       ├── ti99_tms9900.py
-│   │       └── ti99_tms9901.py
-│   ├── enhanced_chip_renderer.py
-│   ├── enhanced_pin_fixer.py
-│   ├── images
-│   │   ├── components
-│   │   │   ├── amiga_agnus_dip_84.png
-│   │   │   ├── amiga_agnus_plcc_84.png
-│   │   │   ├── amiga_denise_dip_48.png
-│   │   │   ├── amiga_denise_plcc_48.png
-│   │   │   ├── amiga_denise_qfp_52.png
-│   │   │   ├── amiga_paula_dip_48.png
-│   │   │   ├── amiga_paula_plcc_48.png
-│   │   │   ├── apple2_iou_dip_28.png
-│   │   │   ├── apple2_iou_qfp_32.png
-│   │   │   ├── apple2_mmu_dip_28.png
-│   │   │   ├── apple2_mmu_qfp_32.png
-│   │   │   ├── atari_antic_dip_40.png
-│   │   │   ├── atari_antic_qfp_44.png
-│   │   │   ├── atari_gtia_dip_40.png
-│   │   │   ├── atari_gtia_qfp_44.png
-│   │   │   ├── atari_pokey_dip_40.png
-│   │   │   ├── atari_pokey_qfp_44.png
-│   │   │   ├── bbc_crtc_dip_40.png
-│   │   │   ├── bbc_crtc_qfp_44.png
-│   │   │   ├── bbc_electron_ula_dip_40.png
-│   │   │   ├── bbc_electron_ula_qfp_44.png
-│   │   │   ├── bbc_integra_b_plcc_84.png
-│   │   │   ├── bbc_integra_b_qfp_84.png
-│   │   │   ├── bbc_system_via_dip_40.png
-│   │   │   ├── bbc_system_via_qfp_44.png
-│   │   │   ├── bbc_video_ula_dip_40.png
-│   │   │   ├── bbc_video_ula_qfp_44.png
-│   │   │   ├── c64_sid_dip_28.png
-│   │   │   ├── c64_sid_qfp_44.png
-│   │   │   ├── c64_vic2_dip_40.png
-│   │   │   ├── c64_vic2_qfp_44.png
-│   │   │   ├── dragon_sam_dip_40.png
-│   │   │   ├── dragon_sam_qfp_44.png
-│   │   │   ├── genesis_vdp_qfp_64.png
-│   │   │   ├── genesis_vdp_qfp_68.png
-│   │   │   ├── msx_ay3_8910_dip_28.png
-│   │   │   ├── msx_ay3_8910_dip_40.png
-│   │   │   ├── msx_s1985_dip_64.png
-│   │   │   ├── msx_s1985_qfp_64.png
-│   │   │   ├── msx_tms9918a_dip_40.png
-│   │   │   ├── msx_tms9918a_qfp_44.png
-│   │   │   ├── nes_apu_dip_40.png
-│   │   │   ├── nes_apu_qfp_44.png
-│   │   │   ├── nes_ppu_dip_40.png
-│   │   │   ├── nes_ppu_qfp_44.png
-│   │   │   ├── oric_ula_dip_40.png
-│   │   │   ├── oric_ula_qfp_44.png
-│   │   │   ├── spectrum_ula_dip_40.png
-│   │   │   ├── spectrum_ula_qfp_44.png
-│   │   │   ├── ti99_tms9900_dip_64.png
-│   │   │   ├── ti99_tms9900_qfp_64.png
-│   │   │   ├── ti99_tms9901_dip_40.png
-│   │   │   └── ti99_tms9901_qfp_44.png
-│   │   ├── cpu_6502_dip_40.png
-│   │   ├── cpu_6502_qfp_44.png
-│   │   ├── cpu_68000_dip_64.png
-│   │   ├── cpu_68000_pga_68.png
-│   │   ├── cpu_68000_qfp_68.png
-│   │   ├── cpu_z80_dip_40.png
-│   │   ├── cpu_z80_plcc_44.png
-│   │   └── cpu_z80_qfp_44.png
-│   ├── manufacturing_export.py
-│   ├── other_pys
-│   ├── panel-issues.jpg
-│   ├── perfboard_background.py
-│   ├── pin_alignment_fix.py
-│   ├── pin_alignment_tool.py
-│   ├── pin_pcb_template.jpg
-│   ├── pin spacing.jpg
-│   ├── pin_standards_reference.txt
-│   ├── __pycache__
-│   │   └── realistic_chip_renderer.cpython-312.pyc
-│   ├── realistic_chip_renderer.py
-│   └── systematic_pin_fixer.py
+│   └── project_manager.py
+├── manufacturing_export.py
+├── missing_files_summary.txt
+├── perfboard_background.py
 ├── project_manager.py
 ├── project_manager_standalone.py
-├── __pycache__
-│   ├── chip_image_loader.cpython-312.pyc
-│   ├── component_library.cpython-312.pyc
-│   ├── connection_system.cpython-312.pyc
-│   ├── enhanced_amiga_chips.cpython-312.pyc
-│   ├── hardware.cpython-312.pyc
-│   ├── integration_component_loader.cpython-312.pyc
-│   ├── main_app.cpython-312.pyc
-│   ├── main_window.cpython-312.pyc
-│   ├── project_manager.cpython-312.pyc
-│   ├── realistic_chip_renderer.cpython-312.pyc
-│   └── retro_chip_generator.cpython-312.pyc
+├── README.md
 ├── realistic_chip_renderer.py
 ├── retro_chip_generator.py
-├── Roms -> /home/x2/Roms
 ├── safe_diagnostic.py
 ├── safe_test.py
 ├── simple_chip_renderer.py
 ├── startup_validator.py
 ├── templates
 ├── themer_settings.json
-├── tree-git
 ├── tree.git
-├── tree.images
 ├── ui
-│   ├── canvas_old.py
+│   ├── canvas_grid.py
 │   ├── canvas.py
 │   ├── component_palette.py
 │   ├── enhanced_canvas.py
 │   ├── __init__.py
 │   ├── layer_controls.py
+│   ├── main_window.old.py
 │   ├── main_window.py
 │   ├── menu_bar.py
 │   ├── missing_ui_modules.py
 │   ├── properties_panel.py
 │   ├── property_editor.py
-│   ├── __pycache__
-│   │   ├── canvas.cpython-312.pyc
-│   │   ├── component_palette.cpython-312.pyc
-│   │   ├── __init__.cpython-312.pyc
-│   │   ├── layer_controls.cpython-312.pyc
-│   │   ├── main_window.cpython-312.pyc
-│   │   ├── menu_bar.cpython-312.pyc
-│   │   ├── properties_panel.cpython-312.pyc
-│   │   ├── property_editor.cpython-312.pyc
-│   │   └── status_bar.cpython-312.pyc
 │   └── status_bar.py
+├── UI Package Fixes Summary.pdf
 ├── unknown
 │   ├── add_to_kb.py
 │   ├── kb_entry_components.json
@@ -397,10 +249,6 @@
     ├── chip_editor_settings.json
     ├── code_cleaner.py
     ├── __init__.py
-    ├── project_cleanup.py
-    └── __pycache__
-        ├── App_settings_system.cpython-312.pyc
-        ├── chip_editor.cpython-312.pyc
-        └── __init__.cpython-312.pyc
+    └── project_cleanup.py
 
-36 directories, 368 files
+30 directories, 222 files
