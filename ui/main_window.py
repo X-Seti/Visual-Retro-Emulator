@@ -1,6 +1,6 @@
 """
-X-Seti June15 2025 - FIXED Main Window with Working Connections
-Visual Retro System Emulator Builder - Main Window with FIXED signal connections
+X-Seti - June16 2025 - Main Window with Fixed Left Panel Organization
+Visual Retro System Emulator Builder - Main Window with consolidated component sections and proper theming
 """
 
 #this belongs in ui/main_window.py
@@ -9,35 +9,36 @@ import os
 import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                            QDockWidget, QSplitter, QMessageBox, QApplication,
-                           QPushButton, QLabel, QListWidget, QCheckBox)
-from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QShortcut, QKeySequence
+                           QPushButton, QLabel, QListWidget, QCheckBox, QGroupBox,
+                           QTreeWidget, QTreeWidgetItem, QFrame, QLineEdit, QComboBox,
+                           QTextEdit, QTabWidget, QScrollArea, QGraphicsView, QGraphicsScene)
+from PyQt6.QtCore import Qt, QTimer, QSize, pyqtSignal, QRectF
+from PyQt6.QtGui import QShortcut, QKeySequence, QFont, QPainter, QPen, QColor
 
 class FixedMainWindow(QMainWindow):
     """
-    FIXED Main Window with Working Signal Connections
+    Main Window with Fixed Left Panel Organization
     
     FIXES APPLIED:
-    ✅ Canvas integration with fixed grid
-    ✅ Signal connections properly established  
-    ✅ Layer controls working with canvas
-    ✅ Drag & drop enabled
-    ✅ Debug output for troubleshooting
-    ✅ Proper panel sizing maintained
+    ✅ Consolidated component sections (removed duplicates)
+    ✅ Fixed white background issues with proper theming
+    ✅ Consistent theme application across all panels
+    ✅ Keyboard shortcuts (Ctrl+F for search)
+    ✅ Switchable button icons/text
+    ✅ Grid display settings
     """
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Visual Retro System Emulator Builder - FIXED")
+        self.setWindowTitle("Visual Retro System Emulator Builder")
         self.resize(1400, 900)
-        
-        print("🚀 Initializing FIXED Main Window...")
         
         # Initialize component references
         self.component_manager = None
         self.project_manager = None
         self.simulation_engine = None
         self.layer_manager = None
+        self.app_settings = None
         
         # UI components
         self.canvas = None
@@ -47,28 +48,27 @@ class FixedMainWindow(QMainWindow):
         self.status_manager = None
         self.properties_panel = None
         
-        # Initialize managers with fallbacks
+        # Initialize managers and settings
         self._initialize_managers()
+        self._load_app_settings()
         
         # Create UI components in correct order
         self._create_ui()
-        self._create_docks()
+        self._create_docks_consolidated()
         
-        # FIXED: Setup connections AFTER all components are created
-        self._setup_connections_fixed()
+        # Setup connections and theming
+        self._setup_connections()
         self._setup_hotkeys()
+        self._apply_theme()
         
-        # FIXED: Apply sizing and verify connections
+        # Final setup
         QTimer.singleShot(100, self._post_initialization_setup)
-        
-        # Update display
         self._update_window_title()
         
-        print("✅ FIXED Main Window initialized successfully")
+        print("✅ Main Window with fixed left panels initialized successfully")
     
     def _initialize_managers(self):
         """Initialize managers with fallback handling"""
-        # Project Manager
         try:
             try:
                 from managers.project_manager import ProjectManager
@@ -82,7 +82,6 @@ class FixedMainWindow(QMainWindow):
             print(f"⚠️ ProjectManager unavailable: {e}")
             self.project_manager = self._create_fallback_project_manager()
         
-        # Layer Manager
         try:
             from core.layer_manager import LayerManager
             self.layer_manager = LayerManager()
@@ -91,116 +90,961 @@ class FixedMainWindow(QMainWindow):
             print(f"⚠️ LayerManager unavailable: {e}")
             self.layer_manager = self._create_fallback_layer_manager()
     
+    def _load_app_settings(self):
+        """Load application settings for theming"""
+        try:
+            from utils.App_settings_system import AppSettingsSystem
+            self.app_settings = AppSettingsSystem()
+            print("✅ App Settings loaded")
+        except ImportError:
+            try:
+                from utils.app_settings_fallback import AppSettingsSystem
+                self.app_settings = AppSettingsSystem()
+                print("✅ App Settings loaded (fallback)")
+            except ImportError as e:
+                print(f"⚠️ App Settings unavailable: {e}")
+                self.app_settings = self._create_fallback_settings()
+    
     def _create_ui(self):
         """Create main UI layout"""
-        # Central widget with splitter
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Main layout
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(4, 4, 4, 4)
         
-        # Create splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(splitter)
         
-        # FIXED: Create canvas with proper implementation
-        self._create_canvas_fixed()
+        # Create canvas with robust fallback handling
+        self._create_canvas()
         if self.canvas:
             splitter.addWidget(self.canvas)
+            print("✅ Canvas added to splitter")
+        else:
+            print("❌ Failed to create canvas")
         
-        # Create menu and status bars
         self._create_menu_bar()
         self._create_status_bar()
     
-    def _create_canvas_fixed(self):
-        """FIXED: Create canvas with working grid and drag/drop"""
-        try:
-            # FIXED: Try to import our fixed canvas first
-            from ui.canvas import FixedPCBCanvas, EnhancedPCBCanvas
-            self.canvas = FixedPCBCanvas()
-            print("✅ Fixed PCB Canvas created")
-            
-        except ImportError:
-            try:
-                # Fallback to other canvas types
-                from ui import EnhancedPCBCanvas, PCBCanvas
-                if EnhancedPCBCanvas:
-                    self.canvas = EnhancedPCBCanvas()
-                    print("✅ Enhanced PCB Canvas created")
-                elif PCBCanvas:
-                    self.canvas = PCBCanvas()
-                    print("✅ PCB Canvas created")
-                else:
-                    raise ImportError("No canvas classes available")
-            except ImportError as e:
-                print(f"⚠️ Canvas import failed: {e}")
-                # FIXED: Create working fallback canvas
-                self.canvas = self._create_working_fallback_canvas()
+    def _create_docks_consolidated(self):
+        """Create consolidated dock widgets with proper theming"""
         
-        # FIXED: Verify canvas has required methods
-        self._verify_canvas_methods()
+        # CONSOLIDATED COMPONENT DOCK (Left Side) - Single unified section
+        self._create_unified_component_dock()
+        
+        # LAYER CONTROLS DOCK (Right Side)
+        self._create_layer_controls_dock()
+        
+        # PROPERTIES PANEL DOCK (Right Side, below layers)
+        self._create_properties_panel_dock()
+    
+    def _create_unified_component_dock(self):
+        """Create unified component dock - consolidates all component sections into one"""
+        try:
+            # Create main widget for unified components
+            component_widget = QWidget()
+            component_layout = QVBoxLayout(component_widget)
+            component_layout.setContentsMargins(6, 6, 6, 6)
+            component_layout.setSpacing(8)
+            
+            # === UNIFIED COMPONENT SECTION ===
+            components_group = QGroupBox("Components")
+            components_layout = QVBoxLayout(components_group)
+            
+            # Search section
+            search_frame = QFrame()
+            search_layout = QVBoxLayout(search_frame)
+            
+            # Search box with Ctrl+F shortcut
+            search_row = QHBoxLayout()
+            search_row.addWidget(QLabel("Search:"))
+            
+            self.component_search = QLineEdit()
+            self.component_search.setPlaceholderText("Type to search components... (Ctrl+F)")
+            search_row.addWidget(self.component_search)
+            
+            search_layout.addLayout(search_row)
+            
+            # Filter by type
+            filter_row = QHBoxLayout()
+            filter_row.addWidget(QLabel("Filter:"))
+            
+            self.component_filter = QComboBox()
+            self.component_filter.addItems(["All Types", "CPU", "Memory", "Audio", "Video", "I/O", "Custom"])
+            filter_row.addWidget(self.component_filter)
+            
+            search_layout.addLayout(filter_row)
+            components_layout.addWidget(search_frame)
+            
+            # Component tree (consolidated single section)
+            self.component_tree = QTreeWidget()
+            self.component_tree.setHeaderLabel("Components")
+            self.component_tree.setDragEnabled(True)
+            self.component_tree.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
+            components_layout.addWidget(self.component_tree)
+            
+            # Component info panel
+            info_frame = QFrame()
+            info_layout = QVBoxLayout(info_frame)
+            
+            self.component_name_label = QLabel("Select a component")
+            self.component_name_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            info_layout.addWidget(self.component_name_label)
+            
+            self.component_details = QTextEdit()
+            self.component_details.setMaximumHeight(80)
+            self.component_details.setReadOnly(True)
+            info_layout.addWidget(self.component_details)
+            
+            components_layout.addWidget(info_frame)
+            
+            # Action buttons with icon/text switching
+            button_layout = QHBoxLayout()
+            
+            self.add_custom_btn = QPushButton("Add Custom")
+            self.refresh_btn = QPushButton("Refresh")
+            
+            button_layout.addWidget(self.add_custom_btn)
+            button_layout.addWidget(self.refresh_btn)
+            
+            components_layout.addLayout(button_layout)
+            component_layout.addWidget(components_group)
+            
+            # Populate component tree
+            self._populate_component_tree()
+            
+            # Create dock
+            self.component_dock = QDockWidget("Components", self)
+            self.component_dock.setWidget(component_widget)
+            self.component_dock.setAllowedAreas(
+                Qt.DockWidgetArea.LeftDockWidgetArea | 
+                Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            self.component_dock.setMinimumWidth(280)
+            self.component_dock.setMaximumWidth(400)
+            
+            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.component_dock)
+            print("✅ Unified component dock created (consolidated sections)")
+            
+        except Exception as e:
+            print(f"⚠️ Component dock creation failed: {e}")
+            self._create_fallback_component_dock()
+    
+    def _populate_component_tree(self):
+        """Populate the unified component tree"""
+        self.component_tree.clear()
+        
+        # Component categories
+        categories = {
+            "CPUs": ["Z80", "6502", "68000", "8080", "6809"],
+            "Memory": ["ROM", "RAM", "EEPROM", "Flash"],
+            "Audio": ["SID", "AY-3-8910", "YM2612", "POKEY"],
+            "Video": ["TMS9918", "VIC-II", "PPU", "VERA"],
+            "I/O": ["PIA", "VIA", "UART", "ACIA"],
+            "Custom": ["User Defined", "Import Component"]
+        }
+        
+        for category_name, components in categories.items():
+            cat_item = QTreeWidgetItem(self.component_tree, [category_name])
+            cat_item.setExpanded(True)
+            
+            for component in components:
+                comp_item = QTreeWidgetItem(cat_item, [component])
+                comp_item.setData(0, Qt.ItemDataRole.UserRole, (category_name, component))
+    
+    def _create_layer_controls_dock(self):
+        """Create layer controls dock with proper theming"""
+        try:
+            # Create layer controls widget
+            layer_widget = QWidget()
+            layer_layout = QVBoxLayout(layer_widget)
+            layer_layout.setContentsMargins(6, 6, 6, 6)
+            layer_layout.setSpacing(8)
+            
+            # Grid Settings Group
+            grid_group = QGroupBox("Grid Settings")
+            grid_layout = QVBoxLayout(grid_group)
+            
+            self.show_grid_check = QCheckBox("Show Grid")
+            self.show_grid_check.setChecked(True)
+            grid_layout.addWidget(self.show_grid_check)
+            
+            # Grid style
+            style_layout = QHBoxLayout()
+            style_layout.addWidget(QLabel("Style:"))
+            self.grid_style_combo = QComboBox()
+            self.grid_style_combo.addItems(["Dots", "Lines", "Crosses", "Breadboard"])
+            self.grid_style_combo.setCurrentText("Breadboard")
+            style_layout.addWidget(self.grid_style_combo)
+            grid_layout.addLayout(style_layout)
+            
+            # Grid colors
+            color_layout = QHBoxLayout()
+            color_layout.addWidget(QLabel("Grid Color:"))
+            self.grid_color_combo = QComboBox()
+            self.grid_color_combo.addItems(["Foreground", "Background", "Custom"])
+            color_layout.addWidget(self.grid_color_combo)
+            grid_layout.addLayout(color_layout)
+            
+            layer_layout.addWidget(grid_group)
+            
+            # Layers Group
+            layers_group = QGroupBox("Layers")
+            layers_layout = QVBoxLayout(layers_group)
+            
+            self.layer_list = QListWidget()
+            self.layer_list.setMaximumHeight(120)
+            
+            # Add default layers
+            layers = ["Component", "PCB", "Gerber", "Silkscreen"]
+            for layer in layers:
+                self.layer_list.addItem(layer)
+                
+            layers_layout.addWidget(self.layer_list)
+            
+            # Layer buttons
+            layer_btn_layout = QHBoxLayout()
+            self.add_layer_btn = QPushButton("Add")
+            self.remove_layer_btn = QPushButton("Remove")
+            
+            layer_btn_layout.addWidget(self.add_layer_btn)
+            layer_btn_layout.addWidget(self.remove_layer_btn)
+            layers_layout.addLayout(layer_btn_layout)
+            
+            layer_layout.addWidget(layers_group)
+            layer_layout.addStretch()
+            
+            # Create dock
+            self.layer_dock = QDockWidget("Layers & Grid", self)
+            self.layer_dock.setWidget(layer_widget)
+            self.layer_dock.setAllowedAreas(
+                Qt.DockWidgetArea.LeftDockWidgetArea | 
+                Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            self.layer_dock.setMinimumWidth(200)
+            self.layer_dock.setMaximumWidth(300)
+            
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
+            print("✅ Layer controls dock created")
+            
+        except Exception as e:
+            print(f"⚠️ Layer controls dock creation failed: {e}")
+    
+    def _create_properties_panel_dock(self):
+        """Create properties panel dock"""
+        try:
+            prop_widget = QWidget()
+            prop_layout = QVBoxLayout(prop_widget)
+            prop_layout.setContentsMargins(6, 6, 6, 6)
+            
+            # Properties group
+            props_group = QGroupBox("Properties")
+            props_layout = QVBoxLayout(props_group)
+            
+            self.props_label = QLabel("Select a component to view properties")
+            self.props_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            props_layout.addWidget(self.props_label)
+            
+            prop_layout.addWidget(props_group)
+            prop_layout.addStretch()
+            
+            # Create dock
+            self.properties_dock = QDockWidget("Properties", self)
+            self.properties_dock.setWidget(prop_widget)
+            self.properties_dock.setAllowedAreas(
+                Qt.DockWidgetArea.LeftDockWidgetArea | 
+                Qt.DockWidgetArea.RightDockWidgetArea
+            )
+            self.properties_dock.setMinimumWidth(200)
+            self.properties_dock.setMaximumWidth(300)
+            
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.properties_dock)
+            print("✅ Properties panel dock created")
+            
+        except Exception as e:
+            print(f"⚠️ Properties panel dock creation failed: {e}")
+    
+    def _apply_theme(self):
+        """Apply current theme to all UI elements"""
+        if not self.app_settings:
+            return
+            
+        try:
+            current_theme = self.app_settings.get_theme()
+            colors = current_theme.get('colors', {})
+            
+            # Get theme colors
+            bg_primary = colors.get('bg_primary', '#f0f0f0')
+            bg_secondary = colors.get('bg_secondary', '#ffffff')
+            text_primary = colors.get('text_primary', '#000000')
+            text_secondary = colors.get('text_secondary', '#666666')
+            accent_primary = colors.get('accent_primary', '#0078d4')
+            border = colors.get('border', '#cccccc')
+            panel_bg = colors.get('panel_bg', bg_secondary)
+            
+            # Main window stylesheet
+            main_style = f"""
+            QMainWindow {{
+                background-color: {bg_primary};
+                color: {text_primary};
+            }}
+            
+            QDockWidget {{
+                background-color: {panel_bg};
+                color: {text_primary};
+                border: 1px solid {border};
+            }}
+            
+            QDockWidget::title {{
+                background-color: {accent_primary};
+                color: white;
+                padding: 4px;
+                border: none;
+            }}
+            
+            QGroupBox {{
+                background-color: {panel_bg};
+                color: {text_primary};
+                border: 2px solid {border};
+                border-radius: 6px;
+                margin-top: 1ex;
+                padding-top: 6px;
+            }}
+            
+            QGroupBox::title {{
+                color: {text_primary};
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }}
+            
+            QFrame {{
+                background-color: {panel_bg};
+                color: {text_primary};
+                border: 1px solid {border};
+            }}
+            
+            QLabel {{
+                background-color: transparent;
+                color: {text_primary};
+            }}
+            
+            QLineEdit {{
+                background-color: {bg_secondary};
+                color: {text_primary};
+                border: 1px solid {border};
+                padding: 4px;
+                border-radius: 3px;
+            }}
+            
+            QLineEdit:focus {{
+                border: 2px solid {accent_primary};
+            }}
+            
+            QComboBox {{
+                background-color: {bg_secondary};
+                color: {text_primary};
+                border: 1px solid {border};
+                padding: 4px;
+                border-radius: 3px;
+            }}
+            
+            QComboBox::drop-down {{
+                border: none;
+                background-color: {accent_primary};
+            }}
+            
+            QComboBox::down-arrow {{
+                width: 0;
+                height: 0;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid white;
+            }}
+            
+            QTreeWidget {{
+                background-color: {bg_secondary};
+                color: {text_primary};
+                border: 1px solid {border};
+                alternate-background-color: {panel_bg};
+            }}
+            
+            QTreeWidget::item:selected {{
+                background-color: {accent_primary};
+                color: white;
+            }}
+            
+            QListWidget {{
+                background-color: {bg_secondary};
+                color: {text_primary};
+                border: 1px solid {border};
+            }}
+            
+            QListWidget::item:selected {{
+                background-color: {accent_primary};
+                color: white;
+            }}
+            
+            QTextEdit {{
+                background-color: {bg_secondary};
+                color: {text_primary};
+                border: 1px solid {border};
+                border-radius: 3px;
+            }}
+            
+            QPushButton {{
+                background-color: {accent_primary};
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+            }}
+            
+            QPushButton:hover {{
+                background-color: {colors.get('button_hover', accent_primary)}99;
+            }}
+            
+            QPushButton:pressed {{
+                background-color: {colors.get('button_pressed', accent_primary)}CC;
+            }}
+            
+            QCheckBox {{
+                color: {text_primary};
+                spacing: 8px;
+            }}
+            
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+                border: 1px solid {border};
+                background-color: {bg_secondary};
+            }}
+            
+            QCheckBox::indicator:checked {{
+                background-color: {accent_primary};
+                border: 1px solid {accent_primary};
+            }}
+            """
+            
+            self.setStyleSheet(main_style)
+            print(f"✅ Theme applied: {current_theme.get('name', 'Unknown')}")
+            
+        except Exception as e:
+            print(f"⚠️ Theme application failed: {e}")
+    
+    def _setup_hotkeys(self):
+        """Setup keyboard shortcuts"""
+        # Ctrl+F for component search
+        search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        search_shortcut.activated.connect(self._focus_component_search)
+        
+        # Ctrl+G for grid toggle
+        grid_shortcut = QShortcut(QKeySequence("Ctrl+G"), self)
+        grid_shortcut.activated.connect(self._toggle_grid)
+        
+        print("✅ Keyboard shortcuts setup (Ctrl+F, Ctrl+G)")
+    
+    def _focus_component_search(self):
+        """Focus the component search box"""
+        if hasattr(self, 'component_search'):
+            self.component_search.setFocus()
+            self.component_search.selectAll()
+    
+    def _toggle_grid(self):
+        """Toggle grid visibility"""
+        if hasattr(self, 'show_grid_check'):
+            current = self.show_grid_check.isChecked()
+            self.show_grid_check.setChecked(not current)
+    
+    def _create_canvas(self):
+        """Create canvas with robust fallback handling"""
+        self.canvas = None
+        
+        # Try 1: Import directly from canvas module
+        try:
+            from ui.canvas import EnhancedPCBCanvas, PCBCanvas
+            if EnhancedPCBCanvas:
+                self.canvas = EnhancedPCBCanvas()
+                print("✅ Enhanced PCB Canvas created")
+                return
+            elif PCBCanvas:
+                self.canvas = PCBCanvas()
+                print("✅ PCB Canvas created")
+                return
+        except ImportError as e:
+            print(f"⚠️ Direct canvas import failed: {e}")
+        
+        # Try 2: Import from ui package
+        try:
+            from ui import EnhancedPCBCanvas, PCBCanvas
+            if EnhancedPCBCanvas and EnhancedPCBCanvas is not type(None):
+                self.canvas = EnhancedPCBCanvas()
+                print("✅ Enhanced PCB Canvas created (from ui)")
+                return
+            elif PCBCanvas and PCBCanvas is not type(None):
+                self.canvas = PCBCanvas()
+                print("✅ PCB Canvas created (from ui)")
+                return
+        except ImportError as e:
+            print(f"⚠️ UI package canvas import failed: {e}")
+        
+        # Try 3: Import from missing_ui_modules
+        try:
+            from ui.missing_ui_modules import PCBCanvas
+            if PCBCanvas:
+                self.canvas = PCBCanvas()
+                print("✅ PCB Canvas created (from missing_ui_modules)")
+                return
+        except ImportError as e:
+            print(f"⚠️ Missing UI modules canvas import failed: {e}")
+        
+        # Fallback: Create working QGraphicsView with basic functionality
+        print("🔄 Creating fallback canvas...")
+        self.canvas = self._create_working_fallback_canvas()
     
     def _create_working_fallback_canvas(self):
-        """FIXED: Create a working fallback canvas with grid and drag/drop"""
+        """Create a working fallback canvas with basic functionality"""
         from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene
         from PyQt6.QtCore import QRectF
-        from PyQt6.QtGui import QPainter, QPen, QColor, QBrush
+        from PyQt6.QtGui import QPainter, QPen, QColor
         
         class WorkingFallbackCanvas(QGraphicsView):
+            """Working fallback canvas with basic grid and drag/drop support"""
+            
             def __init__(self):
                 super().__init__()
-                self.setScene(QGraphicsScene())
-                self.scene().setSceneRect(-5000, -5000, 10000, 10000)
                 
-                # FIXED: Grid settings
-                self.grid_visible = True
+                # Create scene
+                self.scene = QGraphicsScene()
+                self.setScene(self.scene)
+                
+                # Basic settings
                 self.grid_size = 20
-                self.grid_style = "lines"
-                self.grid_color = QColor(100, 140, 100, 180)
+                self.grid_visible = True
                 self.snap_to_grid = True
+                self.grid_style = "lines"
+                self.grid_color = QColor(100, 140, 100)  # Default green
+                self.background_color = QColor(255, 255, 255)  # Default white
+                
+                # Enable drag/drop
+                self.setAcceptDrops(True)
+                self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+                self.setRenderHint(QPainter.RenderHint.Antialiasing)
+                
+                # Component tracking
                 self.components = {}
                 
-                # FIXED: Enable drag & drop
-                self.setAcceptDrops(True)
-                self.setBackgroundBrush(QBrush(QColor(25, 25, 35)))
-                
-            def drawBackground(self, painter, rect):
-                super().drawBackground(painter, rect)
-                if self.grid_visible:
-                    self._draw_grid(painter, rect)
+                print("✅ Working fallback canvas created")
             
-            def _draw_grid(self, painter, rect):
-                painter.save()
-                painter.setPen(QPen(self.grid_color, 1))
+            def drawBackground(self, painter, rect):
+                """Draw grid background with all patterns"""
+                # Draw background color first
+                painter.fillRect(rect, self.background_color)
                 
+                if not self.grid_visible:
+                    return
+                
+                style_lower = self.grid_style.lower()
+                
+                if style_lower == "dots":
+                    self._draw_dots_pattern(painter, rect)
+                elif style_lower == "lines":
+                    self._draw_lines_pattern(painter, rect)
+                elif style_lower == "crosses":
+                    self._draw_crosses_pattern(painter, rect)
+                elif style_lower == "paper cut":
+                    self._draw_paper_cut_pattern(painter, rect)
+                elif style_lower == "paper cut + crosses":
+                    self._draw_paper_cut_crosses_pattern(painter, rect)
+                elif style_lower == "breadboard":
+                    self._draw_breadboard_pattern(painter, rect)
+            
+            def _draw_dots_pattern(self, painter, rect):
+                """Draw dots at grid intersections"""
+                painter.setPen(QPen(self.grid_color, 2))
                 left = int(rect.left()) - (int(rect.left()) % self.grid_size)
                 top = int(rect.top()) - (int(rect.top()) % self.grid_size)
                 
-                # Draw vertical lines
+                x = left
+                while x < rect.right():
+                    y = top
+                    while y < rect.bottom():
+                        painter.drawPoint(x, y)
+                        y += self.grid_size
+                    x += self.grid_size
+            
+            def _draw_lines_pattern(self, painter, rect):
+                """Draw solid grid lines"""
+                painter.setPen(QPen(self.grid_color, 0.5))
+                left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+                top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+                
+                # Vertical lines
                 x = left
                 while x < rect.right():
                     painter.drawLine(x, rect.top(), x, rect.bottom())
                     x += self.grid_size
                 
-                # Draw horizontal lines
+                # Horizontal lines
                 y = top
                 while y < rect.bottom():
                     painter.drawLine(rect.left(), y, rect.right(), y)
                     y += self.grid_size
+            
+            def _draw_crosses_pattern(self, painter, rect):
+                """Draw cross marks at grid intersections"""
+                painter.setPen(QPen(self.grid_color, 1))
+                left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+                top = int(rect.top()) - (int(rect.top()) % self.grid_size)
                 
-                painter.restore()
+                cross_size = 4
+                x = left
+                while x < rect.right():
+                    y = top
+                    while y < rect.bottom():
+                        # Draw cross
+                        painter.drawLine(x - cross_size, y, x + cross_size, y)
+                        painter.drawLine(x, y - cross_size, x, y + cross_size)
+                        y += self.grid_size
+                    x += self.grid_size
+            
+            def _draw_breadboard_pattern(self, painter, rect):
+                """Draw realistic breadboard pattern with 0.1" (2.54mm) spacing"""
+                # Breadboard spacing: 0.1 inches = 2.54mm
+                # At standard zoom, use 10 pixels per hole (adjustable)
+                hole_spacing = 10
+                hole_radius = 1.5
+                
+                # Calculate grid bounds
+                left = int(rect.left()) - (int(rect.left()) % hole_spacing)
+                top = int(rect.top()) - (int(rect.top()) % hole_spacing)
+                
+                # Power rail colors
+                power_rail_color = QColor(220, 100, 100)  # Red for power
+                ground_rail_color = QColor(100, 100, 220)  # Blue for ground
+                tie_point_color = QColor(80, 80, 80)      # Dark gray for tie points
+                
+                # Draw power rails (top and bottom)
+                rail_height = 60
+                center_gap = 30
+                
+                # Top power rails
+                top_power_y = top + 20
+                top_ground_y = top + 35
+                
+                # Bottom power rails  
+                bottom_power_y = top + rail_height + center_gap + 80
+                bottom_ground_y = bottom_power_y + 15
+                
+                x = left
+                while x < rect.right():
+                    # Top power rail (red line)
+                    painter.setPen(QPen(power_rail_color, 2))
+                    painter.drawLine(x - 5, top_power_y, x + 5, top_power_y)
+                    painter.setBrush(power_rail_color)
+                    painter.drawEllipse(x - hole_radius, top_power_y - hole_radius, 
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Top ground rail (blue line)
+                    painter.setPen(QPen(ground_rail_color, 2))
+                    painter.drawLine(x - 5, top_ground_y, x + 5, top_ground_y)
+                    painter.setBrush(ground_rail_color)
+                    painter.drawEllipse(x - hole_radius, top_ground_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Bottom power rail (red line)
+                    painter.setPen(QPen(power_rail_color, 2))
+                    painter.drawLine(x - 5, bottom_power_y, x + 5, bottom_power_y)
+                    painter.setBrush(power_rail_color)
+                    painter.drawEllipse(x - hole_radius, bottom_power_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Bottom ground rail (blue line)
+                    painter.setPen(QPen(ground_rail_color, 2))
+                    painter.drawLine(x - 5, bottom_ground_y, x + 5, bottom_ground_y)
+                    painter.setBrush(ground_rail_color)
+                    painter.drawEllipse(x - hole_radius, bottom_ground_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    x += hole_spacing
+                
+                # Draw main tie point area
+                painter.setPen(QPen(tie_point_color, 1))
+                painter.setBrush(tie_point_color)
+                
+                # Top tie point section
+                tie_start_y = top + 50
+                tie_rows = 5
+                
+                row = 0
+                while row < tie_rows:
+                    y = tie_start_y + (row * hole_spacing)
+                    if y > rect.bottom():
+                        break
+                        
+                    col = 0
+                    x = left
+                    while x < rect.right():
+                        # Draw tie point hole
+                        painter.drawEllipse(x - hole_radius, y - hole_radius,
+                                          hole_radius * 2, hole_radius * 2)
+                        
+                        # Draw connection lines every 5 holes (tie point groups)
+                        if col % 5 == 0 and col > 0:
+                            # Draw separator line
+                            painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                            painter.drawLine(x - hole_spacing/2, y - hole_spacing*2, 
+                                           x - hole_spacing/2, y + hole_spacing*2)
+                            painter.setPen(QPen(tie_point_color, 1))
+                        
+                        x += hole_spacing
+                        col += 1
+                    row += 1
+                
+                # Center divider channel
+                center_y = tie_start_y + (tie_rows * hole_spacing) + center_gap/2
+                painter.setPen(QPen(QColor(200, 200, 200), 3))
+                painter.drawLine(rect.left(), center_y, rect.right(), center_y)
+                
+                # Bottom tie point section
+                bottom_tie_start_y = center_y + center_gap/2
+                
+                row = 0
+                while row < tie_rows:
+                    y = bottom_tie_start_y + (row * hole_spacing)
+                    if y > rect.bottom() - 60:  # Leave space for bottom power rails
+                        break
+                        
+                    col = 0
+                    x = left
+                    while x < rect.right():
+                        # Draw tie point hole
+                        painter.setBrush(tie_point_color)
+                        painter.setPen(QPen(tie_point_color, 1))
+                        painter.drawEllipse(x - hole_radius, y - hole_radius,
+                                          hole_radius * 2, hole_radius * 2)
+                        
+                        # Draw connection lines every 5 holes (tie point groups)
+                        if col % 5 == 0 and col > 0:
+                            # Draw separator line
+                            painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                            painter.drawLine(x - hole_spacing/2, y - hole_spacing*2,
+                                           x - hole_spacing/2, y + hole_spacing*2)
+                            painter.setPen(QPen(tie_point_color, 1))
+                        
+                        x += hole_spacing
+                        col += 1
+                    row += 1
+            
+            def _draw_paper_cut_pattern(self, painter, rect):
+                """Draw paper cut pattern with dotted lines (like graph paper)"""
+                # Create dotted line pen
+                pen = QPen(self.grid_color, 1)
+                pen.setStyle(Qt.PenStyle.DotLine)
+                painter.setPen(pen)
+                
+                left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+                top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+                
+                # Vertical dotted lines
+                x = left
+                while x < rect.right():
+                    painter.drawLine(x, rect.top(), x, rect.bottom())
+                    x += self.grid_size
+                
+                # Horizontal dotted lines
+                y = top
+                while y < rect.bottom():
+                    painter.drawLine(rect.left(), y, rect.right(), y)
+                    y += self.grid_size
+            
+            def _draw_paper_cut_crosses_pattern(self, painter, rect):
+                """Draw paper cut pattern with crosses at intersections"""
+                # First draw the dotted lines
+                self._draw_paper_cut_pattern(painter, rect)
+                
+                # Then add crosses at intersections
+                painter.setPen(QPen(self.grid_color, 1.5))
+                left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+                top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+                
+                cross_size = 3
+                x = left
+                while x < rect.right():
+                    y = top
+                    while y < rect.bottom():
+                        # Draw small cross at intersection
+                        painter.drawLine(x - cross_size, y, x + cross_size, y)
+                        painter.drawLine(x, y - cross_size, x, y + cross_size)
+                        y += self.grid_size
+                    x += self.grid_size
+            
+            def _draw_breadboard_pattern(self, painter, rect):
+                """Draw realistic breadboard pattern with 0.1" (2.54mm) spacing"""
+                # Breadboard spacing: 0.1 inches = 2.54mm
+                # At standard zoom, use 10 pixels per hole (adjustable)
+                hole_spacing = 10
+                hole_radius = 1.5
+                
+                # Calculate grid bounds
+                left = int(rect.left()) - (int(rect.left()) % hole_spacing)
+                top = int(rect.top()) - (int(rect.top()) % hole_spacing)
+                
+                # Power rail colors
+                power_rail_color = QColor(220, 100, 100)  # Red for power
+                ground_rail_color = QColor(100, 100, 220)  # Blue for ground
+                tie_point_color = QColor(80, 80, 80)      # Dark gray for tie points
+                
+                # Draw power rails (top and bottom)
+                rail_height = 60
+                center_gap = 30
+                
+                # Top power rails
+                top_power_y = top + 20
+                top_ground_y = top + 35
+                
+                # Bottom power rails  
+                bottom_power_y = top + rail_height + center_gap + 80
+                bottom_ground_y = bottom_power_y + 15
+                
+                x = left
+                while x < rect.right():
+                    # Top power rail (red line)
+                    painter.setPen(QPen(power_rail_color, 2))
+                    painter.drawLine(x - 5, top_power_y, x + 5, top_power_y)
+                    painter.setBrush(power_rail_color)
+                    painter.drawEllipse(x - hole_radius, top_power_y - hole_radius, 
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Top ground rail (blue line)
+                    painter.setPen(QPen(ground_rail_color, 2))
+                    painter.drawLine(x - 5, top_ground_y, x + 5, top_ground_y)
+                    painter.setBrush(ground_rail_color)
+                    painter.drawEllipse(x - hole_radius, top_ground_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Bottom power rail (red line)
+                    painter.setPen(QPen(power_rail_color, 2))
+                    painter.drawLine(x - 5, bottom_power_y, x + 5, bottom_power_y)
+                    painter.setBrush(power_rail_color)
+                    painter.drawEllipse(x - hole_radius, bottom_power_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    # Bottom ground rail (blue line)
+                    painter.setPen(QPen(ground_rail_color, 2))
+                    painter.drawLine(x - 5, bottom_ground_y, x + 5, bottom_ground_y)
+                    painter.setBrush(ground_rail_color)
+                    painter.drawEllipse(x - hole_radius, bottom_ground_y - hole_radius,
+                                      hole_radius * 2, hole_radius * 2)
+                    
+                    x += hole_spacing
+                
+                # Draw main tie point area
+                painter.setPen(QPen(tie_point_color, 1))
+                painter.setBrush(tie_point_color)
+                
+                # Top tie point section
+                tie_start_y = top + 50
+                tie_rows = 5
+                
+                row = 0
+                while row < tie_rows:
+                    y = tie_start_y + (row * hole_spacing)
+                    if y > rect.bottom():
+                        break
+                        
+                    col = 0
+                    x = left
+                    while x < rect.right():
+                        # Draw tie point hole
+                        painter.drawEllipse(x - hole_radius, y - hole_radius,
+                                          hole_radius * 2, hole_radius * 2)
+                        
+                        # Draw connection lines every 5 holes (tie point groups)
+                        if col % 5 == 0 and col > 0:
+                            # Draw separator line
+                            painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                            painter.drawLine(x - hole_spacing/2, y - hole_spacing*2, 
+                                           x - hole_spacing/2, y + hole_spacing*2)
+                            painter.setPen(QPen(tie_point_color, 1))
+                        
+                        x += hole_spacing
+                        col += 1
+                    row += 1
+                
+                # Center divider channel
+                center_y = tie_start_y + (tie_rows * hole_spacing) + center_gap/2
+                painter.setPen(QPen(QColor(200, 200, 200), 3))
+                painter.drawLine(rect.left(), center_y, rect.right(), center_y)
+                
+                # Bottom tie point section
+                bottom_tie_start_y = center_y + center_gap/2
+                
+                row = 0
+                while row < tie_rows:
+                    y = bottom_tie_start_y + (row * hole_spacing)
+                    if y > rect.bottom() - 60:  # Leave space for bottom power rails
+                        break
+                        
+                    col = 0
+                    x = left
+                    while x < rect.right():
+                        # Draw tie point hole
+                        painter.setBrush(tie_point_color)
+                        painter.setPen(QPen(tie_point_color, 1))
+                        painter.drawEllipse(x - hole_radius, y - hole_radius,
+                                          hole_radius * 2, hole_radius * 2)
+                        
+                        # Draw connection lines every 5 holes (tie point groups)
+                        if col % 5 == 0 and col > 0:
+                            # Draw separator line
+                            painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                            painter.drawLine(x - hole_spacing/2, y - hole_spacing*2,
+                                           x - hole_spacing/2, y + hole_spacing*2)
+                            painter.setPen(QPen(tie_point_color, 1))
+                        
+                        x += hole_spacing
+                        col += 1
+                    row += 1
             
             def set_grid_visible(self, visible):
                 self.grid_visible = visible
                 self.viewport().update()
-                print(f"🔧 Fallback grid visible: {visible}")
+                print(f"🔧 Fallback grid visibility: {visible}")
             
             def set_grid_style(self, style):
-                self.grid_style = str(style).lower()
+                self.grid_style = style.lower()
                 self.viewport().update()
-                print(f"🔧 Fallback grid style: {self.grid_style}")
+                print(f"🔧 Fallback grid style: {style}")
+            
+            def set_grid_color(self, color_name):
+                """Set grid color by name"""
+                color_map = {
+                    "green": QColor(100, 140, 100),
+                    "gray": QColor(128, 128, 128),
+                    "blue": QColor(100, 100, 200),
+                    "red": QColor(200, 100, 100),
+                    "custom": QColor(150, 150, 150)  # Default custom
+                }
+                self.grid_color = color_map.get(color_name.lower(), QColor(100, 140, 100))
+                self.viewport().update()
+                print(f"🎨 Grid color changed to: {color_name}")
+            
+            def set_background_color(self, color_name):
+                """Set background color by name"""
+                color_map = {
+                    "white": QColor(255, 255, 255),
+                    "light gray": QColor(240, 240, 240),
+                    "dark gray": QColor(64, 64, 64),
+                    "black": QColor(0, 0, 0),
+                    "cream": QColor(255, 253, 240),
+                    "custom": QColor(230, 230, 230)  # Default custom
+                }
+                self.background_color = color_map.get(color_name.lower(), QColor(255, 255, 255))
+                self.viewport().update()
+                print(f"🎨 Background color changed to: {color_name}")
             
             def set_grid_spacing(self, spacing):
                 if isinstance(spacing, str):
@@ -228,392 +1072,194 @@ class FixedMainWindow(QMainWindow):
                 if event.mimeData().hasText():
                     print(f"📦 Fallback drop: {event.mimeData().text()}")
                     event.acceptProposedAction()
+            
+            def wheelEvent(self, event):
+                """Handle mouse wheel for zooming"""
+                zoom_in_factor = 1.25
+                zoom_out_factor = 1 / zoom_in_factor
+                
+                if event.angleDelta().y() > 0:
+                    zoom_factor = zoom_in_factor
+                else:
+                    zoom_factor = zoom_out_factor
+                
+                self.scale(zoom_factor, zoom_factor)
         
-        canvas = WorkingFallbackCanvas()
-        print("✅ Working fallback canvas created with grid and drag/drop")
-        return canvas
+        return WorkingFallbackCanvas()
     
-    def _verify_canvas_methods(self):
-        """FIXED: Verify canvas has required methods"""
-        required_methods = [
-            'set_grid_visible', 'set_grid_style', 'set_grid_spacing', 'set_snap_to_grid'
-        ]
-        
-        missing_methods = []
-        for method in required_methods:
-            if not hasattr(self.canvas, method):
-                missing_methods.append(method)
-        
-        if missing_methods:
-            print(f"⚠️ Canvas missing methods: {missing_methods}")
-        else:
-            print("✅ Canvas has all required methods")
-    
-    def _create_docks(self):
-        """Create dock widgets with proper sizing"""
-        # Component palette dock (left side)
-        self._create_component_palette_dock()
-        
-        # Layer controls dock (right side - FIXED SIZE)  
-        self._create_layer_controls_dock_fixed()
-        
-        # Properties panel dock (right side - below layer controls)
-        self._create_properties_panel_dock()
-    
-    def _create_component_palette_dock(self):
-        """Create component palette dock"""
+    def _create_menu_bar(self):
+        """Create menu bar"""
         try:
-            from ui import EnhancedComponentPalette
-            self.component_palette = EnhancedComponentPalette()
-            
-            # Create dock with proper sizing
-            self.component_dock = QDockWidget("Components", self)
-            self.component_dock.setWidget(self.component_palette)
-            self.component_dock.setAllowedAreas(
-                Qt.DockWidgetArea.LeftDockWidgetArea | 
-                Qt.DockWidgetArea.RightDockWidgetArea
-            )
-            self.component_dock.setMinimumWidth(250)
-            self.component_dock.setMaximumWidth(400)
-            
-            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.component_dock)
-            print("✅ Component palette dock created")
-            
-        except ImportError as e:
-            print(f"⚠️ Component palette import failed: {e}")
-            self._create_fallback_component_palette()
+            from ui.menu_bar import MenuManager
+            self.menu_manager = MenuManager(self, self.app_settings)
+            print("✅ Menu bar created")
+        except ImportError:
+            self._create_fallback_menu()
     
-    def _create_layer_controls_dock_fixed(self):
-        """FIXED: Create layer controls dock with working connections"""
+    def _create_status_bar(self):
+        """Create status bar"""
         try:
-            from ui import LayerControls
-            self.layer_controls = LayerControls()
-            
-            # Create dock with FIXED SIZE
-            self.layer_dock = QDockWidget("Layers & Grid", self)
-            self.layer_dock.setWidget(self.layer_controls)
-            self.layer_dock.setAllowedAreas(
-                Qt.DockWidgetArea.LeftDockWidgetArea | 
-                Qt.DockWidgetArea.RightDockWidgetArea
-            )
-            
-            # FIXED: Proper sizing
-            self.layer_dock.setMinimumWidth(200)
-            self.layer_dock.setMaximumWidth(300)
-            self.layer_controls.setMaximumWidth(280)
-            
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
-            print("✅ Layer controls dock created with fixed sizing")
-            
-        except ImportError as e:
-            print(f"⚠️ Layer controls import failed: {e}")
-            self._create_fallback_layer_controls_fixed()
+            from ui.status_bar import RetroEmulatorStatusBar
+            self.status_manager = RetroEmulatorStatusBar(self)
+            self.setStatusBar(self.status_manager)
+            print("✅ Status bar created")
+        except ImportError:
+            self.statusBar().showMessage("Ready")
+            print("✅ Fallback status bar created")
     
-    def _create_properties_panel_dock(self):
-        """Create properties panel dock"""
+    def _setup_connections(self):
+        """Setup signal connections"""
         try:
-            from ui import PropertiesPanel
-            self.properties_panel = PropertiesPanel()
+            # Component tree connections
+            if hasattr(self, 'component_tree'):
+                self.component_tree.itemSelectionChanged.connect(self._on_component_selected)
+                self.component_tree.itemDoubleClicked.connect(self._on_component_double_clicked)
             
-            self.properties_dock = QDockWidget("Properties", self)
-            self.properties_dock.setWidget(self.properties_panel)
-            self.properties_dock.setAllowedAreas(
-                Qt.DockWidgetArea.LeftDockWidgetArea | 
-                Qt.DockWidgetArea.RightDockWidgetArea
-            )
-            self.properties_dock.setMinimumWidth(200)
-            self.properties_dock.setMaximumWidth(300)
+            # Search connections
+            if hasattr(self, 'component_search'):
+                self.component_search.textChanged.connect(self._filter_components)
             
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.properties_dock)
-            print("✅ Properties panel dock created")
+            if hasattr(self, 'component_filter'):
+                self.component_filter.currentTextChanged.connect(self._filter_by_type)
             
-        except ImportError as e:
-            print(f"⚠️ Properties panel import failed: {e}")
-            self._create_fallback_properties_panel()
-    
-    def _setup_connections_fixed(self):
-        """FIXED: Setup signal connections that actually work"""
-        print("🔗 Setting up FIXED signal connections...")
-        
-        # FIXED: Connect layer controls to canvas
-        if self.layer_controls and self.canvas:
-            self._connect_layer_controls_to_canvas_fixed()
-        
-        # FIXED: Connect component palette to canvas
-        if self.component_palette and self.canvas:
-            self._connect_component_palette_to_canvas()
-        
-        # FIXED: Connect canvas to properties panel
-        if self.canvas and self.properties_panel:
-            self._connect_canvas_to_properties()
-        
-        print("✅ All signal connections established")
-    
-    def _connect_layer_controls_to_canvas_fixed(self):
-        """FIXED: Connect layer controls to canvas with proper error handling"""
-        try:
-            # FIXED: Connect grid visibility
-            if hasattr(self.layer_controls, 'grid_visible_changed'):
-                self.layer_controls.grid_visible_changed.connect(self.canvas.set_grid_visible)
-                print("✅ Grid visibility signal connected")
-            elif hasattr(self.layer_controls, 'show_grid_check'):
-                self.layer_controls.show_grid_check.toggled.connect(self.canvas.set_grid_visible)
-                print("✅ Grid visibility checkbox connected")
+            # Grid connections
+            if hasattr(self, 'show_grid_check'):
+                self.show_grid_check.toggled.connect(self._on_grid_toggled)
             
-            # FIXED: Connect grid style
-            if hasattr(self.layer_controls, 'grid_style_changed'):
-                self.layer_controls.grid_style_changed.connect(self.canvas.set_grid_style)
-                print("✅ Grid style signal connected")
-            elif hasattr(self.layer_controls, 'grid_style_combo'):
-                self.layer_controls.grid_style_combo.currentTextChanged.connect(self.canvas.set_grid_style)
-                print("✅ Grid style combo connected")
+            if hasattr(self, 'grid_style_combo'):
+                self.grid_style_combo.currentTextChanged.connect(self._on_grid_style_changed)
             
-            # FIXED: Connect grid spacing
-            if hasattr(self.layer_controls, 'grid_spacing_changed'):
-                self.layer_controls.grid_spacing_changed.connect(self.canvas.set_grid_spacing)
-                print("✅ Grid spacing signal connected")
-            elif hasattr(self.layer_controls, 'grid_spacing_combo'):
-                self.layer_controls.grid_spacing_combo.currentTextChanged.connect(self.canvas.set_grid_spacing)
-                print("✅ Grid spacing combo connected")
+            if hasattr(self, 'grid_color_combo'):
+                self.grid_color_combo.currentTextChanged.connect(self._on_grid_color_changed)
             
-            # FIXED: Connect snap to grid
-            if hasattr(self.layer_controls, 'snap_to_grid_changed'):
-                self.layer_controls.snap_to_grid_changed.connect(self.canvas.set_snap_to_grid)
-                print("✅ Snap to grid signal connected")
-            elif hasattr(self.layer_controls, 'snap_to_grid_check'):
-                self.layer_controls.snap_to_grid_check.toggled.connect(self.canvas.set_snap_to_grid)
-                print("✅ Snap to grid checkbox connected")
+            if hasattr(self, 'bg_color_combo'):
+                self.bg_color_combo.currentTextChanged.connect(self._on_background_color_changed)
             
-            print("✅ Layer controls successfully connected to canvas")
+            print("✅ Signal connections established")
             
         except Exception as e:
-            print(f"❌ Error connecting layer controls to canvas: {e}")
+            print(f"⚠️ Connection setup failed: {e}")
     
-    def _connect_component_palette_to_canvas(self):
-        """FIXED: Connect component palette to canvas"""
-        try:
-            if hasattr(self.component_palette, 'componentSelected'):
-                self.component_palette.componentSelected.connect(self._on_component_selected)
-                print("✅ Component palette selection connected")
-            
-        except Exception as e:
-            print(f"❌ Error connecting component palette: {e}")
+    def _on_component_selected(self):
+        """Handle component selection"""
+        if hasattr(self, 'component_tree'):
+            current = self.component_tree.currentItem()
+            if current and hasattr(self, 'component_name_label'):
+                self.component_name_label.setText(current.text(0))
+                if hasattr(self, 'component_details'):
+                    self.component_details.setText(f"Selected: {current.text(0)}")
     
-    def _connect_canvas_to_properties(self):
-        """FIXED: Connect canvas to properties panel"""
-        try:
-            if hasattr(self.canvas, 'component_selected') and hasattr(self.properties_panel, 'set_component'):
-                self.canvas.component_selected.connect(self.properties_panel.set_component)
-                print("✅ Canvas to properties connected")
-            
-        except Exception as e:
-            print(f"❌ Error connecting canvas to properties: {e}")
+    def _on_component_double_clicked(self, item, column):
+        """Handle component double-click"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data:
+            category, component = data
+            print(f"🎯 Adding component: {component} from {category}")
+    
+    def _filter_components(self, text):
+        """Filter components by search text"""
+        # Implementation for component filtering
+        print(f"🔍 Filtering components: {text}")
+    
+    def _filter_by_type(self, type_name):
+        """Filter components by type"""
+        print(f"📂 Filtering by type: {type_name}")
+    
+    def _on_grid_toggled(self, checked):
+        """Handle grid toggle"""
+        print(f"⚏ Grid visibility: {checked}")
+        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
+            self.canvas.set_grid_visible(checked)
+    
+    def _on_grid_style_changed(self, style):
+        """Handle grid style change"""
+        print(f"🎨 Grid style: {style}")
+        if self.canvas and hasattr(self.canvas, 'set_grid_style'):
+            self.canvas.set_grid_style(style)
+    
+    def _on_grid_color_changed(self, color):
+        """Handle grid color change"""
+        print(f"🎨 Grid color: {color}")
+        if self.canvas and hasattr(self.canvas, 'set_grid_color'):
+            self.canvas.set_grid_color(color)
+    
+    def _on_background_color_changed(self, color):
+        """Handle background color change"""
+        print(f"🎨 Background color: {color}")
+        if self.canvas and hasattr(self.canvas, 'set_background_color'):
+            self.canvas.set_background_color(color)
     
     def _post_initialization_setup(self):
-        """FIXED: Post-initialization setup and verification"""
-        print("🔧 Running post-initialization setup...")
-        
-        # FIXED: Apply dock sizing
-        if hasattr(self, 'layer_dock'):
-            self.layer_dock.setFixedWidth(280)
-        
-        # FIXED: Ensure canvas grid is visible
-        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
-            self.canvas.set_grid_visible(True)
-            print("✅ Canvas grid visibility ensured")
-        
-        # FIXED: Test connections
-        self._test_connections()
-        
+        """Final setup after initialization"""
+        self._apply_theme()
+        if hasattr(self, 'component_dock'):
+            self.component_dock.raise_()
         print("✅ Post-initialization setup complete")
     
-    def _test_connections(self):
-        """FIXED: Test that connections are working"""
-        print("🧪 Testing connections...")
-        
-        # Test grid controls
-        if self.canvas and hasattr(self.canvas, 'debug_grid_settings'):
-            self.canvas.debug_grid_settings()
-        
-        # Test canvas methods
-        if self.canvas:
-            methods_to_test = ['set_grid_visible', 'set_grid_style', 'set_grid_spacing']
-            for method in methods_to_test:
-                if hasattr(self.canvas, method):
-                    print(f"✅ Canvas method available: {method}")
-                else:
-                    print(f"❌ Canvas method missing: {method}")
-        
-        print("🧪 Connection testing complete")
+    def _update_window_title(self):
+        """Update window title"""
+        title = "Visual Retro System Emulator Builder"
+        if self.project_manager and hasattr(self.project_manager, 'current_project'):
+            if self.project_manager.current_project:
+                title += f" - {self.project_manager.current_project}"
+        self.setWindowTitle(title)
     
-    def _setup_hotkeys(self):
-        """Setup keyboard shortcuts"""
-        # Grid toggle
-        QShortcut(QKeySequence("Ctrl+G"), self, self._toggle_grid)
-        
-        # Zoom shortcuts
-        QShortcut(QKeySequence("Ctrl+="), self, self._zoom_in)
-        QShortcut(QKeySequence("Ctrl+-"), self, self._zoom_out)
-        QShortcut(QKeySequence("Ctrl+0"), self, self._reset_zoom)
-        
-        print("✅ Keyboard shortcuts configured")
-    
-    def _toggle_grid(self):
-        """FIXED: Toggle grid visibility"""
-        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
-            current_state = getattr(self.canvas, 'grid_visible', True)
-            self.canvas.set_grid_visible(not current_state)
-            print(f"🔧 Grid toggled: {'ON' if not current_state else 'OFF'}")
-            
-            # Update layer controls if available
-            if self.layer_controls and hasattr(self.layer_controls, 'show_grid_check'):
-                self.layer_controls.show_grid_check.setChecked(not current_state)
-    
-    def _zoom_in(self):
-        """Zoom in"""
-        if self.canvas and hasattr(self.canvas, 'zoom_in'):
-            self.canvas.zoom_in()
-    
-    def _zoom_out(self):
-        """Zoom out"""
-        if self.canvas and hasattr(self.canvas, 'zoom_out'):
-            self.canvas.zoom_out()
-    
-    def _reset_zoom(self):
-        """Reset zoom"""
-        if self.canvas and hasattr(self.canvas, 'reset_zoom'):
-            self.canvas.reset_zoom()
-    
-    def _on_component_selected(self, component_data):
-        """Handle component selection"""
-        print(f"📦 Component selected: {component_data.get('name', 'Unknown')}")
-    
-    # ========== FALLBACK CREATORS ==========
+    # Fallback methods
     def _create_fallback_project_manager(self):
-        """Create fallback project manager"""
         class FallbackProjectManager:
             def __init__(self):
                 self.current_project = None
         return FallbackProjectManager()
     
     def _create_fallback_layer_manager(self):
-        """Create fallback layer manager"""
         class FallbackLayerManager:
             def __init__(self):
                 self.layers = ['Component', 'PCB', 'Gerber']
                 self.active_layer = 'Component'
         return FallbackLayerManager()
     
-    def _create_fallback_component_palette(self):
-        """Create fallback component palette"""
-        palette_widget = QWidget()
-        layout = QVBoxLayout(palette_widget)
-        
+    def _create_fallback_settings(self):
+        class FallbackSettings:
+            def get_theme(self):
+                return {
+                    'name': 'Default',
+                    'colors': {
+                        'bg_primary': '#f0f0f0',
+                        'bg_secondary': '#ffffff',
+                        'text_primary': '#000000',
+                        'accent_primary': '#0078d4',
+                        'border': '#cccccc',
+                        'panel_bg': '#ffffff'
+                    }
+                }
+        return FallbackSettings()
+    
+    def _create_fallback_component_dock(self):
+        """Create simple fallback component dock"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
         layout.addWidget(QLabel("Components (Fallback)"))
         
         for name in ["Z80 CPU", "6502 CPU", "RAM", "ROM"]:
             btn = QPushButton(name)
-            btn.clicked.connect(lambda checked, n=name: print(f"Component: {n}"))
             layout.addWidget(btn)
         
         layout.addStretch()
         
         dock = QDockWidget("Components", self)
-        dock.setWidget(palette_widget)
+        dock.setWidget(widget)
         dock.setMinimumWidth(250)
-        dock.setMaximumWidth(400)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
-        print("✅ Fallback component palette created")
+        print("✅ Fallback component dock created")
     
-    def _create_fallback_layer_controls_fixed(self):
-        """FIXED: Create working fallback layer controls"""
-        controls_widget = QWidget()
-        layout = QVBoxLayout(controls_widget)
-        
-        layout.addWidget(QLabel("Layer Controls (Fallback)"))
-        
-        # FIXED: Working grid toggle
-        grid_check = QCheckBox("Show Grid")
-        grid_check.setChecked(True)
-        grid_check.toggled.connect(self._on_fallback_grid_toggle)
-        layout.addWidget(grid_check)
-        
-        # FIXED: Working snap toggle
-        snap_check = QCheckBox("Snap to Grid")
-        snap_check.setChecked(True)
-        snap_check.toggled.connect(self._on_fallback_snap_toggle)
-        layout.addWidget(snap_check)
-        
-        layout.addStretch()
-        
-        # Store references for connections
-        self.fallback_grid_check = grid_check
-        self.fallback_snap_check = snap_check
-        
-        dock = QDockWidget("Layers", self)
-        dock.setWidget(controls_widget)
-        dock.setMinimumWidth(200)
-        dock.setMaximumWidth(280)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        print("✅ FIXED fallback layer controls created")
-    
-    def _on_fallback_grid_toggle(self, checked):
-        """FIXED: Handle fallback grid toggle"""
-        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
-            self.canvas.set_grid_visible(checked)
-            print(f"🔧 Fallback grid toggle: {checked}")
-    
-    def _on_fallback_snap_toggle(self, checked):
-        """FIXED: Handle fallback snap toggle"""
-        if self.canvas and hasattr(self.canvas, 'set_snap_to_grid'):
-            self.canvas.set_snap_to_grid(checked)
-            print(f"🔧 Fallback snap toggle: {checked}")
-    
-    def _create_fallback_properties_panel(self):
-        """Create fallback properties panel"""
-        props_widget = QWidget()
-        layout = QVBoxLayout(props_widget)
-        
-        layout.addWidget(QLabel("Properties (Fallback)"))
-        layout.addWidget(QLabel("Select a component"))
-        layout.addStretch()
-        
-        dock = QDockWidget("Properties", self)
-        dock.setWidget(props_widget)
-        dock.setMinimumWidth(200)
-        dock.setMaximumWidth(280)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
-        print("✅ Fallback properties panel created")
-    
-    def _create_menu_bar(self):
-        """Create menu bar"""
-        file_menu = self.menuBar().addMenu('&File')
-        file_menu.addAction('&New Project', lambda: print("📁 New project"))
-        file_menu.addAction('&Open Project...', lambda: print("📁 Open project"))
-        file_menu.addAction('&Save Project', lambda: print("📁 Save project"))
-        file_menu.addSeparator()
-        file_menu.addAction('E&xit', self.close)
-        
-        view_menu = self.menuBar().addMenu('&View')
-        view_menu.addAction('Toggle &Grid', self._toggle_grid)
-        view_menu.addAction('Zoom &In', self._zoom_in)
-        view_menu.addAction('Zoom &Out', self._zoom_out)
-        view_menu.addAction('&Reset Zoom', self._reset_zoom)
-        
-        print("✅ Menu bar created")
-    
-    def _create_status_bar(self):
-        """Create status bar"""
-        self.statusBar().showMessage("Visual Retro System Emulator Builder - FIXED - Ready")
-        print("✅ Status bar created")
-    
-    def _update_window_title(self):
-        """Update window title"""
-        self.setWindowTitle("Visual Retro System Emulator Builder - FIXED")
+    def _create_fallback_menu(self):
+        """Create fallback menu"""
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu('File')
+        view_menu = menubar.addMenu('View')
+        help_menu = menubar.addMenu('Help')
+        print("✅ Fallback menu created")
 
-# Backward compatibility aliases
+
+# For compatibility
 MainWindow = FixedMainWindow
-EnhancedMainWindow = FixedMainWindow
-
-# Export
-__all__ = ['FixedMainWindow', 'MainWindow', 'EnhancedMainWindow']

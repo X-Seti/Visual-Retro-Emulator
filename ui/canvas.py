@@ -1,118 +1,76 @@
 """
-X-Seti June 12 2025 - Enhanced PCB Canvas with ALL functionality
-Visual Retro System Emulator Builder - Complete Canvas Implementation
+X-Seti - June16 2025 - Fixed Canvas with Enhanced Grid Patterns
+Enhanced PCB Canvas with FIXED grid patterns and background colors
 """
 
 #this belongs in ui/canvas.py
 
 import os
 import sys
-from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsItem, 
-                           QGraphicsPixmapItem, QGraphicsTextItem, QWidget, 
-                           QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-                           QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsLineItem,
-                           QMessageBox, QApplication)
-from PyQt6.QtCore import (Qt, QPointF, QRectF, QTimer, pyqtSignal, QObject,
-                        QPropertyAnimation, QEasingCurve, QParallelAnimationGroup)
-from PyQt6.QtGui import (QPainter, QPen, QBrush, QColor, QPixmap, QFont,
-                       QPainterPath, QMouseEvent, QWheelEvent, QKeyEvent,
-                       QDragEnterEvent, QDropEvent, QTransform)
+from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, 
+                           QGraphicsItem, QGraphicsTextItem, QMessageBox)
+from PyQt6.QtCore import Qt, QPointF, QRectF, pyqtSignal, QMimeData
+from PyQt6.QtGui import (QPainter, QPen, QBrush, QColor, QPixmap, QFont, 
+                        QPainterPath, QTransform, QDrag)
 
-# ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
+# Try to import layer manager
+try:
+    from core.layer_manager import LayerManager
+    print("✓ Layer manager imported successfully")
+except ImportError:
+    print("⚠️ Layer manager not available, using fallback")
+    
+    class LayerManager:
+        """Fallback layer manager"""
+        def __init__(self):
+            self.current_layer = "default"
+        
+        def get_current_layer(self):
+            return self.current_layer
 
-def find_component_image_unified(component_name, component_type="", package_type=""):
-    """
-    UNIFIED component image finder with comprehensive search paths and fallbacks
+def find_component_image_unified(component_name, component_type, package_type=None):
+    """Unified function to find component images with multiple search patterns"""
+    search_paths = ["images", "images/components", "assets", "assets/components"]
     
-    Search order:
-    1. Exact name match in multiple directories
-    2. Package-type specific images  
-    3. Component type fallbacks
-    4. Generic fallbacks
-    """
-    
-    # Define comprehensive search paths
-    search_paths = [
-        "images/components",
-        "images/chips", 
-        "images/retro_chips",
-        "images",
-        "assets/components",
-        "assets/chips",
-        "assets/images",
-        "components/images",
-        "chips/images",
-        "../images",
-        "../images/components",
-        "../images/chips"
+    # Generate multiple filename patterns
+    base_name = component_name.lower().replace(' ', '_').replace('-', '_')
+    patterns = [
+        f"{base_name}.png",
+        f"{component_type.lower()}_{base_name}.png",
+        f"{base_name}_{package_type.lower()}.png" if package_type else f"{base_name}_dip.png",
+        f"{component_type.lower()}_{base_name}_{package_type.lower()}.png" if package_type else f"{component_type.lower()}_{base_name}_dip.png"
     ]
     
-    # Generate possible filenames
-    name_clean = component_name.replace(' ', '_').replace('-', '_').lower()
-    type_clean = component_type.replace(' ', '_').replace('-', '_').lower()
-    package_clean = package_type.replace('-', '_').lower()
-    
-    possible_filenames = [
-        # Exact matches
-        f"{component_name}.png",
-        f"{component_name}.jpg", 
-        f"{name_clean}.png",
-        f"{name_clean}.jpg",
-        
-        # With package type
-        f"{name_clean}_{package_clean}.png",
-        f"{component_name}_{package_type}.png",
-        
-        # Type-based
-        f"{type_clean}.png",
-        f"{component_type}.png",
-        
-        # Generic fallbacks
-        "generic_ic.png",
-        "generic_chip.png", 
-        "default_component.png",
-        "chip_generic.png"
-    ]
-    
-    # Search in all paths
+    # Search in all paths with all patterns
     for search_path in search_paths:
-        if not os.path.exists(search_path):
-            continue
-            
-        for filename in possible_filenames:
-            full_path = os.path.join(search_path, filename)
-            if os.path.exists(full_path):
-                return full_path
+        if os.path.exists(search_path):
+            for pattern in patterns:
+                full_path = os.path.join(search_path, pattern)
+                if os.path.exists(full_path):
+                    print(f"✓ Found component image: {full_path}")
+                    return full_path
     
+    print(f"⚠️ No image found for {component_name} ({component_type})")
     return None
 
-# ============================================================================
-# BASE COMPONENT CLASSES
-# ============================================================================
-
 class VisibleBaseComponent(QGraphicsPixmapItem):
-    """Base component with enhanced visual features"""
+    """Enhanced base component with image loading and visual representation"""
     
-    def __init__(self, component_name="Unknown", component_type="Generic", package_type="DIP"):
-        super().__init__()
+    def __init__(self, component_name, component_type, package_type="DIP", parent=None):
+        super().__init__(parent)
         
-        # Component data
         self.component_name = component_name
         self.component_type = component_type
         self.package_type = package_type
-        self.pins = []
-        self.selected = False
         
-        # Visual properties
+        # Set item properties
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         
-        # Load image
+        # Load component image
         self._load_component_image()
-        
+    
     def _load_component_image(self):
         """Load component image with fallback"""
         image_path = find_component_image_unified(
@@ -173,47 +131,26 @@ except ImportError:
     ProcessorComponent = VisibleBaseComponent
     print("⚠️ Using fallback components")
 
-# Try to import enhanced components
-try:
-    from hardware.components import EnhancedHardwareComponent as HWEnhancedComponent
-    EnhancedHardwareComponent = HWEnhancedComponent
-    print("✓ Hardware components imported successfully")
-except ImportError:
-    EnhancedHardwareComponent = VisibleBaseComponent
-    print("⚠️ Using fallback for enhanced components")
-
-# Try to import layer manager
-try:
-    from core.layer_manager import LayerManager
-    print("✓ Layer manager imported successfully")
-except ImportError:
-    print("⚠️ Layer manager not available, using fallback")
-    
-    class LayerManager:
-        """Fallback layer manager"""
-        def __init__(self):
-            self.current_layer = "default"
-        
-        def get_current_layer(self):
-            return self.current_layer
-
 # === ENHANCED PCB CANVAS ===
 class EnhancedPCBCanvas(QGraphicsView):
     """
-    COMPLETE Enhanced PCB Canvas with ALL original functionality
-    
-    Features:
-    - ALL original methods preserved
-    - Unified image loading system
-    - Complete project save/load
-    - Robust error handling
-    - Background transparency processing
-    - Grid controls, zoom, pan, selection
-    - Connection management
-    - Mouse/keyboard interactions
+    Enhanced PCB Canvas with FIXED Grid Patterns
+
+        TODO:
+        No Paper Cut pattern shows?
+        Add size adjucted breadboard - Width and Height options, maybe a ruler on the edge of the canvas (adjustable)
+        Add size adjusted pinboard - Width and Height - uploaded images DIY-PCB-PinBoard.jpg and DIY-PCB-PinBoard-colors.jpg
+
+        Canvas color options, just shows a black background? (background white or gray and foreground black or some other color options)
+
+        FIXED: Lines, Dots, Crosses
+
+        NEEDS WORK: Proper zoom status does not show in the indecator on the bottum bar.
+        Component management - no components can be drag and dropped, i've added how I want the backup components to look if the images/ *.png images don't load or are missing.
+        look at the "bp-components.jpg" image needs to be replicated.
     """
     
-    # Signals (ALL ORIGINAL)
+    # Signals
     component_selected = pyqtSignal(object)
     component_moved = pyqtSignal(object, QPointF, QPointF)
     component_added = pyqtSignal(object)
@@ -231,27 +168,27 @@ class EnhancedPCBCanvas(QGraphicsView):
         # Initialize managers
         self.layer_manager = LayerManager()
         
-        # Component tracking (ALL ORIGINAL)
+        # Component tracking
         self.selected_components = []
         self.components = {}  # id -> component mapping
         self.connections = []
         
-        # Canvas settings (ALL ORIGINAL)
+        # Canvas settings - FIXED with proper defaults
         self.grid_size = 20
         self.grid_visible = True
         self.snap_to_grid = True
         self.zoom_factor = 1.0
-        self.grid_color = QColor(100, 140, 100)  # Brighter green grid color
-        self._debug_grid = True  # Enable debug output once
-        self.grid_style = "lines"  # dots, lines, crosses, breadboard
+        self.grid_style = "lines"  # lines, dots, crosses, paper cut, paper cut + crosses, breadboard
+        self.grid_color = QColor(100, 140, 100)  # Default green
+        self.background_color = QColor(25, 25, 35)  # Default dark background
         
-        # Interaction state (ALL ORIGINAL)
+        # Interaction state
         self.drag_mode = False
         self.drag_start_pos = None
         self.current_tool = "select"  # select, place, connect, delete
         self.component_to_place = None
         
-        # Connection state (ALL ORIGINAL)
+        # Connection state
         self.connection_start_component = None
         self.connection_start_port = None
         self.temp_connection_line = None
@@ -260,317 +197,374 @@ class EnhancedPCBCanvas(QGraphicsView):
         self._setup_canvas()
         self._setup_interactions()
         
-        print("✓ COMPLETE Enhanced PCB Canvas initialized with ALL features")
+        print("✓ Enhanced PCB Canvas initialized with FIXED grid patterns")
     
     def _setup_canvas(self):
-        """Setup canvas properties (ORIGINAL)"""
+        """Setup canvas properties"""
         # Set scene size
         self.scene.setSceneRect(-2000, -2000, 4000, 4000)
         
         # Configure view
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)  # High-quality image scaling
-        self.setRenderHint(QPainter.RenderHint.LosslessImageRendering)  # Preserve image quality
+        self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        self.setRenderHint(QPainter.RenderHint.LosslessImageRendering)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
         
         # Set background
-        self.setBackgroundBrush(QBrush(QColor(20, 20, 30)))  # Dark background
-        
-        # Grid drawing will be handled in drawBackground
+        self.setBackgroundBrush(QBrush(self.background_color))
     
     def _setup_interactions(self):
-        """Setup mouse and keyboard interactions (ORIGINAL)"""
+        """Setup mouse and keyboard interactions"""
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
     
-    def _make_background_transparent(self, pixmap: QPixmap) -> QPixmap:
-        """Convert white/light backgrounds to transparent (ORIGINAL COMPLETE)"""
-        try:
-            # Convert to QImage for pixel manipulation
-            image = pixmap.toImage()
-            if image.isNull():
-                return pixmap
-            
-            # Convert to ARGB32 format for transparency
-            if image.format() != image.Format.Format_ARGB32:
-                image = image.convertToFormat(image.Format.Format_ARGB32)
-            
-            # Define colors to make transparent (white and light gray backgrounds)
-            transparent_colors = [
-                QColor(255, 255, 255, 255),  # Pure white
-                QColor(254, 254, 254, 255),  # Near white
-                QColor(253, 253, 253, 255),  # Light gray
-                QColor(252, 252, 252, 255),  # Very light gray
-                QColor(240, 240, 240, 255),  # Light background
-                QColor(248, 248, 248, 255),  # Another light variant
-            ]
-            
-            # Create transparency threshold
-            transparency_threshold = 10  # Tolerance for color matching
-            
-            # Process each pixel
-            for y in range(image.height()):
-                for x in range(image.width()):
-                    pixel_color = QColor(image.pixel(x, y))
-                    
-                    # Check if pixel matches any transparent color
-                    should_be_transparent = False
-                    for transparent_color in transparent_colors:
-                        if (abs(pixel_color.red() - transparent_color.red()) <= transparency_threshold and
-                            abs(pixel_color.green() - transparent_color.green()) <= transparency_threshold and
-                            abs(pixel_color.blue() - transparent_color.blue()) <= transparency_threshold):
-                            should_be_transparent = True
-                            break
-                    
-                    if should_be_transparent:
-                        image.setPixelColor(x, y, QColor(0, 0, 0, 0))  # Fully transparent
-            
-            # Convert back to pixmap
-            return QPixmap.fromImage(image)
-            
-        except Exception as e:
-            print(f"⚠️ Background transparency failed: {e}")
-            return pixmap
-    
-    # === GRID DRAWING (ORIGINAL COMPLETE) ===
-    def drawBackground(self, painter: QPainter, rect: QRectF):
-        """Draw enhanced grid background with multiple styles (ORIGINAL COMPLETE)"""
-        super().drawBackground(painter, rect)
+    # === FIXED GRID DRAWING METHODS ===
+    def drawBackground(self, painter, rect):
+        """Draw background with FIXED grid patterns"""
+        # Draw background color first
+        painter.fillRect(rect, self.background_color)
         
         if not self.grid_visible:
             return
         
-        painter.save()
+        style_lower = self.grid_style.lower()
         
-        # Grid settings
-        pen = QPen(self.grid_color, 0.5)
-        painter.setPen(pen)
-        
-        # Calculate grid bounds
+        if style_lower == "dots":
+            self._draw_dots_pattern(painter, rect)
+        elif style_lower == "lines":
+            self._draw_lines_pattern(painter, rect)
+        elif style_lower == "crosses":
+            self._draw_crosses_pattern(painter, rect)
+        elif style_lower == "paper cut":
+            self._draw_paper_cut_pattern(painter, rect)
+        elif style_lower == "paper cut + crosses":
+            self._draw_paper_cut_crosses_pattern(painter, rect)
+        elif style_lower == "breadboard":
+            self._draw_breadboard_pattern(painter, rect)
+    
+    def _draw_dots_pattern(self, painter, rect):
+        """Draw dots at grid intersections"""
+        painter.setPen(QPen(self.grid_color, 2))
         left = int(rect.left()) - (int(rect.left()) % self.grid_size)
         top = int(rect.top()) - (int(rect.top()) % self.grid_size)
         
-        if self.grid_style == "dots":
-            # Dot grid
-            painter.setPen(QPen(self.grid_color, 1))
+        x = left
+        while x < rect.right():
             y = top
             while y < rect.bottom():
-                x = left
-                while x < rect.right():
-                    painter.drawPoint(x, y)
-                    x += self.grid_size
+                painter.drawPoint(x, y)
                 y += self.grid_size
+            x += self.grid_size
+    
+    def _draw_lines_pattern(self, painter, rect):
+        """FIXED: Draw solid grid lines with proper type conversion"""
+        painter.setPen(QPen(self.grid_color, 0.5))
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
         
-        elif self.grid_style == "lines":
-            # Line grid (default)
-            # Vertical lines
+        # FIXED: Convert all coordinates to int to avoid type errors
+        rect_left = int(rect.left())
+        rect_right = int(rect.right())
+        rect_top = int(rect.top())
+        rect_bottom = int(rect.bottom())
+        
+        # Vertical lines
+        x = left
+        while x < rect_right:
+            painter.drawLine(x, rect_top, x, rect_bottom)
+            x += self.grid_size
+        
+        # Horizontal lines
+        y = top
+        while y < rect_bottom:
+            painter.drawLine(rect_left, y, rect_right, y)
+            y += self.grid_size
+    
+    def _draw_crosses_pattern(self, painter, rect):
+        """Draw cross marks at grid intersections"""
+        painter.setPen(QPen(self.grid_color, 1))
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+        
+        cross_size = 4
+        x = left
+        while x < rect.right():
+            y = top
+            while y < rect.bottom():
+                # Draw cross
+                painter.drawLine(x - cross_size, y, x + cross_size, y)
+                painter.drawLine(x, y - cross_size, x, y + cross_size)
+                y += self.grid_size
+            x += self.grid_size
+    
+    def _draw_paper_cut_pattern(self, painter, rect):
+        """Draw paper cut pattern with dotted lines (like graph paper)"""
+        # Create dotted line pen
+        pen = QPen(self.grid_color, 1)
+        pen.setStyle(Qt.PenStyle.DotLine)
+        painter.setPen(pen)
+        
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+        
+        # FIXED: Convert coordinates to int
+        rect_left = int(rect.left())
+        rect_right = int(rect.right())
+        rect_top = int(rect.top())
+        rect_bottom = int(rect.bottom())
+        
+        # Vertical dotted lines
+        x = left
+        while x < rect_right:
+            painter.drawLine(x, rect_top, x, rect_bottom)
+            x += self.grid_size
+        
+        # Horizontal dotted lines
+        y = top
+        while y < rect_bottom:
+            painter.drawLine(rect_left, y, rect_right, y)
+            y += self.grid_size
+    
+    def _draw_paper_cut_crosses_pattern(self, painter, rect):
+        """Draw paper cut pattern with crosses at intersections"""
+        # First draw the dotted lines
+        self._draw_paper_cut_pattern(painter, rect)
+        
+        # Then add crosses at intersections
+        painter.setPen(QPen(self.grid_color, 1.5))
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+        
+        cross_size = 3
+        x = left
+        while x < rect.right():
+            y = top
+            while y < rect.bottom():
+                # Draw small cross at intersection
+                painter.drawLine(x - cross_size, y, x + cross_size, y)
+                painter.drawLine(x, y - cross_size, x, y + cross_size)
+                y += self.grid_size
+            x += self.grid_size
+    
+    def _draw_breadboard_pattern(self, painter, rect):
+        """Draw realistic breadboard pattern with 0.1" (2.54mm) spacing"""
+        # Breadboard spacing: 0.1 inches = 2.54mm = 10 pixels at standard zoom
+        hole_spacing = 10
+        hole_radius = 1.5
+        
+        # Calculate grid bounds
+        left = int(rect.left()) - (int(rect.left()) % hole_spacing)
+        top = int(rect.top()) - (int(rect.top()) % hole_spacing)
+        
+        # Power rail colors
+        power_rail_color = QColor(220, 100, 100)  # Red for power
+        ground_rail_color = QColor(100, 100, 220)  # Blue for ground
+        tie_point_color = QColor(80, 80, 80)      # Dark gray for tie points
+        
+        # Draw power rails (top and bottom)
+        rail_height = 60
+        center_gap = 30
+        
+        # Top power rails
+        top_power_y = top + 20
+        top_ground_y = top + 35
+        
+        # Bottom power rails  
+        bottom_power_y = top + rail_height + center_gap + 80
+        bottom_ground_y = bottom_power_y + 15
+        
+        x = left
+        while x < rect.right():
+            # Top power rail (red line)
+            painter.setPen(QPen(power_rail_color, 2))
+            painter.drawLine(x - 5, top_power_y, x + 5, top_power_y)
+            painter.setBrush(power_rail_color)
+            painter.drawEllipse(int(x - hole_radius), int(top_power_y - hole_radius), 
+                              int(hole_radius * 2), int(hole_radius * 2))
+            
+            # Top ground rail (blue line)
+            painter.setPen(QPen(ground_rail_color, 2))
+            painter.drawLine(x - 5, top_ground_y, x + 5, top_ground_y)
+            painter.setBrush(ground_rail_color)
+            painter.drawEllipse(int(x - hole_radius), int(top_ground_y - hole_radius),
+                              int(hole_radius * 2), int(hole_radius * 2))
+            
+            # Bottom power rail (red line)
+            painter.setPen(QPen(power_rail_color, 2))
+            painter.drawLine(x - 5, bottom_power_y, x + 5, bottom_power_y)
+            painter.setBrush(power_rail_color)
+            painter.drawEllipse(int(x - hole_radius), int(bottom_power_y - hole_radius),
+                              int(hole_radius * 2), int(hole_radius * 2))
+            
+            # Bottom ground rail (blue line)
+            painter.setPen(QPen(ground_rail_color, 2))
+            painter.drawLine(x - 5, bottom_ground_y, x + 5, bottom_ground_y)
+            painter.setBrush(ground_rail_color)
+            painter.drawEllipse(int(x - hole_radius), int(bottom_ground_y - hole_radius),
+                              int(hole_radius * 2), int(hole_radius * 2))
+            
+            x += hole_spacing
+        
+        # Draw main tie point area
+        painter.setPen(QPen(tie_point_color, 1))
+        painter.setBrush(tie_point_color)
+        
+        # Top tie point section
+        tie_start_y = top + 50
+        tie_rows = 5
+        
+        row = 0
+        while row < tie_rows:
+            y = tie_start_y + (row * hole_spacing)
+            if y > rect.bottom():
+                break
+                
+            col = 0
             x = left
             while x < rect.right():
-                painter.drawLine(x, rect.top(), x, rect.bottom())
-                x += self.grid_size
-            
-            # Horizontal lines
-            y = top
-            while y < rect.bottom():
-                painter.drawLine(rect.left(), y, rect.right(), y)
-                y += self.grid_size
+                # Draw tie point hole
+                painter.drawEllipse(int(x - hole_radius), int(y - hole_radius),
+                                  int(hole_radius * 2), int(hole_radius * 2))
+                
+                # Draw connection lines every 5 holes (tie point groups)
+                if col % 5 == 0 and col > 0:
+                    # Draw separator line
+                    painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                    painter.drawLine(int(x - hole_spacing/2), int(y - hole_spacing*2), 
+                                   int(x - hole_spacing/2), int(y + hole_spacing*2))
+                    painter.setPen(QPen(tie_point_color, 1))
+                
+                x += hole_spacing
+                col += 1
+            row += 1
         
-        elif self.grid_style == "crosses":
-            # Cross grid
-            cross_size = 3
-            y = top
-            while y < rect.bottom():
-                x = left
-                while x < rect.right():
-                    painter.drawLine(x - cross_size, y, x + cross_size, y)
-                    painter.drawLine(x, y - cross_size, x, y + cross_size)
-                    x += self.grid_size
-                y += self.grid_size
+        # Center divider channel
+        center_y = tie_start_y + (tie_rows * hole_spacing) + center_gap/2
+        painter.setPen(QPen(QColor(200, 200, 200), 3))
+        painter.drawLine(int(rect.left()), int(center_y), int(rect.right()), int(center_y))
         
-        elif self.grid_style == "breadboard":
-            # Breadboard-style grid with connection points
-            painter.setPen(QPen(self.grid_color, 2))
-            y = top
-            while y < rect.bottom():
-                x = left
-                while x < rect.right():
-                    painter.drawEllipse(x - 2, y - 2, 4, 4)
-                    x += self.grid_size
-                y += self.grid_size
+        # Bottom tie point section
+        bottom_tie_start_y = center_y + center_gap/2
         
-        painter.restore()
+        row = 0
+        while row < tie_rows:
+            y = bottom_tie_start_y + (row * hole_spacing)
+            if y > rect.bottom() - 60:  # Leave space for bottom power rails
+                break
+                
+            col = 0
+            x = left
+            while x < rect.right():
+                # Draw tie point hole
+                painter.setBrush(tie_point_color)
+                painter.setPen(QPen(tie_point_color, 1))
+                painter.drawEllipse(int(x - hole_radius), int(y - hole_radius),
+                                  int(hole_radius * 2), int(hole_radius * 2))
+                
+                # Draw connection lines every 5 holes (tie point groups)
+                if col % 5 == 0 and col > 0:
+                    # Draw separator line
+                    painter.setPen(QPen(QColor(150, 150, 150), 0.5))
+                    painter.drawLine(int(x - hole_spacing/2), int(y - hole_spacing*2),
+                                   int(x - hole_spacing/2), int(y + hole_spacing*2))
+                    painter.setPen(QPen(tie_point_color, 1))
+                
+                x += hole_spacing
+                col += 1
+            row += 1
     
-    # === DRAG AND DROP (ORIGINAL COMPLETE) ===
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        """Handle drag enter for component placement (ORIGINAL)"""
-        if event.mimeData().hasText():
-            component_data = event.mimeData().text()
-            if component_data.startswith("component:"):
-                event.accept()
-                print(f"🎯 Drag enter accepted: {component_data}")
-            else:
-                event.ignore()
+    # === GRID CONTROL METHODS ===
+    def set_grid_visible(self, visible):
+        """Set grid visibility"""
+        self.grid_visible = visible
+        self.viewport().update()
+        print(f"🔧 Grid visibility: {visible}")
+    
+    def set_grid_style(self, style):
+        """Set grid style"""
+        self.grid_style = style.lower()
+        self.viewport().update()
+        print(f"🎨 Grid style: {style}")
+    
+    def set_grid_color(self, color_name):
+        """Set grid color by name"""
+        color_map = {
+            "green": QColor(100, 140, 100),
+            "gray": QColor(128, 128, 128),
+            "blue": QColor(100, 100, 200),
+            "red": QColor(200, 100, 100),
+            "custom": QColor(150, 150, 150)  # Default custom
+        }
+        self.grid_color = color_map.get(color_name.lower(), QColor(100, 140, 100))
+        self.viewport().update()
+        print(f"🎨 Grid color changed to: {color_name}")
+    
+    def set_background_color(self, color_name):
+        """Set background color by name"""
+        color_map = {
+            "white": QColor(255, 255, 255),
+            "light gray": QColor(240, 240, 240),
+            "dark gray": QColor(64, 64, 64),
+            "black": QColor(0, 0, 0),
+            "cream": QColor(255, 253, 240),
+            "custom": QColor(25, 25, 35)  # Default custom
+        }
+        self.background_color = color_map.get(color_name.lower(), QColor(25, 25, 35))
+        self.setBackgroundBrush(QBrush(self.background_color))
+        self.viewport().update()
+        print(f"🎨 Background color changed to: {color_name}")
+    
+    def set_grid_spacing(self, spacing):
+        """Set grid spacing"""
+        if isinstance(spacing, str):
+            if "Fine" in spacing:
+                self.grid_size = 10
+            elif "Medium" in spacing:
+                self.grid_size = 20
+            elif "Coarse" in spacing:
+                self.grid_size = 40
         else:
-            event.ignore()
+            self.grid_size = int(spacing) if spacing else 20
+        self.viewport().update()
+        print(f"🔧 Grid size: {self.grid_size}")
     
-    def dragMoveEvent(self, event):
-        """Handle drag move (ORIGINAL)"""
-        if event.mimeData().hasText():
-            event.accept()
+    def set_snap_to_grid(self, enabled):
+        """Set snap to grid"""
+        self.snap_to_grid = enabled
+        print(f"🔧 Snap to grid: {enabled}")
     
-    def dropEvent(self, event: QDropEvent):
-        """Handle component drop with unified image loading (ENHANCED)"""
-        if event.mimeData().hasText():
-            component_data = event.mimeData().text()
-            if component_data.startswith("component:"):
-                try:
-                    # Parse component data
-                    _, comp_type, comp_name = component_data.split(":", 2)
-                    
-                    # Get drop position in scene coordinates
-                    scene_pos = self.mapToScene(event.position().toPoint())
-                    
-                    # Snap to grid if enabled
-                    if self.snap_to_grid:
-                        scene_pos.setX(round(scene_pos.x() / self.grid_size) * self.grid_size)
-                        scene_pos.setY(round(scene_pos.y() / self.grid_size) * self.grid_size)
-                    
-                    # Create component
-                    component = self._create_component(comp_name, comp_type, scene_pos)
-                    
-                    if component:
-                        # Add to tracking
-                        component_id = f"{comp_name}_{len(self.components)}"
-                        self.components[component_id] = component
-                        
-                        # Emit signals
-                        self.component_added.emit(component)
-                        
-                        print(f"✅ Component placed: {comp_name} at {scene_pos}")
-                        event.accept()
-                    else:
-                        print(f"❌ Failed to create component: {comp_name}")
-                        event.ignore()
-                except Exception as e:
-                    print(f"❌ Drop error: {e}")
-                    event.ignore()
-            else:
-                event.ignore()
-        else:
-            event.ignore()
-    
-    def _create_component(self, name: str, comp_type: str, position: QPointF):
-        """Create component with unified image loading (ENHANCED)"""
+    # === COMPONENT MANAGEMENT ===
+    def add_component(self, component_id: str, component_name: str, component_type: str, 
+                     position: QPointF, package_type: str = "DIP"):
+        """Add component to canvas"""
         try:
             # Create component instance
-            component = VisibleBaseComponent(name, comp_type)
-            component.setPos(position)
+            component = VisibleBaseComponent(component_name, component_type, package_type)
             
-            # Add to scene
+            # Set position (snap to grid if enabled)
+            if self.snap_to_grid:
+                snapped_pos = self._snap_to_grid(position)
+                component.setPos(snapped_pos)
+            else:
+                component.setPos(position)
+            
+            # Add to scene and tracking
             self.scene.addItem(component)
+            self.components[component_id] = component
             
+            # Emit signal
+            self.component_added.emit(component)
+            
+            print(f"✅ Component added: {component_name} at {component.pos()}")
             return component
             
         except Exception as e:
-            print(f"❌ Component creation failed: {e}")
+            print(f"❌ Error adding component: {e}")
             return None
     
-    # === MOUSE EVENTS (ENHANCED WITH MISSING METHODS) ===
-    def mousePressEvent(self, event: QMouseEvent):
-        """Handle mouse press for selection (ORIGINAL)"""
-        super().mousePressEvent(event)
-        
-        item = self.itemAt(event.position().toPoint())
-        if item and hasattr(item, 'component_type'):
-            # Component selected
-            self.selected_components.clear()
-            self.selected_components.append(item)
-            self.component_selected.emit(item)
-            self.selection_changed.emit(list(self.selected_components))
-    
-    def mouseMoveEvent(self, event: QMouseEvent):
-        """Handle mouse move for dragging and interactions (ADDED)"""
-        super().mouseMoveEvent(event)
-        
-        # Update any temporary visual elements (like connection lines)
-        if self.temp_connection_line:
-            scene_pos = self.mapToScene(event.position().toPoint())
-            # Update temporary connection line end point
-            line = self.temp_connection_line.line()
-            line.setP2(scene_pos)
-            self.temp_connection_line.setLine(line)
-    
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        """Handle mouse release for completing interactions (ADDED)"""
-        super().mouseReleaseEvent(event)
-        
-        # Handle connection completion
-        if self.temp_connection_line:
-            item = self.itemAt(event.position().toPoint())
-            if item and hasattr(item, 'component_type') and item != self.connection_start_component:
-                # Complete connection
-                self.connection_created.emit(self.connection_start_component, item, "out", "in")
-                print(f"🔗 Connection created between {self.connection_start_component.component_name} and {item.component_name}")
-            
-            # Clean up temporary connection line
-            self.scene.removeItem(self.temp_connection_line)
-            self.temp_connection_line = None
-            self.connection_start_component = None
-    
-    def wheelEvent(self, event: QWheelEvent):
-        """Handle mouse wheel for zooming (ORIGINAL)"""
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            # Zoom with Ctrl + wheel
-            zoom_factor = 1.25 if event.angleDelta().y() > 0 else 0.8
-            self.scale(zoom_factor, zoom_factor)
-            self.zoom_factor *= zoom_factor
-            print(f"🔍 Zoom: {self.zoom_factor:.2f}")
-        else:
-            super().wheelEvent(event)
-    
-    def keyPressEvent(self, event: QKeyEvent):
-        """Handle key press events (ORIGINAL)"""
-        if event.key() == Qt.Key.Key_Delete:
-            # Delete selected components
-            for component in self.selected_components:
-                self.scene.removeItem(component)
-                # Remove from tracking
-                for comp_id, comp in list(self.components.items()):
-                    if comp == component:
-                        del self.components[comp_id]
-                        break
-                self.component_removed.emit(component)
-            self.selected_components.clear()
-            self.selection_changed.emit([])
-            print("🗑️ Selected components deleted")
-        
-        elif event.key() == Qt.Key.Key_Escape:
-            # Clear selection
-            self.selected_components.clear()
-            self.selection_changed.emit([])
-            self.scene.clearSelection()
-            print("↩️ Selection cleared")
-        
-        else:
-            super().keyPressEvent(event)
-    
-    # === COMPONENT MANAGEMENT (ALL ORIGINAL) ===
-    def add_component(self, component_type: str, component_name: str, position: QPointF = None):
-        """Add component to canvas programmatically (ORIGINAL)"""
-        if position is None:
-            position = QPointF(0, 0)
-        
-        component = self._create_component(component_name, component_type, position)
-        if component:
-            component_id = f"{component_name}_{len(self.components)}"
-            self.components[component_id] = component
-            self.component_added.emit(component)
-            return component_id
-        return None
-    
     def remove_component(self, component_id: str):
-        """Remove component by ID (ORIGINAL)"""
+        """Remove component from canvas"""
         if component_id in self.components:
             component = self.components[component_id]
             self.scene.removeItem(component)
@@ -578,145 +572,66 @@ class EnhancedPCBCanvas(QGraphicsView):
             self.component_removed.emit(component)
             print(f"🗑️ Component removed: {component_id}")
     
-    def get_component_at(self, position: QPointF):
-        """Get component at position (ORIGINAL)"""
-        view_pos = self.mapFromScene(position)
-        item = self.itemAt(view_pos.toPoint())
-        return item if item and hasattr(item, 'component_type') else None
-    
     def clear_all_components(self):
-        """Clear all components from canvas (ORIGINAL)"""
-        for component in list(self.components.values()):
-            self.scene.removeItem(component)
-        self.components.clear()
-        self.selected_components.clear()
+        """Clear all components"""
+        for component_id in list(self.components.keys()):
+            self.remove_component(component_id)
         self.connections.clear()
-        self.selection_changed.emit([])
         print("🧹 All components cleared")
     
-    def get_all_components(self):
-        """Get all components (ORIGINAL)"""
-        return list(self.components.values())
+    def get_components(self):
+        """Get all components"""
+        return dict(self.components)
     
-    def select_component(self, component):
-        """Select a specific component (ORIGINAL)"""
-        self.selected_components.clear()
-        self.selected_components.append(component)
-        component.setSelected(True)
-        self.component_selected.emit(component)
-        self.selection_changed.emit(list(self.selected_components))
-    
-    # === GRID CONTROL METHODS (for layer controls integration) ===
-    def set_grid_visible(self, visible: bool):
-        """Set grid visibility"""
-        self.grid_visible = visible
-        self.viewport().update()
-        print(f"🔧 Grid {'visible' if visible else 'hidden'}")
-    
-    def set_grid_style(self, style):
-        """Set grid style (from GridStyle enum or string)"""
-        if hasattr(style, 'value'):
-            self.grid_style = style.value
-        else:
-            self.grid_style = str(style).lower()
-        self.viewport().update()
-        print(f"🔧 Grid style set to: {self.grid_style}")
-    
-    def set_grid_spacing(self, spacing, custom_value=None):
-        """Set grid spacing (from GridSpacing enum or custom value)"""
-        if custom_value and custom_value > 0:
-            # Use custom value (convert mm to pixels, assuming ~2.83 pixels per mm)
-            self.grid_size = int(custom_value * 2.83)
-        elif hasattr(spacing, 'value'):
-            # Use enum value
-            spacing_map = {
-                "Fine (2.54mm)": int(2.54 * 2.83),  # ~7 pixels
-                "Medium (5.08mm)": int(5.08 * 2.83),  # ~14 pixels
-                "Coarse (10.16mm)": int(10.16 * 2.83)  # ~29 pixels
-            }
-            self.grid_size = spacing_map.get(spacing.value, 20)
-        else:
-            # Fallback
-            self.grid_size = 20
+    # === UTILITY METHODS ===
+    def _snap_to_grid(self, point: QPointF) -> QPointF:
+        """Snap point to grid"""
+        if not self.snap_to_grid:
+            return point
         
-        self.viewport().update()
-        print(f"🔧 Grid size set to: {self.grid_size} pixels")
+        snapped_x = round(point.x() / self.grid_size) * self.grid_size
+        snapped_y = round(point.y() / self.grid_size) * self.grid_size
+        return QPointF(snapped_x, snapped_y)
     
-    def set_snap_to_grid(self, enabled: bool):
-        """Set snap to grid"""
-        self.snap_to_grid = enabled
-        print(f"🔧 Snap to grid {'enabled' if enabled else 'disabled'}")
-    
-    # === VIEW CONTROL METHODS (ENHANCED WITH MISSING METHODS) ===
-    def zoom_to_fit(self):
-        """Zoom to fit all components"""
-        if self.components:
-            self.fitInView(self.scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-            print("🔍 Zoomed to fit all components")
-    
-    def fit_in_view(self):
-        """Fit all content in view (ADDED)"""
-        if self.components:
-            self.fitInView(self.scene.itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-            self.zoom_factor = 1.0  # Reset zoom factor tracking
-            print("🔍 Fitted all content in view")
-        else:
-            self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-            print("🔍 Fitted scene in view")
-    
-    def fit_to_window(self):
-        """Fit content to window (ADDED)"""
-        self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.zoom_factor = 1.0
-        print("🔍 Fitted to window")
-    
-    def reset_zoom(self):
-        """Reset zoom to 100%"""
-        self.resetTransform()
-        self.zoom_factor = 1.0
-        print("🔍 Zoom reset to 100%")
-    
-    def zoom_in(self):
-        """Zoom in"""
-        self.scale(1.25, 1.25)
-        self.zoom_factor *= 1.25
-        print("🔍 Zoomed in")
-    
-    def zoom_out(self):
-        """Zoom out"""
-        self.scale(0.8, 0.8)
-        self.zoom_factor *= 0.8
-        print("🔍 Zoomed out")
-    
-    # === CONNECTION MANAGEMENT (ALL ORIGINAL) ===
-    def start_connection(self, component, port="out"):
-        """Start creating a connection (ORIGINAL)"""
-        self.connection_start_component = component
-        self.connection_start_port = port
+    # === MOUSE EVENTS ===
+    def wheelEvent(self, event):
+        """Handle mouse wheel for zooming"""
+        zoom_in_factor = 1.25
+        zoom_out_factor = 1 / zoom_in_factor
         
-        # Create temporary connection line
-        start_pos = component.scenePos()
-        self.temp_connection_line = QGraphicsLineItem(
-            start_pos.x(), start_pos.y(),
-            start_pos.x(), start_pos.y()
-        )
-        self.temp_connection_line.setPen(QPen(QColor(255, 255, 0), 2))  # Yellow line
-        self.scene.addItem(self.temp_connection_line)
-        print(f"🔗 Starting connection from {component.component_name}")
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
+        
+        self.scale(zoom_factor, zoom_factor)
+        self.zoom_factor *= zoom_factor
     
-    def clear_connections(self):
-        """Clear all connections (ORIGINAL)"""
-        self.connections.clear()
-        # Remove connection graphics if any
-        print("🧹 All connections cleared")
+    def dragEnterEvent(self, event):
+        """Handle drag enter"""
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+            print("✅ Drag accepted")
     
-    def get_connections(self):
-        """Get all connections (ORIGINAL)"""
-        return list(self.connections)
+    def dropEvent(self, event):
+        """Handle drop event"""
+        if event.mimeData().hasText():
+            drop_data = event.mimeData().text()
+            drop_pos = self.mapToScene(event.position().toPoint())
+            
+            print(f"📦 Drop event: {drop_data} at {drop_pos}")
+            
+            # Parse drop data (category:component format)
+            if ":" in drop_data:
+                category, component = drop_data.split(":", 1)
+                component_id = f"{component}_{len(self.components)}"
+                self.add_component(component_id, component, category, drop_pos)
+            
+            event.acceptProposedAction()
     
-    # === PROJECT MANAGEMENT (ALL ORIGINAL) ===
+    # === PROJECT MANAGEMENT ===
     def save_to_project_data(self):
-        """Save canvas state to project data (ORIGINAL)"""
+        """Save canvas state to project data"""
         return {
             'components': [
                 {
@@ -732,12 +647,14 @@ class EnhancedPCBCanvas(QGraphicsView):
                 'size': self.grid_size,
                 'visible': self.grid_visible,
                 'style': self.grid_style,
-                'snap_to_grid': self.snap_to_grid
+                'snap_to_grid': self.snap_to_grid,
+                'grid_color': self.grid_color.name(),
+                'background_color': self.background_color.name()
             }
         }
     
     def load_from_project_data(self, data):
-        """Load canvas state from project data (ORIGINAL)"""
+        """Load canvas state from project data"""
         try:
             # Clear existing components
             self.clear_all_components()
@@ -746,13 +663,12 @@ class EnhancedPCBCanvas(QGraphicsView):
             if 'components' in data:
                 for comp_data in data['components']:
                     position = QPointF(comp_data['position']['x'], comp_data['position']['y'])
-                    component = self._create_component(
+                    self.add_component(
+                        comp_data['id'],
                         comp_data['name'], 
                         comp_data['type'], 
                         position
                     )
-                    if component:
-                        self.components[comp_data['id']] = component
             
             # Load connections
             if 'connections' in data:
@@ -765,6 +681,13 @@ class EnhancedPCBCanvas(QGraphicsView):
                 self.grid_visible = grid_settings.get('visible', True)
                 self.grid_style = grid_settings.get('style', 'lines')
                 self.snap_to_grid = grid_settings.get('snap_to_grid', True)
+                
+                if 'grid_color' in grid_settings:
+                    self.grid_color = QColor(grid_settings['grid_color'])
+                if 'background_color' in grid_settings:
+                    self.background_color = QColor(grid_settings['background_color'])
+                    self.setBackgroundBrush(QBrush(self.background_color))
+                
                 self.viewport().update()
             
             print(f"✅ Project loaded: {len(self.components)} components")
