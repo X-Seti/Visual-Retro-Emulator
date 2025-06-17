@@ -1,664 +1,529 @@
+#!/usr/bin/env python3
 """
-X-Seti - June16 2025 - Component Palette with Fixed Theming
-Enhanced Component Palette with proper theme integration and consolidated sections
+X-Seti - June16 2025 - Enhanced Component Palette with Bubble Interface
+Visual Retro System Emulator Builder - Clean UI with tooltip bubbles
 """
 
 #this belongs in ui/component_palette.py
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, 
-                           QTreeWidgetItem, QLabel, QLineEdit, QComboBox, 
-                           QPushButton, QFrame, QTextEdit, QSplitter, QGroupBox,
-                           QScrollArea, QCheckBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
-from PyQt6.QtGui import QDrag, QFont, QPixmap, QPainter
+import os
+import sys
+import json
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget,
+                           QTreeWidgetItem, QLineEdit, QComboBox, QPushButton,
+                           QLabel, QFrame, QCheckBox, QToolTip, QGraphicsDropShadowEffect,
+                           QDialog, QTextEdit, QSplitter, QScrollArea, QTabWidget)
+from PyQt6.QtCore import (Qt, pyqtSignal, QTimer, QPoint, QRect, QPropertyAnimation,
+                        QEasingCurve, QParallelAnimationGroup, QMimeData)
+from PyQt6.QtGui import (QFont, QPixmap, QPainter, QColor, QPen, QBrush, 
+                       QCursor, QPalette, QIcon, QDrag)
 
-class DraggableTreeWidget(QTreeWidget):
-    """Enhanced tree widget with proper drag support"""
+class ComponentBubble(QWidget):
+    """Floating component information bubble"""
     
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setDragEnabled(True)
-        self.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
-    
-    def startDrag(self, supportedActions):
-        """Start drag operation with component data"""
-        item = self.currentItem()
-        if item:
-            data = item.data(0, Qt.ItemDataRole.UserRole)
-            if data:
-                category, component = data
-                
-                drag = QDrag(self)
-                mimeData = QMimeData()
-                mimeData.setText(f"{category}:{component}")
-                drag.setMimeData(mimeData)
-                
-                # Create drag pixmap
-                pixmap = QPixmap(100, 30)
-                pixmap.fill(Qt.GlobalColor.transparent)
-                painter = QPainter(pixmap)
-                painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, component)
-                painter.end()
-                
-                drag.setPixmap(pixmap)
-                drag.exec(Qt.DropAction.CopyAction)
-
-class EnhancedComponentPalette(QWidget):
-    """
-    Enhanced Component Palette with Fixed Theming
-    
-    FIXES APPLIED:
-    ✅ Removed hardcoded white backgrounds
-    ✅ Dynamic theme color application
-    ✅ Consolidated component sections
-    ✅ Proper drag & drop support
-    ✅ Search functionality with Ctrl+F
-    ✅ Switchable button icons/text
-    """
-    
-    # Signals
-    component_selected = pyqtSignal(str, str)  # category, component
-    component_dragged = pyqtSignal(dict)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
+        super().__init__(parent, Qt.WindowType.ToolTip)
+        self.setWindowFlags(Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint)
+        # Remove the translucent background to avoid opacity issues
+        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        # Component data storage
-        self.categories = {}
-        self.all_components = []
-        self.filtered_components = []
-        self.app_settings = None
+        # Setup layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(8)
         
-        # UI state
-        self.show_icons = True
-        self.current_filter = "All Types"
-        
-        # Load settings
-        self._load_app_settings()
-        
-        # Setup UI
-        self._setup_ui()
-        self._load_component_data()
-        self._populate_tree()
-        self._apply_theme()
-        
-        print("✅ Enhanced Component Palette with fixed theming initialized")
-    
-    def _load_app_settings(self):
-        """Load application settings for theming"""
-        try:
-            from utils.App_settings_system import AppSettingsSystem
-            self.app_settings = AppSettingsSystem()
-        except ImportError:
-            try:
-                from utils.app_settings_fallback import AppSettingsSystem
-                self.app_settings = AppSettingsSystem()
-            except ImportError:
-                self.app_settings = None
-                print("⚠️ App settings not available, using default styling")
-    
-    def _setup_ui(self):
-        """Setup the main UI layout with proper theming"""
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(6, 6, 6, 6)
-        main_layout.setSpacing(8)
-        
-        # Title with theme-aware styling
-        title_label = QLabel("Component Palette")
-        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        title_label.setObjectName("title_label")  # For theme targeting
-        main_layout.addWidget(title_label)
-        
-        # Search and filter controls
-        self._create_search_controls(main_layout)
-        
-        # Main content splitter
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        main_layout.addWidget(splitter)
-        
-        # Component tree
-        self._create_component_tree(splitter)
-        
-        # Details panel
-        self._create_details_panel(splitter)
-        
-        # Action buttons
-        self._create_action_buttons(main_layout)
-        
-        # Set splitter proportions
-        splitter.setSizes([300, 200])
-    
-    def _create_search_controls(self, layout):
-        """Create search and filter controls with theme-aware styling"""
-        search_group = QGroupBox("Search & Filter")
-        search_group.setObjectName("search_group")
-        search_layout = QVBoxLayout(search_group)
-        
-        # Search box
-        search_row = QHBoxLayout()
-        search_row.addWidget(QLabel("Search:"))
-        
-        self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Type to search components... (Ctrl+F)")
-        self.search_box.textChanged.connect(self._filter_components)
-        self.search_box.setObjectName("search_box")
-        search_row.addWidget(self.search_box)
-        
-        search_layout.addLayout(search_row)
-        
-        # Filter controls
-        filter_row = QHBoxLayout()
-        filter_row.addWidget(QLabel("Filter:"))
-        
-        self.type_filter = QComboBox()
-        self.type_filter.addItems(["All Types", "CPU", "Memory", "Audio", "Video", "I/O", "Custom"])
-        self.type_filter.currentTextChanged.connect(self._filter_by_type)
-        self.type_filter.setObjectName("type_filter")
-        filter_row.addWidget(self.type_filter)
-        
-        search_layout.addLayout(filter_row)
-        
-        # View options
-        view_row = QHBoxLayout()
-        self.show_icons_check = QCheckBox("Show Icons")
-        self.show_icons_check.setChecked(True)
-        self.show_icons_check.toggled.connect(self._toggle_icons)
-        view_row.addWidget(self.show_icons_check)
-        
-        self.compact_view_check = QCheckBox("Compact View")
-        self.compact_view_check.toggled.connect(self._toggle_compact_view)
-        view_row.addWidget(self.compact_view_check)
-        
-        search_layout.addLayout(view_row)
-        layout.addWidget(search_group)
-    
-    def _create_component_tree(self, parent):
-        """Create the component tree widget with theme-aware styling"""
-        tree_frame = QFrame()
-        tree_frame.setObjectName("tree_frame")
-        tree_layout = QVBoxLayout(tree_frame)
-        
-        # Create custom draggable tree widget
-        self.tree = DraggableTreeWidget(self)
-        self.tree.setHeaderLabel("Components")
-        self.tree.setDragEnabled(True)
-        self.tree.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
-        self.tree.setObjectName("component_tree")
-        
-        # Connect signals
-        self.tree.itemSelectionChanged.connect(self._on_selection_changed)
-        self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
-        
-        tree_layout.addWidget(self.tree)
-        parent.addWidget(tree_frame)
-    
-    def _create_details_panel(self, parent):
-        """Create the component details panel with theme-aware styling"""
-        details_frame = QFrame()
-        details_frame.setObjectName("details_frame")
-        details_layout = QVBoxLayout(details_frame)
-        
-        # Image preview (theme-aware)
-        self._create_image_preview(details_layout)
-        
-        # Component info (theme-aware)
-        self._create_component_info_display(details_layout)
-        
-        parent.addWidget(details_frame)
-    
-    def _create_image_preview(self, layout):
-        """Create image preview area with theme-aware styling"""
-        image_group = QGroupBox("Preview")
-        image_group.setObjectName("image_group")
-        image_layout = QVBoxLayout(image_group)
-        
-        self.image_label = QLabel("No Preview")
+        # Component image
+        self.image_label = QLabel()
+        self.image_label.setFixedSize(120, 80)
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumSize(100, 80)
-        self.image_label.setObjectName("image_label")
-        image_layout.addWidget(self.image_label)
-        
-        layout.addWidget(image_group)
-    
-    def _create_component_info_display(self, layout):
-        """Create component information display with theme-aware styling"""
-        info_group = QGroupBox("Component Info")
-        info_group.setObjectName("info_group")
-        info_layout = QVBoxLayout(info_group)
+        self.image_label.setStyleSheet("""
+            QLabel {
+                background-color: #f0f0f0;
+                border: 2px solid #bdc3c7;
+                border-radius: 8px;
+                font-size: 10px;
+                color: #666;
+            }
+        """)
+        layout.addWidget(self.image_label)
         
         # Component name
-        self.name_label = QLabel("Select a component")
-        self.name_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-        self.name_label.setObjectName("name_label")
-        info_layout.addWidget(self.name_label)
+        self.name_label = QLabel()
+        self.name_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.name_label.setStyleSheet("color: #2c3e50; background: transparent;")
+        layout.addWidget(self.name_label)
         
-        # Component details
-        self.details_text = QTextEdit()
-        self.details_text.setMaximumHeight(80)
-        self.details_text.setReadOnly(True)
-        self.details_text.setObjectName("details_text")
-        info_layout.addWidget(self.details_text)
+        # Quick info
+        self.info_label = QLabel()
+        self.info_label.setFont(QFont("Arial", 9))
+        self.info_label.setWordWrap(True)
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.info_label.setStyleSheet("color: #34495e; background: transparent;")
+        layout.addWidget(self.info_label)
         
-        # Description section
-        desc_label = QLabel("Description:")
-        desc_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
-        info_layout.addWidget(desc_label)
+        # Encyclopedia button
+        self.encyclopedia_button = QPushButton("📖 More Info")
+        self.encyclopedia_button.setFont(QFont("Arial", 8))
+        self.encyclopedia_button.setFixedHeight(25)
+        self.encyclopedia_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 12px;
+                padding: 4px 8px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        layout.addWidget(self.encyclopedia_button)
         
-        self.description_text = QTextEdit()
-        self.description_text.setMaximumHeight(60)
-        self.description_text.setReadOnly(True)
-        self.description_text.setObjectName("description_text")
-        info_layout.addWidget(self.description_text)
+        # Style the bubble - solid background instead of translucent
+        self.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border: 2px solid #3498db;
+                border-radius: 12px;
+            }
+        """)
         
-        layout.addWidget(info_group)
+        # Simple timer for hiding (no opacity animations to avoid issues)
+        self.hide_timer = QTimer()
+        self.hide_timer.setSingleShot(True)
+        self.hide_timer.timeout.connect(self.hide)
+        
+    def show_component_info(self, category, component, component_data, position):
+        """Show component information bubble"""
+        # Set content
+        self.name_label.setText(f"{component}")
+        
+        # Build quick info
+        info_text = f"Category: {category}\n"
+        if 'package' in component_data:
+            info_text += f"Package: {component_data['package']}\n"
+        if 'pins' in component_data:
+            info_text += f"Pins: {component_data['pins']}\n"
+        if 'description' in component_data:
+            desc = component_data['description'][:100] + "..." if len(component_data['description']) > 100 else component_data['description']
+            info_text += f"\n{desc}"
+        
+        self.info_label.setText(info_text)
+        
+        # Set position
+        self.move(position)
+        
+        # Show without opacity animation
+        self.show()
+        
+        # Reset hide timer
+        self.hide_timer.start(3000)  # Hide after 3 seconds
     
-    def _create_action_buttons(self, layout):
-        """Create action buttons with theme-aware styling"""
-        button_group = QGroupBox("Actions")
-        button_layout = QHBoxLayout(button_group)
-        
-        self.add_button = QPushButton("Add Custom")
-        self.add_button.clicked.connect(self._add_custom_component)
-        self.add_button.setObjectName("add_button")
-        button_layout.addWidget(self.add_button)
-        
-        self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.clicked.connect(self.refresh_palette)
-        self.refresh_button.setObjectName("refresh_button")
-        button_layout.addWidget(self.refresh_button)
-        
-        self.import_button = QPushButton("Import")
-        self.import_button.clicked.connect(self._import_component)
-        self.import_button.setObjectName("import_button")
-        button_layout.addWidget(self.import_button)
-        
-        layout.addWidget(button_group)
+    def enterEvent(self, event):
+        """Mouse entered - keep visible"""
+        self.hide_timer.stop()
+        super().enterEvent(event)
     
-    def _load_component_data(self):
-        """Load comprehensive component data"""
-        self.categories = {
-            "CPUs": {
-                "Z80": {"description": "8-bit microprocessor", "pins": 40, "package": "DIP-40"},
-                "6502": {"description": "8-bit microprocessor used in Apple II, Commodore 64", "pins": 40, "package": "DIP-40"},
-                "68000": {"description": "16/32-bit microprocessor", "pins": 64, "package": "DIP-64"},
-                "8080": {"description": "Early 8-bit microprocessor", "pins": 40, "package": "DIP-40"},
-                "6809": {"description": "Advanced 8-bit microprocessor", "pins": 40, "package": "DIP-40"}
-            },
-            "Memory": {
-                "ROM": {"description": "Read-Only Memory", "sizes": ["2K", "4K", "8K", "16K"]},
-                "RAM": {"description": "Random Access Memory", "sizes": ["1K", "2K", "4K", "8K"]},
-                "EEPROM": {"description": "Electrically Erasable ROM", "sizes": ["256B", "512B", "1K"]},
-                "Flash": {"description": "Flash Memory", "sizes": ["1M", "2M", "4M", "8M"]}
-            },
-            "Audio": {
-                "SID": {"description": "Sound Interface Device (C64)", "channels": 3},
-                "AY-3-8910": {"description": "Programmable Sound Generator", "channels": 3},
-                "YM2612": {"description": "FM Sound Chip (Genesis)", "channels": 6},
-                "POKEY": {"description": "Audio chip (Atari)", "channels": 4}
-            },
-            "Video": {
-                "TMS9918": {"description": "Video Display Processor", "resolution": "256x192"},
-                "VIC-II": {"description": "Video chip (C64)", "resolution": "320x200"},
-                "PPU": {"description": "Picture Processing Unit (NES)", "resolution": "256x240"},
-                "VERA": {"description": "Video chip (Commander X16)", "resolution": "640x480"}
-            },
-            "I/O": {
-                "PIA": {"description": "Peripheral Interface Adapter", "ports": 2},
-                "VIA": {"description": "Versatile Interface Adapter", "ports": 2},
-                "UART": {"description": "Universal Async Receiver/Transmitter", "speed": "9600 baud"},
-                "ACIA": {"description": "Asynchronous Communications Interface", "speed": "19200 baud"}
-            },
-            "Custom": {
-                "User Defined": {"description": "Custom user component", "type": "generic"},
-                "Import Component": {"description": "Import from file", "type": "import"}
+    def leaveEvent(self, event):
+        """Mouse left - start hide timer"""
+        self.hide_timer.start(1000)
+        super().leaveEvent(event)
+
+class ComponentEncyclopedia(QDialog):
+    """Component encyclopedia dialog"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Component Encyclopedia")
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.WindowMaximizeButtonHint)
+        self.resize(800, 600)
+        
+        layout = QVBoxLayout(self)
+        
+        # Search bar
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(QLabel("Search:"))
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("Search components...")
+        search_layout.addWidget(self.search_box)
+        layout.addLayout(search_layout)
+        
+        # Main content
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Component list
+        self.component_list = QTreeWidget()
+        self.component_list.setHeaderLabels(["Component", "Category", "Package"])
+        self.component_list.setMaximumWidth(300)
+        splitter.addWidget(self.component_list)
+        
+        # Details tabs
+        self.details_tabs = QTabWidget()
+        
+        # Overview tab
+        self.overview_text = QTextEdit()
+        self.overview_text.setReadOnly(True)
+        self.details_tabs.addTab(self.overview_text, "Overview")
+        
+        # Pinout tab
+        self.pinout_text = QTextEdit()
+        self.pinout_text.setReadOnly(True)
+        self.details_tabs.addTab(self.pinout_text, "Pinout")
+        
+        # Specifications tab
+        self.specs_text = QTextEdit()
+        self.specs_text.setReadOnly(True)
+        self.details_tabs.addTab(self.specs_text, "Specifications")
+        
+        # Applications tab
+        self.applications_text = QTextEdit()
+        self.applications_text.setReadOnly(True)
+        self.details_tabs.addTab(self.applications_text, "Applications")
+        
+        splitter.addWidget(self.details_tabs)
+        layout.addWidget(splitter)
+        
+        # Connect signals
+        self.component_list.itemClicked.connect(self.show_component_details)
+        self.search_box.textChanged.connect(self.filter_components)
+        
+        # Load data
+        self.load_encyclopedia_data()
+    
+    def load_encyclopedia_data(self):
+        """Load component encyclopedia data"""
+        # This would load from a comprehensive component database
+        sample_data = {
+            "Z80": {
+                "category": "CPU",
+                "package": "DIP-40",
+                "overview": "The Z80 is an 8-bit microprocessor designed by Zilog...",
+                "pinout": "Pin 1: A11\nPin 2: A12\nPin 3: A13...",
+                "specifications": "Clock Speed: 2.5-8 MHz\nData Bus: 8-bit\nAddress Bus: 16-bit...",
+                "applications": "Used in computers like ZX Spectrum, MSX, Game Boy..."
             }
         }
+        # Populate list...
+    
+    def show_component_details(self, item):
+        """Show detailed component information"""
+        # Implementation for showing detailed info
+        pass
+    
+    def filter_components(self, text):
+        """Filter components by search text"""
+        # Implementation for filtering
+        pass
+
+class CleanComponentPalette(QWidget):
+    """Clean component palette with bubble tooltips"""
+    
+    component_selected = pyqtSignal(str, str)  # category, component
+    component_double_clicked = pyqtSignal(str, str)  # category, component
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Component Palette")
+        self.setMinimumWidth(280)
+        self.setMaximumWidth(350)
         
-        # Flatten for search
-        self.all_components = []
-        for category, components in self.categories.items():
-            for comp_name, comp_data in components.items():
-                self.all_components.append({
-                    'category': category,
-                    'name': comp_name,
-                    'data': comp_data
-                })
+        # Initialize data
+        self.categories = {}
+        self.bubble = ComponentBubble(self)
+        self.encyclopedia = None
+        
+        # Setup UI
+        self._create_ui()
+        self._load_component_data()
+        self._populate_tree()
+        
+        print("✅ Clean Component Palette initialized")
+    
+    def _create_ui(self):
+        """Create the main UI"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Title
+        title_label = QLabel("🔧 Components")
+        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #2c3e50;
+                background-color: rgba(52, 152, 219, 0.1);
+                padding: 8px;
+                border-radius: 6px;
+                border: 1px solid rgba(52, 152, 219, 0.3);
+            }
+        """)
+        layout.addWidget(title_label)
+        
+        # Search and filter
+        search_layout = QHBoxLayout()
+        
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("🔍 Search components... (Ctrl+F)")
+        self.search_box.textChanged.connect(self._filter_components)
+        search_layout.addWidget(self.search_box)
+        
+        self.type_filter = QComboBox()
+        self.type_filter.addItems(["All Types", "CPUs", "Memory", "Custom ICs", "I/O"])
+        self.type_filter.currentTextChanged.connect(self._filter_by_type)
+        self.type_filter.setMaximumWidth(100)
+        search_layout.addWidget(self.type_filter)
+        
+        layout.addLayout(search_layout)
+        
+        # Options
+        options_layout = QHBoxLayout()
+        
+        self.show_icons = QCheckBox("Icons")
+        self.show_icons.setChecked(True)
+        self.show_icons.toggled.connect(self._update_display)
+        options_layout.addWidget(self.show_icons)
+        
+        self.compact_view = QCheckBox("Compact")
+        self.compact_view.toggled.connect(self._update_display)
+        options_layout.addWidget(self.compact_view)
+        
+        options_layout.addStretch()
+        
+        # Encyclopedia button
+        self.encyclopedia_btn = QPushButton("📚")
+        self.encyclopedia_btn.setToolTip("Open Component Encyclopedia")
+        self.encyclopedia_btn.setFixedSize(30, 25)
+        self.encyclopedia_btn.clicked.connect(self._open_encyclopedia)
+        self.encyclopedia_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        options_layout.addWidget(self.encyclopedia_btn)
+        
+        layout.addLayout(options_layout)
+        
+        # Component tree
+        self.tree = QTreeWidget()
+        self.tree.setHeaderHidden(True)
+        self.tree.setRootIsDecorated(True)
+        self.tree.setAlternatingRowColors(True)
+        self.tree.itemClicked.connect(self._on_item_clicked)
+        self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree.itemEntered.connect(self._on_item_hover)
+        self.tree.setMouseTracking(True)
+        
+        # Enable drag and drop
+        self.tree.setDragEnabled(True)
+        self.tree.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
+        
+        # Style the tree for better readability
+        self.tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #ffffff;
+                border: 2px solid #bdc3c7;
+                border-radius: 6px;
+                font-size: 11px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                selection-background-color: #3498db;
+                alternate-background-color: #f8f9fa;
+            }
+            QTreeWidget::item {
+                padding: 6px 4px;
+                border-bottom: 1px solid #ecf0f1;
+                color: #2c3e50;
+                font-weight: normal;
+            }
+            QTreeWidget::item:hover {
+                background-color: rgba(52, 152, 219, 0.15);
+                color: #2c3e50;
+            }
+            QTreeWidget::item:selected {
+                background-color: #3498db;
+                color: white;
+                font-weight: bold;
+            }
+            QTreeWidget::branch {
+                background-color: transparent;
+            }
+            QTreeWidget::branch:has-children:closed {
+                image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABYSURBVBiVpY4xDgAgCEP7/w9nJ1YHJ+sQbpDQFhq6MC6+78sAUziGIwFJMWTgEWFE6w3g0bZSQEJAPE8DJBCBKxABEUhAJBJQiQQ0IgGdSEAnElCIBHSJf1LGABlqL4GiAAAAAElFTkSuQmCC);
+            }
+            QTreeWidget::branch:has-children:open {
+                image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABeSURBVBiVlY0xEgAgCAK7/w9TJ20HJ48F5QAhIsJaZyAdB8AKYDywA4BnhB2k3QUsA+yAZQBnhHOA+WGwAqgD2ACsA0YB7oBJgAkSsAIwDvABsAfwAXAH8AFwB/ABcADwA2AvAbj3AEAWAAAAAElFTkSuQmCC);
+            }
+        """)
+        
+        layout.addWidget(self.tree)
+        
+        # Override tree widget to handle drag operations
+        self.tree.startDrag = self._start_drag_operation
+        
+        # Action buttons
+        button_layout = QHBoxLayout()
+        
+        self.add_custom_btn = QPushButton("➕")
+        self.add_custom_btn.setToolTip("Add Custom Component")
+        self.add_custom_btn.setFixedSize(35, 25)
+        self.add_custom_btn.clicked.connect(self._add_custom_component)
+        button_layout.addWidget(self.add_custom_btn)
+        
+        self.refresh_btn = QPushButton("🔄")
+        self.refresh_btn.setToolTip("Refresh Palette")
+        self.refresh_btn.setFixedSize(35, 25)
+        self.refresh_btn.clicked.connect(self.refresh_palette)
+        button_layout.addWidget(self.refresh_btn)
+        
+        self.import_btn = QPushButton("📁")
+        self.import_btn.setToolTip("Import Components")
+        self.import_btn.setFixedSize(35, 25)
+        self.import_btn.clicked.connect(self._import_components)
+        button_layout.addWidget(self.import_btn)
+        
+        button_layout.addStretch()
+        
+        # Apply consistent button styling
+        for btn in [self.add_custom_btn, self.refresh_btn, self.import_btn]:
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #95a5a6;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #7f8c8d;
+                }
+            """)
+        
+        layout.addLayout(button_layout)
+    
+    def _load_component_data(self):
+        """Load component data from file or create sample data"""
+        try:
+            # Try to load from file
+            if os.path.exists('components.json'):
+                with open('components.json', 'r') as f:
+                    self.categories = json.load(f)
+            else:
+                # Sample data
+                self.categories = {
+                    "CPUs": {
+                        "Z80": {"package": "DIP-40", "pins": 40, "description": "8-bit microprocessor"},
+                        "6502": {"package": "DIP-40", "pins": 40, "description": "8-bit microprocessor"},
+                        "68000": {"package": "DIP-64", "pins": 64, "description": "16/32-bit microprocessor"}
+                    },
+                    "Memory": {
+                        "ROM": {"package": "DIP-28", "pins": 28, "description": "Read-only memory"},
+                        "RAM": {"package": "DIP-16", "pins": 16, "description": "Random access memory"},
+                        "EEPROM": {"package": "DIP-28", "pins": 28, "description": "Electrically erasable PROM"}
+                    },
+                    "Custom ICs": {
+                        "SID": {"package": "DIP-28", "pins": 28, "description": "Sound interface device"},
+                        "VIC-II": {"package": "DIP-40", "pins": 40, "description": "Video interface chip"}
+                    }
+                }
+            print(f"✅ Loaded {sum(len(comps) for comps in self.categories.values())} components")
+        except Exception as e:
+            print(f"⚠️ Error loading component data: {e}")
+            self.categories = {}
     
     def _populate_tree(self):
-        """Populate the component tree with proper theme styling"""
+        """Populate the component tree"""
         self.tree.clear()
         
-        # Create category structure
         for category_name, components in self.categories.items():
-            cat_item = QTreeWidgetItem(self.tree, [category_name])
-            cat_item.setExpanded(True)
-            cat_item.setFont(0, QFont("Arial", 10, QFont.Weight.Bold))
+            # Create category item
+            category_item = QTreeWidgetItem([f"📁 {category_name}"])
+            category_item.setFont(0, QFont("Arial", 10, QFont.Weight.Bold))
+            self.tree.addTopLevelItem(category_item)
             
+            # Add components
             for comp_name, comp_data in components.items():
-                comp_item = QTreeWidgetItem(cat_item, [comp_name])
-                comp_item.setData(0, Qt.ItemDataRole.UserRole, (category_name, comp_name))
+                icon = "🔲" if self.show_icons.isChecked() else ""
+                display_text = f"{icon} {comp_name}" if icon else comp_name
                 
-                # Add tooltip with component info
-                tooltip = f"Category: {category_name}\nComponent: {comp_name}\n"
-                if 'description' in comp_data:
-                    tooltip += f"Description: {comp_data['description']}"
-                comp_item.setToolTip(0, tooltip)
-    
-    def _apply_theme(self):
-        """Apply current theme to all UI elements"""
-        if not self.app_settings:
-            return
+                if self.compact_view.isChecked():
+                    display_text += f" ({comp_data.get('package', 'Unknown')})"
+                
+                comp_item = QTreeWidgetItem([display_text])
+                comp_item.setData(0, Qt.ItemDataRole.UserRole, (category_name, comp_name, comp_data))
+                
+                # Set drag and drop data
+                mime_data = f"component:{category_name}:{comp_name}:{comp_data.get('package', 'DIP-40')}"
+                comp_item.setData(0, Qt.ItemDataRole.UserRole + 1, mime_data)
+                
+                category_item.addChild(comp_item)
         
-        try:
-            current_theme = self.app_settings.get_theme()
-            colors = current_theme.get('colors', {})
+        # Expand all categories
+        self.tree.expandAll()
+    
+    def _on_item_clicked(self, item, column):
+        """Handle item click"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data:
+            category, component, comp_data = data
+            self.component_selected.emit(category, component)
+    
+    def _on_item_double_clicked(self, item, column):
+        """Handle item double click"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data:
+            category, component, comp_data = data
+            self.component_double_clicked.emit(category, component)
+            print(f"🎯 Adding {component} to canvas")
+    
+    def _on_item_hover(self, item, column):
+        """Handle item hover - show bubble"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if data:
+            category, component, comp_data = data
             
-            # Get theme colors
-            bg_primary = colors.get('bg_primary', '#f0f0f0')
-            bg_secondary = colors.get('bg_secondary', '#ffffff') 
-            text_primary = colors.get('text_primary', '#000000')
-            text_secondary = colors.get('text_secondary', '#666666')
-            accent_primary = colors.get('accent_primary', '#0078d4')
-            border = colors.get('border', '#cccccc')
-            panel_bg = colors.get('panel_bg', bg_secondary)
+            # Calculate bubble position
+            item_rect = self.tree.visualItemRect(item)
+            global_pos = self.tree.mapToGlobal(item_rect.topRight())
+            bubble_pos = QPoint(global_pos.x() + 10, global_pos.y())
             
-            # Component palette specific styling
-            palette_style = f"""
-            /* Main widget */
-            EnhancedComponentPalette {{
-                background-color: {panel_bg};
-                color: {text_primary};
-            }}
-            
-            /* Title label */
-            QLabel#title_label {{
-                color: {text_primary};
-                background-color: transparent;
-            }}
-            
-            /* Group boxes */
-            QGroupBox {{
-                background-color: {panel_bg};
-                color: {text_primary};
-                border: 2px solid {border};
-                border-radius: 6px;
-                margin-top: 1ex;
-                padding-top: 6px;
-                font-weight: bold;
-            }}
-            
-            QGroupBox::title {{
-                color: {text_primary};
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }}
-            
-            /* Frames */
-            QFrame#tree_frame, QFrame#details_frame {{
-                background-color: {panel_bg};
-                border: 1px solid {border};
-                border-radius: 4px;
-            }}
-            
-            /* Search box */
-            QLineEdit#search_box {{
-                background-color: {bg_secondary};
-                color: {text_primary};
-                border: 2px solid {border};
-                padding: 6px;
-                border-radius: 4px;
-                font-size: 10px;
-            }}
-            
-            QLineEdit#search_box:focus {{
-                border: 2px solid {accent_primary};
-            }}
-            
-            /* Combo box */
-            QComboBox#type_filter {{
-                background-color: {bg_secondary};
-                color: {text_primary};
-                border: 2px solid {border};
-                padding: 4px;
-                border-radius: 4px;
-            }}
-            
-            QComboBox#type_filter::drop-down {{
-                border: none;
-                background-color: {accent_primary};
-                border-radius: 2px;
-            }}
-            
-            QComboBox#type_filter::down-arrow {{
-                width: 0;
-                height: 0;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 4px solid white;
-            }}
-            
-            /* Tree widget */
-            QTreeWidget#component_tree {{
-                background-color: {bg_secondary};
-                color: {text_primary};
-                border: 2px solid {border};
-                alternate-background-color: {panel_bg};
-                border-radius: 4px;
-            }}
-            
-            QTreeWidget#component_tree::item {{
-                padding: 4px;
-                border-bottom: 1px solid {border};
-            }}
-            
-            QTreeWidget#component_tree::item:selected {{
-                background-color: {accent_primary};
-                color: white;
-            }}
-            
-            QTreeWidget#component_tree::item:hover {{
-                background-color: {accent_primary}44;
-            }}
-            
-            /* Text edits */
-            QTextEdit#details_text, QTextEdit#description_text {{
-                background-color: {bg_secondary};
-                color: {text_primary};
-                border: 2px solid {border};
-                border-radius: 4px;
-                padding: 4px;
-                font-size: 9px;
-            }}
-            
-            /* Image label */
-            QLabel#image_label {{
-                background-color: {bg_secondary};
-                color: {text_secondary};
-                border: 2px dashed {border};
-                border-radius: 4px;
-                font-size: 11px;
-            }}
-            
-            /* Name label */
-            QLabel#name_label {{
-                color: {text_primary};
-                background-color: transparent;
-            }}
-            
-            /* Buttons */
-            QPushButton#add_button, QPushButton#refresh_button, QPushButton#import_button {{
-                background-color: {accent_primary};
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 9px;
-            }}
-            
-            QPushButton#add_button:hover, QPushButton#refresh_button:hover, QPushButton#import_button:hover {{
-                background-color: {colors.get('button_hover', accent_primary)}99;
-            }}
-            
-            QPushButton#add_button:pressed, QPushButton#refresh_button:pressed, QPushButton#import_button:pressed {{
-                background-color: {colors.get('button_pressed', accent_primary)}CC;
-            }}
-            
-            /* Checkboxes */
-            QCheckBox {{
-                color: {text_primary};
-                spacing: 8px;
-            }}
-            
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                border: 2px solid {border};
-                background-color: {bg_secondary};
-                border-radius: 2px;
-            }}
-            
-            QCheckBox::indicator:checked {{
-                background-color: {accent_primary};
-                border: 2px solid {accent_primary};
-            }}
-            
-            QCheckBox::indicator:checked::after {{
-                content: "✓";
-                color: white;
-                font-weight: bold;
-            }}
-            """
-            
-            self.setStyleSheet(palette_style)
-            print(f"✅ Component palette theme applied: {current_theme.get('name', 'Unknown')}")
-            
-        except Exception as e:
-            print(f"⚠️ Theme application failed: {e}")
+            # Show bubble
+            self.bubble.show_component_info(category, component, comp_data, bubble_pos)
     
     def _filter_components(self, text):
         """Filter components by search text"""
-        if not text:
-            self._populate_tree()
-            return
-        
-        self.tree.clear()
-        text_lower = text.lower()
-        
-        for category_name, components in self.categories.items():
-            cat_item = None
-            
-            for comp_name, comp_data in components.items():
-                # Search in name, description, and other fields
-                search_fields = [comp_name.lower()]
-                if 'description' in comp_data:
-                    search_fields.append(comp_data['description'].lower())
-                
-                if any(text_lower in field for field in search_fields):
-                    if cat_item is None:
-                        cat_item = QTreeWidgetItem(self.tree, [category_name])
-                        cat_item.setExpanded(True)
-                        cat_item.setFont(0, QFont("Arial", 10, QFont.Weight.Bold))
-                    
-                    comp_item = QTreeWidgetItem(cat_item, [comp_name])
-                    comp_item.setData(0, Qt.ItemDataRole.UserRole, (category_name, comp_name))
+        self._populate_tree()  # Refresh tree based on filters
     
     def _filter_by_type(self, type_name):
         """Filter components by type"""
-        self.current_filter = type_name
-        
-        if type_name == "All Types":
-            self._populate_tree()
-            return
-        
-        self.tree.clear()
-        
-        # Map filter types to categories
-        type_mapping = {
-            "CPU": ["CPUs"],
-            "Memory": ["Memory"],
-            "Audio": ["Audio"],
-            "Video": ["Video"],
-            "I/O": ["I/O"],
-            "Custom": ["Custom"]
-        }
-        
-        categories_to_show = type_mapping.get(type_name, [])
-        
-        for category_name in categories_to_show:
-            if category_name in self.categories:
-                components = self.categories[category_name]
-                cat_item = QTreeWidgetItem(self.tree, [category_name])
-                cat_item.setExpanded(True)
-                cat_item.setFont(0, QFont("Arial", 10, QFont.Weight.Bold))
-                
-                for comp_name, comp_data in components.items():
-                    comp_item = QTreeWidgetItem(cat_item, [comp_name])
-                    comp_item.setData(0, Qt.ItemDataRole.UserRole, (category_name, comp_name))
+        self._populate_tree()  # Refresh tree based on filters
     
-    def _toggle_icons(self, checked):
-        """Toggle icon display"""
-        self.show_icons = checked
-        print(f"🎨 Icons display: {checked}")
-        # Implementation for icon toggle
+    def _update_display(self):
+        """Update display based on options"""
+        self._populate_tree()
     
-    def _toggle_compact_view(self, checked):
-        """Toggle compact view"""
-        print(f"📏 Compact view: {checked}")
-        # Implementation for compact view
-    
-    def _on_selection_changed(self):
-        """Handle component selection change"""
-        current = self.tree.currentItem()
-        if current:
-            data = current.data(0, Qt.ItemDataRole.UserRole)
-            if data:
-                category, component = data
-                self._update_component_info(category, component)
-                self.component_selected.emit(category, component)
-    
-    def _on_item_double_clicked(self, item, column):
-        """Handle component double-click"""
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if data:
-            category, component = data
-            print(f"🎯 Double-clicked component: {component} from {category}")
-            # Emit signal for adding component to canvas
-    
-    def _update_component_info(self, category, component):
-        """Update component information display"""
-        if category in self.categories and component in self.categories[category]:
-            comp_data = self.categories[category][component]
-            
-            self.name_label.setText(f"{component}")
-            
-            # Build details text
-            details = f"Category: {category}\nComponent: {component}\n"
-            for key, value in comp_data.items():
-                if isinstance(value, list):
-                    details += f"{key.title()}: {', '.join(map(str, value))}\n"
-                else:
-                    details += f"{key.title()}: {value}\n"
-            
-            self.details_text.setText(details)
-            
-            # Update description
-            description = comp_data.get('description', 'No description available')
-            self.description_text.setText(description)
-        else:
-            self.name_label.setText("Unknown Component")
-            self.details_text.setText("No information available")
-            self.description_text.setText("No description available")
+    def _open_encyclopedia(self):
+        """Open component encyclopedia"""
+        if not self.encyclopedia:
+            self.encyclopedia = ComponentEncyclopedia(self)
+        self.encyclopedia.show()
+        self.encyclopedia.raise_()
     
     def _add_custom_component(self):
         """Add custom component"""
         print("➕ Adding custom component")
         # Implementation for custom component dialog
     
-    def _import_component(self):
-        """Import component from file"""
-        print("📥 Importing component")
+    def _import_components(self):
+        """Import components from file"""
+        print("📁 Importing components")
         # Implementation for component import
     
     def refresh_palette(self):
@@ -666,19 +531,55 @@ class EnhancedComponentPalette(QWidget):
         print("🔄 Refreshing component palette")
         self._load_component_data()
         self._populate_tree()
-        self._apply_theme()
     
     def set_search_focus(self):
         """Set focus to search box (for Ctrl+F shortcut)"""
         self.search_box.setFocus()
         self.search_box.selectAll()
     
-    def get_theme_colors(self):
-        """Get current theme colors for external use"""
-        if self.app_settings:
-            return self.app_settings.get_theme().get('colors', {})
-        return {}
-
+    def _start_drag_operation(self, supported_actions):
+        """Start drag operation for component"""
+        current_item = self.tree.currentItem()
+        if current_item:
+            # Get drag data
+            drag_data = current_item.data(0, Qt.ItemDataRole.UserRole + 1)
+            if drag_data:
+                # Create drag object
+                drag = QDrag(self.tree)
+                mime_data = QMimeData()
+                mime_data.setText(drag_data)
+                drag.setMimeData(mime_data)
+                
+                # Create drag pixmap (visual feedback)
+                pixmap = QPixmap(100, 30)
+                pixmap.fill(QColor(52, 152, 219, 180))
+                
+                painter = QPainter(pixmap)
+                painter.setPen(QPen(QColor(255, 255, 255)))
+                painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
+                
+                # Get component name for display
+                user_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+                if user_data:
+                    category, component, comp_data = user_data
+                    painter.drawText(5, 20, f"{component}")
+                
+                painter.end()
+                
+                drag.setPixmap(pixmap)
+                drag.setHotSpot(QPoint(50, 15))
+                
+                # Execute drag
+                result = drag.exec(Qt.DropAction.CopyAction)
+                print(f"🎯 Drag operation completed: {drag_data}")
+        
+        # Call original method as fallback
+        super(QTreeWidget, self.tree).startDrag(supported_actions)
 
 # For compatibility
-ComponentPalette = EnhancedComponentPalette
+EnhancedComponentPalette = CleanComponentPalette
+ComponentPalette = CleanComponentPalette
+
+# Export
+__all__ = ['CleanComponentPalette', 'EnhancedComponentPalette', 'ComponentPalette', 
+           'ComponentBubble', 'ComponentEncyclopedia']

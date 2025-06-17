@@ -1,11 +1,11 @@
 """
-X-Seti - June11 2025 - Application Menu Bar
+X-Seti - June16 2025 - Application Menu Bar
 Provides the main menu system for the retro emulator
 """
 
-#this goes in ui/
+#this belongs in ui/ menu_bar.py
 from PyQt6.QtWidgets import QMenuBar, QMenu, QMessageBox, QFileDialog, QInputDialog
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import pyqtSignal, QObject, Qt
 from PyQt6.QtGui import QAction, QKeySequence
 import os
 import sys
@@ -75,7 +75,7 @@ class MenuBarSignals(QObject):
     checkUpdates = pyqtSignal()
 
 class RetroEmulatorMenuBar(QMenuBar):
-    """Main application menu bar with proper App_settings_system integration"""
+    """COMPLETE: Main application menu bar with all required methods"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -83,488 +83,539 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.recent_projects = []
         self.max_recent_projects = 10
         
-        # Theme support - load your existing App_Settings_System
+        # FIXED: Initialize all required references to prevent AttributeError
+        self.canvas = None
+        self.project_manager = None
+        self.component_manager = None
+        self.simulation_engine = None
         self.app_settings = None
-        self.current_theme = "LCARS"  # Default to LCARS
-        self.load_app_settings()
         
-        self.create_menus()
-        
-    def load_app_settings(self):
-        """Load the existing App_Settings_System"""
+        # Try to load app settings system
         try:
-            # Add utils directory to path if not already there
-            utils_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'utils')
-            if utils_path not in sys.path:
-                sys.path.append(utils_path)
-                
-            # Import your existing AppSettings class
-            # Your file defines it but we need to import it correctly
-            import importlib.util
-            spec = importlib.util.spec_from_file_location(
-                "app_settings_module", 
-                os.path.join(utils_path, "App_settings_system.py")
-            )
-            app_settings_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(app_settings_module)
-            
-            # Get the AppSettings class
-            if hasattr(app_settings_module, 'AppSettings'):
-                self.app_settings = app_settings_module.AppSettings()
-                print("✅ Your existing App_Settings_System loaded successfully!")
-                print("🖖 LCARS theme system active - Live long and prosper!")
-            else:
-                print("⚠️ AppSettings class not found in App_settings_system.py")
-                self.app_settings = None
-                
-        except Exception as e:
-            print(f"⚠️ App_Settings_System loading failed ({e}) - using basic themes")
-            self.app_settings = None
-            
-    def create_menus(self):
-        """Create all menu items"""
-        self.create_file_menu()
-        self.create_edit_menu()
-        self.create_view_menu()
-        self.create_component_menu()
-        self.create_simulation_menu()
-        self.create_tools_menu()
-        self.create_help_menu()
+            from App_settings_system import AppSettingsSystem
+            self.app_settings = AppSettingsSystem()
+            print("✅ App settings system loaded")
+        except ImportError:
+            print("⚠️ App settings system not available")
         
-    def create_file_menu(self):
+        # Create all menus
+        self._create_menus()
+        print("✅ Menu bar initialized with all required methods")
+    
+    # FIXED: All required setter methods
+    def set_canvas(self, canvas):
+        """FIXED: Set canvas reference for menu actions"""
+        self.canvas = canvas
+        print("✅ Canvas set in menu bar")
+        
+        # Connect canvas-specific menu actions if signals exist
+        if hasattr(self, 'signals') and canvas:
+            try:
+                self.signals.zoomIn.connect(self._canvas_zoom_in)
+                self.signals.zoomOut.connect(self._canvas_zoom_out)
+                self.signals.zoomFit.connect(self._canvas_zoom_fit)
+                self.signals.zoomActual.connect(self._canvas_zoom_actual)
+                self.signals.toggleGrid.connect(self._canvas_toggle_grid)
+                self.signals.toggleRulers.connect(self._canvas_toggle_rulers)
+                print("✅ Canvas menu actions connected")
+            except AttributeError as e:
+                print(f"⚠️ Some menu signals not available: {e}")
+
+    def set_project_manager(self, project_manager):
+        """FIXED: Set project manager reference"""
+        self.project_manager = project_manager
+        print("✅ Project manager set in menu bar")
+        
+        # Connect project manager signals if available
+        if hasattr(self, 'signals') and project_manager:
+            try:
+                self.signals.newProject.connect(project_manager.new_project)
+                self.signals.saveProject.connect(project_manager.save_current_project)
+                print("✅ Project manager signals connected")
+            except AttributeError as e:
+                print(f"⚠️ Some project manager signals not available: {e}")
+
+    def set_component_manager(self, component_manager):
+        """FIXED: Set component manager reference"""
+        self.component_manager = component_manager
+        print("✅ Component manager set in menu bar")
+
+    def set_simulation_engine(self, simulation_engine):
+        """FIXED: Set simulation engine reference"""
+        self.simulation_engine = simulation_engine
+        print("✅ Simulation engine set in menu bar")
+        
+        # Connect simulation signals if available
+        if hasattr(self, 'signals') and simulation_engine:
+            try:
+                self.signals.startSimulation.connect(simulation_engine.start)
+                self.signals.stopSimulation.connect(simulation_engine.stop)
+                self.signals.pauseSimulation.connect(simulation_engine.pause)
+                self.signals.resetSimulation.connect(simulation_engine.reset)
+                print("✅ Simulation engine signals connected")
+            except AttributeError as e:
+                print(f"⚠️ Some simulation signals not available: {e}")
+
+    # Canvas interaction methods for menu bar
+    def _canvas_zoom_in(self):
+        """Zoom in on canvas"""
+        if self.canvas:
+            if hasattr(self.canvas, 'zoom_in'):
+                self.canvas.zoom_in()
+            elif hasattr(self.canvas, 'scale'):
+                self.canvas.scale(1.25, 1.25)
+            print("🔍 Canvas zoom in")
+
+    def _canvas_zoom_out(self):
+        """Zoom out on canvas"""
+        if self.canvas:
+            if hasattr(self.canvas, 'zoom_out'):
+                self.canvas.zoom_out()
+            elif hasattr(self.canvas, 'scale'):
+                self.canvas.scale(0.8, 0.8)
+            print("🔍 Canvas zoom out")
+
+    def _canvas_zoom_fit(self):
+        """Fit canvas to window"""
+        if self.canvas:
+            if hasattr(self.canvas, 'fit_in_view'):
+                self.canvas.fit_in_view()
+            elif hasattr(self.canvas, 'fitInView') and hasattr(self.canvas, 'sceneRect'):
+                self.canvas.fitInView(self.canvas.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            print("🔍 Canvas fit to window")
+
+    def _canvas_zoom_actual(self):
+        """Reset canvas zoom to 100%"""
+        if self.canvas:
+            if hasattr(self.canvas, 'reset_zoom'):
+                self.canvas.reset_zoom()
+            elif hasattr(self.canvas, 'resetTransform'):
+                self.canvas.resetTransform()
+            print("🔍 Canvas zoom reset")
+
+    def _canvas_toggle_grid(self, checked):
+        """Toggle grid visibility"""
+        if self.canvas:
+            if hasattr(self.canvas, 'set_grid_visible'):
+                self.canvas.set_grid_visible(checked)
+            elif hasattr(self.canvas, 'grid_visible'):
+                self.canvas.grid_visible = checked
+                if hasattr(self.canvas, 'viewport'):
+                    self.canvas.viewport().update()
+            print(f"🔧 Canvas grid: {checked}")
+
+    def _canvas_toggle_rulers(self, checked):
+        """Toggle ruler visibility"""
+        if self.canvas:
+            if hasattr(self.canvas, 'set_rulers_visible'):
+                self.canvas.set_rulers_visible(checked)
+            elif hasattr(self.canvas, 'show_ruler'):
+                self.canvas.show_ruler = checked
+                if hasattr(self.canvas, 'viewport'):
+                    self.canvas.viewport().update()
+            print(f"🔧 Canvas rulers: {checked}")
+
+    def _create_menus(self):
+        """Create all application menus"""
+        self._create_file_menu()
+        self._create_edit_menu()
+        self._create_view_menu()
+        self._create_component_menu()
+        self._create_simulation_menu()
+        self._create_tools_menu()
+        self._create_help_menu()
+        
+    def _create_file_menu(self):
         """Create File menu"""
-        file_menu = self.addMenu("&File")
+        file_menu = self.addMenu('&File')
         
-        # New Project
-        new_action = QAction("&New Project", self)
+        # New project
+        new_action = QAction('&New Project', self)
         new_action.setShortcut(QKeySequence.StandardKey.New)
-        new_action.setStatusTip("Create a new project")
-        new_action.triggered.connect(self.signals.newProject)
+        new_action.setStatusTip('Create a new project')
+        new_action.triggered.connect(self.signals.newProject.emit)
         file_menu.addAction(new_action)
         
-        # Open Project
-        open_action = QAction("&Open Project...", self)
+        # Open project
+        open_action = QAction('&Open Project...', self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
-        open_action.setStatusTip("Open an existing project")
-        open_action.triggered.connect(self.open_project_dialog)
+        open_action.setStatusTip('Open an existing project')
+        open_action.triggered.connect(self._open_project_dialog)
         file_menu.addAction(open_action)
         
-        # Recent Projects submenu
-        self.recent_menu = file_menu.addMenu("Recent Projects")
+        # Recent projects submenu
+        self.recent_menu = file_menu.addMenu('Recent Projects')
         self.update_recent_projects_menu()
         
         file_menu.addSeparator()
         
-        # Save Project
-        save_action = QAction("&Save Project", self)
+        # Save project
+        save_action = QAction('&Save Project', self)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
-        save_action.setStatusTip("Save the current project")
-        save_action.triggered.connect(self.signals.saveProject)
+        save_action.setStatusTip('Save the current project')
+        save_action.triggered.connect(self.signals.saveProject.emit)
         file_menu.addAction(save_action)
         
-        # Save As
-        save_as_action = QAction("Save Project &As...", self)
+        # Save project as
+        save_as_action = QAction('Save Project &As...', self)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
-        save_as_action.setStatusTip("Save the project with a new name")
-        save_as_action.triggered.connect(self.save_project_as_dialog)
+        save_as_action.setStatusTip('Save the project with a new name')
+        save_as_action.triggered.connect(self._save_project_as_dialog)
         file_menu.addAction(save_as_action)
         
         file_menu.addSeparator()
         
         # Import/Export
-        import_action = QAction("&Import Project...", self)
-        import_action.setStatusTip("Import a project from archive")
-        import_action.triggered.connect(self.import_project_dialog)
+        import_action = QAction('&Import Project...', self)
+        import_action.setStatusTip('Import project from file')
+        import_action.triggered.connect(self._import_project_dialog)
         file_menu.addAction(import_action)
         
-        export_action = QAction("&Export Project...", self)
-        export_action.setStatusTip("Export project to archive")
-        export_action.triggered.connect(self.export_project_dialog)
+        export_action = QAction('&Export Project...', self)
+        export_action.setStatusTip('Export project to file')
+        export_action.triggered.connect(self._export_project_dialog)
         file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
         # Exit
-        exit_action = QAction("E&xit", self)
-        exit_action.setShortcut(QKeySequence.StandardKey.Quit)
-        exit_action.setStatusTip("Exit the application")
-        exit_action.triggered.connect(self.signals.exitApplication)
+        exit_action = QAction('E&xit', self)
+        exit_action.setShortcut(QKeySequence('Ctrl+Q'))
+        exit_action.setStatusTip('Exit the application')
+        exit_action.triggered.connect(self.signals.exitApplication.emit)
         file_menu.addAction(exit_action)
         
-    def create_edit_menu(self):
+    def _create_edit_menu(self):
         """Create Edit menu"""
-        edit_menu = self.addMenu("&Edit")
+        edit_menu = self.addMenu('&Edit')
         
-        # Undo/Redo
-        undo_action = QAction("&Undo", self)
+        # Undo
+        undo_action = QAction('&Undo', self)
         undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        undo_action.triggered.connect(self.signals.undo)
+        undo_action.triggered.connect(self.signals.undo.emit)
         edit_menu.addAction(undo_action)
         
-        redo_action = QAction("&Redo", self)
+        # Redo
+        redo_action = QAction('&Redo', self)
         redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        redo_action.triggered.connect(self.signals.redo)
+        redo_action.triggered.connect(self.signals.redo.emit)
         edit_menu.addAction(redo_action)
         
         edit_menu.addSeparator()
         
-        # Cut/Copy/Paste
-        cut_action = QAction("Cu&t", self)
+        # Cut, Copy, Paste
+        cut_action = QAction('Cu&t', self)
         cut_action.setShortcut(QKeySequence.StandardKey.Cut)
-        cut_action.triggered.connect(self.signals.cut)
+        cut_action.triggered.connect(self.signals.cut.emit)
         edit_menu.addAction(cut_action)
         
-        copy_action = QAction("&Copy", self)
+        copy_action = QAction('&Copy', self)
         copy_action.setShortcut(QKeySequence.StandardKey.Copy)
-        copy_action.triggered.connect(self.signals.copy)
+        copy_action.triggered.connect(self.signals.copy.emit)
         edit_menu.addAction(copy_action)
         
-        paste_action = QAction("&Paste", self)
+        paste_action = QAction('&Paste', self)
         paste_action.setShortcut(QKeySequence.StandardKey.Paste)
-        paste_action.triggered.connect(self.signals.paste)
+        paste_action.triggered.connect(self.signals.paste.emit)
         edit_menu.addAction(paste_action)
         
-        delete_action = QAction("&Delete", self)
+        # Delete
+        delete_action = QAction('&Delete', self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
-        delete_action.triggered.connect(self.signals.delete)
+        delete_action.triggered.connect(self.signals.delete.emit)
         edit_menu.addAction(delete_action)
         
         edit_menu.addSeparator()
         
         # Select All
-        select_all_action = QAction("Select &All", self)
+        select_all_action = QAction('Select &All', self)
         select_all_action.setShortcut(QKeySequence.StandardKey.SelectAll)
-        select_all_action.triggered.connect(self.signals.selectAll)
+        select_all_action.triggered.connect(self.signals.selectAll.emit)
         edit_menu.addAction(select_all_action)
         
         edit_menu.addSeparator()
         
         # Preferences
-        prefs_action = QAction("&Preferences...", self)
-        prefs_action.setShortcut(QKeySequence.StandardKey.Preferences)
-        prefs_action.triggered.connect(self.signals.preferences)
+        prefs_action = QAction('&Preferences...', self)
+        prefs_action.setShortcut(QKeySequence('Ctrl+,'))
+        prefs_action.triggered.connect(self.signals.preferences.emit)
         edit_menu.addAction(prefs_action)
         
-    def create_view_menu(self):
+    def _create_view_menu(self):
         """Create View menu"""
-        view_menu = self.addMenu("&View")
+        view_menu = self.addMenu('&View')
         
-        # Zoom
-        zoom_in_action = QAction("Zoom &In", self)
-        zoom_in_action.setShortcut(QKeySequence.StandardKey.ZoomIn)
-        zoom_in_action.triggered.connect(self.signals.zoomIn)
+        # Zoom controls
+        zoom_in_action = QAction('Zoom &In', self)
+        zoom_in_action.setShortcut(QKeySequence('Ctrl++'))
+        zoom_in_action.triggered.connect(self.signals.zoomIn.emit)
         view_menu.addAction(zoom_in_action)
         
-        zoom_out_action = QAction("Zoom &Out", self)
-        zoom_out_action.setShortcut(QKeySequence.StandardKey.ZoomOut)
-        zoom_out_action.triggered.connect(self.signals.zoomOut)
+        zoom_out_action = QAction('Zoom &Out', self)
+        zoom_out_action.setShortcut(QKeySequence('Ctrl+-'))
+        zoom_out_action.triggered.connect(self.signals.zoomOut.emit)
         view_menu.addAction(zoom_out_action)
         
-        zoom_fit_action = QAction("Zoom to &Fit", self)
-        zoom_fit_action.setShortcut("Ctrl+0")
-        zoom_fit_action.triggered.connect(self.signals.zoomFit)
+        zoom_fit_action = QAction('&Fit to Window', self)
+        zoom_fit_action.setShortcut(QKeySequence('Ctrl+0'))
+        zoom_fit_action.triggered.connect(self.signals.zoomFit.emit)
         view_menu.addAction(zoom_fit_action)
         
-        zoom_actual_action = QAction("&Actual Size", self)
-        zoom_actual_action.setShortcut("Ctrl+1")
-        zoom_actual_action.triggered.connect(self.signals.zoomActual)
+        zoom_actual_action = QAction('&Actual Size', self)
+        zoom_actual_action.setShortcut(QKeySequence('Ctrl+1'))
+        zoom_actual_action.triggered.connect(self.signals.zoomActual.emit)
         view_menu.addAction(zoom_actual_action)
         
         view_menu.addSeparator()
         
-        # Toggle panels
-        self.grid_action = QAction("Show &Grid", self)
-        self.grid_action.setCheckable(True)
-        self.grid_action.setChecked(True)
-        self.grid_action.triggered.connect(self.signals.toggleGrid)
-        view_menu.addAction(self.grid_action)
+        # Grid toggle
+        grid_action = QAction('Show &Grid', self)
+        grid_action.setCheckable(True)
+        grid_action.setChecked(True)
+        grid_action.setShortcut(QKeySequence('Ctrl+G'))
+        grid_action.toggled.connect(self.signals.toggleGrid.emit)
+        view_menu.addAction(grid_action)
         
-        self.rulers_action = QAction("Show &Rulers", self)
-        self.rulers_action.setCheckable(True)
-        self.rulers_action.setChecked(True)
-        self.rulers_action.triggered.connect(self.signals.toggleRulers)
-        view_menu.addAction(self.rulers_action)
-        
-        view_menu.addSeparator()
-        
-        # Dock panels
-        self.palette_action = QAction("Component &Palette", self)
-        self.palette_action.setCheckable(True)
-        self.palette_action.setChecked(True)
-        self.palette_action.triggered.connect(self.signals.togglePalette)
-        view_menu.addAction(self.palette_action)
-        
-        self.properties_action = QAction("&Properties Panel", self)
-        self.properties_action.setCheckable(True)
-        self.properties_action.setChecked(True)
-        self.properties_action.triggered.connect(self.signals.toggleProperties)
-        view_menu.addAction(self.properties_action)
-        
-        self.layers_action = QAction("&Layers Panel", self)
-        self.layers_action.setCheckable(True)
-        self.layers_action.setChecked(True)
-        self.layers_action.triggered.connect(self.signals.toggleLayers)
-        view_menu.addAction(self.layers_action)
+        # Rulers toggle
+        rulers_action = QAction('Show &Rulers', self)
+        rulers_action.setCheckable(True)
+        rulers_action.setChecked(False)
+        rulers_action.setShortcut(QKeySequence('Ctrl+R'))
+        rulers_action.toggled.connect(self.signals.toggleRulers.emit)
+        view_menu.addAction(rulers_action)
         
         view_menu.addSeparator()
         
-        # Themes submenu - using your existing theme system
-        self.create_themes_submenu(view_menu)
+        # Panel toggles
+        palette_action = QAction('Show Component &Palette', self)
+        palette_action.setCheckable(True)
+        palette_action.setChecked(True)
+        palette_action.toggled.connect(self.signals.togglePalette.emit)
+        view_menu.addAction(palette_action)
         
-    def create_themes_submenu(self, parent_menu):
-        """Create themes submenu with your existing App_Settings_System themes"""
-        themes_menu = parent_menu.addMenu("🎨 &Themes")
+        properties_action = QAction('Show &Properties Panel', self)
+        properties_action.setCheckable(True)
+        properties_action.setChecked(True)
+        properties_action.toggled.connect(self.signals.toggleProperties.emit)
+        view_menu.addAction(properties_action)
         
-        if self.app_settings:
-            # Use your existing comprehensive theme system
-            try:
-                # Your existing themes from the 73KB file
-                available_themes = self.app_settings.themes.keys() if hasattr(self.app_settings, 'themes') else []
-                current_theme = getattr(self.app_settings, 'current_theme', 'LCARS')
-                
-                for theme_name in available_themes:
-                    theme_info = self.app_settings.themes[theme_name]
-                    theme_action = QAction(theme_info.get('name', theme_name), self)
-                    theme_action.setCheckable(True)
-                    theme_action.setChecked(theme_name == current_theme)
-                    theme_action.triggered.connect(lambda checked, name=theme_name: self.change_theme(name))
-                    themes_menu.addAction(theme_action)
-                    
-                print(f"✅ Loaded {len(available_themes)} themes from your existing App_Settings_System")
-                print("🖖 Including LCARS, Tea & Toast, Deep Purple Space, IMG Factory, and more!")
-                
-                # Add settings option
-                themes_menu.addSeparator()
-                settings_action = QAction("🛠️ Theme Settings...", self)
-                settings_action.triggered.connect(self.open_theme_settings)
-                themes_menu.addAction(settings_action)
-                
-            except Exception as e:
-                print(f"⚠️ Error loading themes from App_Settings_System: {e}")
-                self.create_basic_themes(themes_menu)
-        else:
-            # Fallback basic themes
-            self.create_basic_themes(themes_menu)
-            
-    def create_basic_themes(self, themes_menu):
-        """Create basic theme options as fallback"""
-        basic_themes = ["Default", "Dark", "Light", "Retro", "High Contrast"]
+        layers_action = QAction('Show &Layer Controls', self)
+        layers_action.setCheckable(True)
+        layers_action.setChecked(True)
+        layers_action.toggled.connect(self.signals.toggleLayers.emit)
+        view_menu.addAction(layers_action)
         
-        for theme_name in basic_themes:
-            theme_action = QAction(theme_name, self)
-            theme_action.setCheckable(True)
-            theme_action.setChecked(theme_name.lower() == self.current_theme)
-            theme_action.triggered.connect(lambda checked, name=theme_name.lower(): self.change_theme(name))
-            themes_menu.addAction(theme_action)
-            
-    def change_theme(self, theme_name: str):
-        """Change application theme using your existing system"""
+        # Theme submenu
         if self.app_settings:
-            try:
-                # Use your existing theme changing method
-                if hasattr(self.app_settings, 'current_settings'):
-                    self.app_settings.current_settings['theme'] = theme_name
-                    
-                # Apply theme
-                self.signals.themeChanged.emit(theme_name)
-                print(f"🎨 Theme changed to: {theme_name}")
-                
-                # Show theme message based on theme
-                if theme_name == "LCARS":
-                    print("🖖 Live long and prosper with LCARS!")
-                elif theme_name == "Tea_Toast_Morning":
-                    print("☕ Tea and toast mode activated!")
-                elif theme_name == "Deep_Purple_Space":
-                    print("🟣 Deep purple space theme engaged!")
-                elif theme_name == "IMG_Factory_Professional":
-                    print("📁 Professional IMG Factory theme applied!")
-                    
-            except Exception as e:
-                print(f"⚠️ Error changing theme: {e}")
-        else:
-            self.current_theme = theme_name
-            self.signals.themeChanged.emit(theme_name)
-            print(f"🎨 Basic theme changed to: {theme_name}")
-    
-    def open_theme_settings(self):
-        """Open your existing theme settings dialog"""
-        if self.app_settings:
-            try:
-                # Import and open your existing SettingsDialog
-                from App_settings_system import SettingsDialog
-                dialog = SettingsDialog(self.app_settings, self.parent())
-                dialog.themeChanged.connect(self.signals.themeChanged)
-                dialog.exec()
-                print("🛠️ Theme settings dialog opened")
-            except ImportError as e:
-                print(f"⚠️ Could not open theme settings: {e}")
-                QMessageBox.information(self.parent(), "Theme Settings", 
-                                      "Theme settings dialog not available.\n"
-                                      "Your App_Settings_System is loaded but settings dialog not found.")
-        else:
-            QMessageBox.information(self.parent(), "Theme Settings", 
-                                  "Theme settings not available.\n"
-                                  "App_Settings_System not loaded.")
-            
-    def create_component_menu(self):
+            view_menu.addSeparator()
+            theme_menu = view_menu.addMenu('&Theme')
+            self._create_theme_menu(theme_menu)
+        
+    def _create_component_menu(self):
         """Create Component menu"""
-        component_menu = self.addMenu("&Component")
+        component_menu = self.addMenu('&Component')
         
-        add_action = QAction("&Add Component...", self)
-        add_action.setShortcut("Ctrl+A")
-        add_action.triggered.connect(lambda: self.signals.addComponent.emit("generic"))
-        component_menu.addAction(add_action)
+        # Add component submenu
+        add_menu = component_menu.addMenu('&Add Component')
         
-        edit_action = QAction("&Edit Component", self)
-        edit_action.setShortcut("F2")
-        edit_action.triggered.connect(self.signals.editComponent)
+        # Common components
+        cpu_action = QAction('&CPU', self)
+        cpu_action.triggered.connect(lambda: self.signals.addComponent.emit('cpu'))
+        add_menu.addAction(cpu_action)
+        
+        memory_action = QAction('&Memory', self)
+        memory_action.triggered.connect(lambda: self.signals.addComponent.emit('memory'))
+        add_menu.addAction(memory_action)
+        
+        component_menu.addSeparator()
+        
+        # Edit operations
+        edit_action = QAction('&Edit Component...', self)
+        edit_action.triggered.connect(self.signals.editComponent.emit)
         component_menu.addAction(edit_action)
         
-        delete_action = QAction("&Delete Component", self)
+        delete_action = QAction('&Delete Component', self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
-        delete_action.triggered.connect(self.signals.deleteComponent)
+        delete_action.triggered.connect(self.signals.deleteComponent.emit)
         component_menu.addAction(delete_action)
         
-        duplicate_action = QAction("D&uplicate Component", self)
-        duplicate_action.setShortcut("Ctrl+D")
-        duplicate_action.triggered.connect(self.signals.duplicateComponent)
+        duplicate_action = QAction('D&uplicate Component', self)
+        duplicate_action.setShortcut(QKeySequence('Ctrl+D'))
+        duplicate_action.triggered.connect(self.signals.duplicateComponent.emit)
         component_menu.addAction(duplicate_action)
         
         component_menu.addSeparator()
         
-        rotate_action = QAction("&Rotate 90°", self)
-        rotate_action.setShortcut("R")
-        rotate_action.triggered.connect(lambda: self.signals.rotateComponent.emit(90))
-        component_menu.addAction(rotate_action)
+        # Transform operations
+        rotate_menu = component_menu.addMenu('&Rotate')
         
-        flip_h_action = QAction("Flip &Horizontal", self)
-        flip_h_action.triggered.connect(self.signals.flipHorizontal)
+        rotate_90_action = QAction('Rotate 90°', self)
+        rotate_90_action.triggered.connect(lambda: self.signals.rotateComponent.emit(90))
+        rotate_menu.addAction(rotate_90_action)
+        
+        rotate_180_action = QAction('Rotate 180°', self)
+        rotate_180_action.triggered.connect(lambda: self.signals.rotateComponent.emit(180))
+        rotate_menu.addAction(rotate_180_action)
+        
+        rotate_270_action = QAction('Rotate 270°', self)
+        rotate_270_action.triggered.connect(lambda: self.signals.rotateComponent.emit(270))
+        rotate_menu.addAction(rotate_270_action)
+        
+        flip_h_action = QAction('Flip &Horizontal', self)
+        flip_h_action.triggered.connect(self.signals.flipHorizontal.emit)
         component_menu.addAction(flip_h_action)
         
-        flip_v_action = QAction("Flip &Vertical", self)
-        flip_v_action.triggered.connect(self.signals.flipVertical)
+        flip_v_action = QAction('Flip &Vertical', self)
+        flip_v_action.triggered.connect(self.signals.flipVertical.emit)
         component_menu.addAction(flip_v_action)
         
-    def create_simulation_menu(self):
+    def _create_simulation_menu(self):
         """Create Simulation menu"""
-        sim_menu = self.addMenu("&Simulation")
+        sim_menu = self.addMenu('&Simulation')
         
-        start_action = QAction("&Start Simulation", self)
-        start_action.setShortcut("F5")
-        start_action.triggered.connect(self.signals.startSimulation)
+        # Simulation controls
+        start_action = QAction('&Start Simulation', self)
+        start_action.setShortcut(QKeySequence('F5'))
+        start_action.triggered.connect(self.signals.startSimulation.emit)
         sim_menu.addAction(start_action)
         
-        stop_action = QAction("S&top Simulation", self)
-        stop_action.setShortcut("Shift+F5")
-        stop_action.triggered.connect(self.signals.stopSimulation)
+        stop_action = QAction('S&top Simulation', self)
+        stop_action.setShortcut(QKeySequence('Shift+F5'))
+        stop_action.triggered.connect(self.signals.stopSimulation.emit)
         sim_menu.addAction(stop_action)
         
-        pause_action = QAction("&Pause Simulation", self)
-        pause_action.setShortcut("F6")
-        pause_action.triggered.connect(self.signals.pauseSimulation)
+        pause_action = QAction('&Pause Simulation', self)
+        pause_action.setShortcut(QKeySequence('F6'))
+        pause_action.triggered.connect(self.signals.pauseSimulation.emit)
         sim_menu.addAction(pause_action)
         
-        step_action = QAction("Step &Forward", self)
-        step_action.setShortcut("F10")
-        step_action.triggered.connect(self.signals.stepSimulation)
+        step_action = QAction('&Step Simulation', self)
+        step_action.setShortcut(QKeySequence('F10'))
+        step_action.triggered.connect(self.signals.stepSimulation.emit)
         sim_menu.addAction(step_action)
         
-        reset_action = QAction("&Reset Simulation", self)
-        reset_action.setShortcut("Ctrl+F5")
-        reset_action.triggered.connect(self.signals.resetSimulation)
+        reset_action = QAction('&Reset Simulation', self)
+        reset_action.setShortcut(QKeySequence('Ctrl+F5'))
+        reset_action.triggered.connect(self.signals.resetSimulation.emit)
         sim_menu.addAction(reset_action)
         
         sim_menu.addSeparator()
         
-        settings_action = QAction("Simulation &Settings...", self)
-        settings_action.triggered.connect(self.signals.simulationSettings)
+        # Simulation settings
+        settings_action = QAction('Simulation &Settings...', self)
+        settings_action.triggered.connect(self.signals.simulationSettings.emit)
         sim_menu.addAction(settings_action)
         
-    def create_tools_menu(self):
+    def _create_tools_menu(self):
         """Create Tools menu"""
-        tools_menu = self.addMenu("&Tools")
+        tools_menu = self.addMenu('&Tools')
         
-        connection_action = QAction("&Connection Tool", self)
-        connection_action.setShortcut("C")
-        connection_action.triggered.connect(self.signals.connectionTool)
+        # Connection tool
+        connection_action = QAction('&Connection Tool', self)
+        connection_action.setShortcut(QKeySequence('C'))
+        connection_action.triggered.connect(self.signals.connectionTool.emit)
         tools_menu.addAction(connection_action)
         
-        measure_action = QAction("&Measure Tool", self)
-        measure_action.setShortcut("M")
-        measure_action.triggered.connect(self.signals.measureTool)
+        # Measure tool
+        measure_action = QAction('&Measure Tool', self)
+        measure_action.setShortcut(QKeySequence('M'))
+        measure_action.triggered.connect(self.signals.measureTool.emit)
         tools_menu.addAction(measure_action)
         
         tools_menu.addSeparator()
         
-        pin_align_action = QAction("&Pin Alignment Tool", self)
-        pin_align_action.triggered.connect(self.signals.pinAlignment)
-        tools_menu.addAction(pin_align_action)
+        # Alignment tools
+        align_action = QAction('Pin &Alignment Tool', self)
+        align_action.triggered.connect(self.signals.pinAlignment.emit)
+        tools_menu.addAction(align_action)
         
-        chip_gen_action = QAction("Component &Generator", self)
-        chip_gen_action.triggered.connect(self.signals.componentGenerator)
-        tools_menu.addAction(chip_gen_action)
+        # Component generator
+        generator_action = QAction('Component &Generator', self)
+        generator_action.triggered.connect(self.signals.componentGenerator.emit)
+        tools_menu.addAction(generator_action)
         
         tools_menu.addSeparator()
         
-        export_mfg_action = QAction("Export for &Manufacturing", self)
-        export_mfg_action.triggered.connect(self.signals.exportManufacturing)
+        # Manufacturing export
+        export_mfg_action = QAction('Export for &Manufacturing...', self)
+        export_mfg_action.triggered.connect(self.signals.exportManufacturing.emit)
         tools_menu.addAction(export_mfg_action)
         
-    def create_help_menu(self):
+    def _create_help_menu(self):
         """Create Help menu"""
-        help_menu = self.addMenu("&Help")
+        help_menu = self.addMenu('&Help')
         
-        help_action = QAction("&Help Contents", self)
+        # Help
+        help_action = QAction('&Help', self)
         help_action.setShortcut(QKeySequence.StandardKey.HelpContents)
-        help_action.triggered.connect(self.signals.showHelp)
+        help_action.triggered.connect(self.signals.showHelp.emit)
         help_menu.addAction(help_action)
         
         help_menu.addSeparator()
         
-        about_action = QAction("&About", self)
-        about_action.triggered.connect(self.signals.showAbout)
-        help_menu.addAction(about_action)
-        
-        updates_action = QAction("Check for &Updates", self)
-        updates_action.triggered.connect(self.signals.checkUpdates)
+        # Check for updates
+        updates_action = QAction('Check for &Updates...', self)
+        updates_action.triggered.connect(self.signals.checkUpdates.emit)
         help_menu.addAction(updates_action)
         
+        # About
+        about_action = QAction('&About', self)
+        about_action.triggered.connect(self.signals.showAbout.emit)
+        help_menu.addAction(about_action)
+        
+    def _create_theme_menu(self, theme_menu):
+        """Create theme selection menu"""
+        if not self.app_settings:
+            return
+            
+        try:
+            themes = self.app_settings.themes
+            for theme_name, theme_data in themes.items():
+                theme_action = QAction(theme_data.get('name', theme_name), self)
+                theme_action.triggered.connect(lambda checked, name=theme_name: self.signals.themeChanged.emit(name))
+                theme_menu.addAction(theme_action)
+        except Exception as e:
+            print(f"⚠️ Error creating theme menu: {e}")
+    
     # Dialog methods
-    def open_project_dialog(self):
-        """Open project file dialog"""
+    def _open_project_dialog(self):
+        """Show open project dialog"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Open Project", "", "Retro Emulator Projects (*.json);;All Files (*)"
+            self, "Open Project", "", 
+            "Project Files (*.json *.xml *.proj);;All Files (*)"
         )
         if file_path:
             self.signals.openProject.emit(file_path)
             self.add_recent_project(file_path)
             
-    def save_project_as_dialog(self):
-        """Save project as dialog"""
+    def _save_project_as_dialog(self):
+        """Show save project as dialog"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Project As", "", "Retro Emulator Projects (*.json);;All Files (*)"
+            self, "Save Project As", "", 
+            "Project Files (*.json *.xml *.proj);;All Files (*)"
         )
         if file_path:
-            if not file_path.endswith('.json'):
-                file_path += '.json'
             self.signals.saveProjectAs.emit(file_path)
             self.add_recent_project(file_path)
             
-    def import_project_dialog(self):
-        """Import project dialog"""
+    def _import_project_dialog(self):
+        """Show import project dialog"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "Import Project", "", "Archive Files (*.zip *.tar.gz);;All Files (*)"
+            self, "Import Project", "", 
+            "All Supported (*.json *.xml *.zip *.tar.gz);;JSON Files (*.json);;XML Files (*.xml);;Archives (*.zip *.tar.gz);;All Files (*)"
         )
         if file_path:
             self.signals.importProject.emit(file_path)
             
-    def export_project_dialog(self):
-        """Export project dialog"""
+    def _export_project_dialog(self):
+        """Show export project dialog"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "Export Project", "", "Archive Files (*.zip);;All Files (*)"
+            self, "Export Project", "", 
+            "ZIP Archive (*.zip);;TAR Archive (*.tar.gz);;JSON File (*.json);;All Files (*)"
         )
         if file_path:
-            if not file_path.endswith('.zip'):
+            # Ensure proper extension
+            if not any(file_path.endswith(ext) for ext in ['.zip', '.tar.gz', '.json']):
                 file_path += '.zip'
             self.signals.exportProject.emit(file_path)
             
@@ -610,8 +661,9 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.recent_projects = projects[:self.max_recent_projects]
         self.update_recent_projects_menu()
 
-# Aliases for backward compatibility
+# Backward compatibility aliases
 MenuBarManager = RetroEmulatorMenuBar
+MenuManager = RetroEmulatorMenuBar
 
 # Export
-__all__ = ['RetroEmulatorMenuBar', 'MenuBarManager', 'MenuBarSignals']
+__all__ = ['RetroEmulatorMenuBar', 'MenuBarManager', 'MenuManager', 'MenuBarSignals']

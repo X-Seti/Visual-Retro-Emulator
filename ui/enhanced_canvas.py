@@ -1,645 +1,1027 @@
+#!/usr/bin/env python3
 """
-X-Seti - June16 2025 - Layer Controls without duplicate Components section
-Visual Retro System Emulator Builder - Layer & Grid Controls only
+X-Seti - June16 2025 - Enhanced Canvas with Icon Menus and Grid Controls
+Visual Retro System Emulator Builder - Clean canvas interface with working functionality
 """
 
-#this belongs in ui/layer_controls.py
+#this belongs in ui/enhanced_canvas.py
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
-                           QCheckBox, QComboBox, QLabel, QPushButton, 
-                           QListWidget, QListWidgetItem, QLineEdit, 
-                           QSpinBox, QDoubleSpinBox, QSlider, QButtonGroup,
-                           QRadioButton, QFrame, QFormLayout)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QColor, QFont
+import os
+import sys
+from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QWidget, QVBoxLayout,
+                           QHBoxLayout, QPushButton, QLabel, QComboBox, QSpinBox,
+                           QCheckBox, QSlider, QButtonGroup, QFrame, QColorDialog,
+                           QToolButton, QMenu, QWidgetAction, QDialog, QGridLayout,
+                           QGraphicsItem, QGraphicsRectItem, QGraphicsTextItem,
+                           QGraphicsPixmapItem, QApplication, QTreeWidget)
+from PyQt6.QtCore import (Qt, QPointF, QRectF, QTimer, pyqtSignal, QPropertyAnimation,
+                        QEasingCurve, QParallelAnimationGroup, QPoint)
+from PyQt6.QtGui import (QPainter, QPen, QBrush, QColor, QPixmap, QFont, QIcon,
+                       QPainterPath, QMouseEvent, QWheelEvent, QKeyEvent, QCursor,
+                       QShortcut, QKeySequence, QAction, QPolygonF)
 
-# Import theme system
-try:
-    from utils.App_settings_system import AppSettings
-    THEME_AVAILABLE = True
-except ImportError:
-    THEME_AVAILABLE = False
-    print("⚠️ Theme system not available for layer controls")
-
-class LayerListWidget(QListWidget):
-    """Custom list widget for layers"""
+class ComponentItem(QGraphicsItem):
+    """Visual component item for the canvas"""
     
-    layerVisibilityChanged = pyqtSignal(str, bool)
-    layerSelected = pyqtSignal(str)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setMaximumHeight(100)
-        self.itemChanged.connect(self._on_item_changed)
-        self.itemSelectionChanged.connect(self._on_selection_changed)
-    
-    def _on_item_changed(self, item):
-        """Handle item state change"""
-        layer_name = item.text()
-        is_visible = item.checkState() == Qt.CheckState.Checked
-        self.layerVisibilityChanged.emit(layer_name, is_visible)
-    
-    def _on_selection_changed(self):
-        """Handle selection change"""
-        current_item = self.currentItem()
-        if current_item:
-            self.layerSelected.emit(current_item.text())
-
-class LayerControls(QWidget):
-    """
-    Layer Controls Widget - Grid and Layer management only
-    
-    FIXED:
-    ✅ Removed duplicate Components section
-    ✅ Focus on Layers and Grid functionality only
-    ✅ Proper theming integration
-    ✅ Clean, organized layout
-    """
-    
-    # Grid signals
-    gridVisibilityChanged = pyqtSignal(bool)
-    gridStyleChanged = pyqtSignal(str)
-    gridSpacingChanged = pyqtSignal(float)
-    snapToGridChanged = pyqtSignal(bool)
-    
-    # Layer signals
-    layerAdded = pyqtSignal(str)
-    layerRemoved = pyqtSignal(str)
-    layerVisibilityChanged = pyqtSignal(str, bool)
-    layerSelected = pyqtSignal(str)
-    layerRenamed = pyqtSignal(str, str)
-    
-    # Mode signals
-    modeChanged = pyqtSignal(str)
-    
-    def __init__(self, parent=None):
+    def __init__(self, name, category, package_type="DIP-40", parent=None):
         super().__init__(parent)
         
-        # Initialize theme system
-        self.app_settings = None
-        if THEME_AVAILABLE:
-            try:
-                self.app_settings = AppSettings()
-            except Exception as e:
-                print(f"⚠️ Layer controls theme initialization failed: {e}")
+        self.name = name
+        self.category = category
+        self.package_type = package_type
+        self.selected = False
         
-        # State variables
-        self.grid_visible = True
-        self.snap_to_grid = True
-        self.grid_style = "Breadboard"
-        self.grid_spacing = 2.54
-        self.current_mode = "Breadboard"
+        # Make item selectable and movable
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges)
         
-        # Layer data
-        self.layers = {}
-        self.current_layer = None
+        # Component dimensions based on package type
+        self.width, self.height = self._get_package_dimensions(package_type)
         
-        # UI components
-        self.layer_list = None
-        self.layer_name_edit = None
-        self.position_label = None
-        self.size_label = None
+        # Pin configuration
+        self.pins = self._get_pin_configuration(package_type)
         
-        # Setup UI
-        self._setup_ui()
-        self._apply_theme()
-        self._create_default_layers()
-        
-        print("✓ Layer Controls initialized (Components section removed)")
+        print(f"🔧 Component created: {name} ({package_type})")
     
-    def _get_theme_color(self, color_name, fallback="#ffffff"):
-        """Get theme color with fallback"""
-        if self.app_settings:
-            try:
-                return self.app_settings.get_color(color_name)
-            except:
-                pass
-        return fallback
+    def _get_package_dimensions(self, package_type):
+        """Get component dimensions based on package type"""
+        dimensions = {
+            'DIP-8': (20, 60),
+            'DIP-14': (20, 80),
+            'DIP-16': (20, 90),
+            'DIP-18': (20, 100),
+            'DIP-20': (20, 110),
+            'DIP-24': (25, 130),
+            'DIP-28': (25, 150),
+            'DIP-40': (30, 200),
+            'DIP-64': (35, 320),
+            'QFP-44': (80, 80),
+            'QFP-68': (100, 100),
+            'PLCC-44': (75, 75),
+            'PGA-68': (90, 90)
+        }
+        return dimensions.get(package_type, (30, 200))  # Default to DIP-40
     
-    def _setup_ui(self):
-        """Setup the UI layout - Grid and Layers only"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(8)
-        
-        # === GRID SETTINGS GROUP ===
-        self._create_grid_settings_group(layout)
-        
-        # === QUICK MODES GROUP ===
-        self._create_quick_modes_group(layout)
-        
-        # === LAYERS GROUP ===
-        self._create_layers_group(layout)
-        
-        # === LAYER PROPERTIES GROUP ===
-        self._create_layer_properties_group(layout)
-        
-        layout.addStretch()  # Push everything to top
+    def _get_pin_configuration(self, package_type):
+        """Get pin configuration for the package"""
+        if package_type.startswith('DIP-'):
+            pin_count = int(package_type.split('-')[1])
+            pins_per_side = pin_count // 2
+            return {'type': 'dip', 'total': pin_count, 'per_side': pins_per_side}
+        elif package_type.startswith('QFP-'):
+            pin_count = int(package_type.split('-')[1])
+            pins_per_side = pin_count // 4
+            return {'type': 'qfp', 'total': pin_count, 'per_side': pins_per_side}
+        else:
+            return {'type': 'generic', 'total': 40, 'per_side': 20}
     
-    def _create_grid_settings_group(self, parent_layout):
-        """Create Grid Settings group"""
-        grid_group = QGroupBox("Grid Settings")
-        grid_layout = QVBoxLayout(grid_group)
-        
-        # Show Grid checkbox
-        self.show_grid_check = QCheckBox("✓ Show Grid")
-        self.show_grid_check.setChecked(self.grid_visible)
-        self.show_grid_check.toggled.connect(self._on_grid_visibility_changed)
-        grid_layout.addWidget(self.show_grid_check)
-        
-        # Grid Style
-        style_layout = QHBoxLayout()
-        style_layout.addWidget(QLabel("Grid Style:"))
-        self.grid_style_combo = QComboBox()
-        self.grid_style_combo.addItems(["Dots", "Lines", "Crosses", "Breadboard"])
-        self.grid_style_combo.setCurrentText("Breadboard")
-        self.grid_style_combo.currentTextChanged.connect(self._on_grid_style_changed)
-        style_layout.addWidget(self.grid_style_combo)
-        grid_layout.addLayout(style_layout)
-        
-        # Grid Spacing
-        spacing_layout = QHBoxLayout()
-        spacing_layout.addWidget(QLabel("Spacing:"))
-        self.grid_spacing_combo = QComboBox()
-        self.grid_spacing_combo.addItems([
-            "Fine (2.54mm)", "Medium (5.08mm)", "Coarse (10.16mm)", "Custom"
-        ])
-        self.grid_spacing_combo.setCurrentText("Fine (2.54mm)")
-        self.grid_spacing_combo.currentTextChanged.connect(self._on_grid_spacing_changed)
-        spacing_layout.addWidget(self.grid_spacing_combo)
-        grid_layout.addLayout(spacing_layout)
-        
-        # Snap to Grid
-        self.snap_grid_check = QCheckBox("✓ Snap to Grid")
-        self.snap_grid_check.setChecked(self.snap_to_grid)
-        self.snap_grid_check.toggled.connect(self._on_snap_changed)
-        grid_layout.addWidget(self.snap_grid_check)
-        
-        parent_layout.addWidget(grid_group)
+    def boundingRect(self):
+        """Return the bounding rectangle"""
+        return QRectF(0, 0, self.width, self.height)
     
-    def _create_quick_modes_group(self, parent_layout):
-        """Create Quick Modes group"""
-        modes_group = QGroupBox("Quick Modes")
-        modes_layout = QVBoxLayout(modes_group)
+    def paint(self, painter, option, widget):
+        """Paint the component"""
+        # Component body
+        if self.isSelected():
+            painter.setPen(QPen(QColor(255, 165, 0), 3))  # Orange selection
+            painter.setBrush(QBrush(QColor(70, 70, 70)))
+        else:
+            painter.setPen(QPen(QColor(50, 50, 50), 2))
+            painter.setBrush(QBrush(QColor(40, 40, 40)))
         
-        # Mode buttons
-        self.mode_button_group = QButtonGroup(self)
-        self.mode_button_group.buttonClicked.connect(self._on_mode_changed)
+        # Draw component body
+        rect = QRectF(0, 0, self.width, self.height)
+        painter.drawRoundedRect(rect, 4, 4)
         
-        modes = [
-            ("🔧 Breadboard", "Breadboard"),
-            ("🔌 PCB Design", "PCB"),
-            ("📐 Schematic", "Schematic"),
-            ("🎨 Freeform", "Freeform")
+        # Draw pins
+        self._draw_pins(painter)
+        
+        # Draw component name
+        painter.setPen(QPen(QColor(255, 255, 255)))
+        painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
+        
+        # Calculate text position
+        text_rect = QRectF(2, 2, self.width - 4, self.height - 4)
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, self.name)
+        
+        # Draw package type
+        painter.setFont(QFont("Arial", 6))
+        package_rect = QRectF(2, self.height - 15, self.width - 4, 12)
+        painter.drawText(package_rect, Qt.AlignmentFlag.AlignCenter, self.package_type)
+    
+    def _draw_pins(self, painter):
+        """Draw component pins"""
+        pin_config = self.pins
+        
+        if pin_config['type'] == 'dip':
+            self._draw_dip_pins(painter, pin_config)
+        elif pin_config['type'] == 'qfp':
+            self._draw_qfp_pins(painter, pin_config)
+    
+    def _draw_dip_pins(self, painter, config):
+        """Draw DIP package pins"""
+        pins_per_side = config['per_side']
+        pin_spacing = (self.height - 20) / (pins_per_side - 1) if pins_per_side > 1 else 0
+        
+        # Pin colors
+        colors = [
+            QColor(255, 165, 0),    # Orange
+            QColor(255, 255, 0),    # Yellow  
+            QColor(0, 255, 0),      # Green
+            QColor(0, 191, 255),    # Blue
+            QColor(255, 0, 255),    # Magenta
+            QColor(255, 0, 0),      # Red
         ]
         
-        for i, (text, mode) in enumerate(modes):
-            btn = QRadioButton(text)
-            if mode == "Breadboard":
-                btn.setChecked(True)
-            btn.mode = mode
-            btn.toggled.connect(lambda checked, m=mode: self._on_quick_mode_changed(m))
-            self.mode_button_group.addButton(btn, i)
-            modes_layout.addWidget(btn)
+        # Left side pins
+        for i in range(pins_per_side):
+            y = int(10 + i * pin_spacing)  # Convert to int
+            color = colors[i % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(-3, y - 2, 6, 4)
         
-        parent_layout.addWidget(modes_group)
+        # Right side pins  
+        for i in range(pins_per_side):
+            y = int(10 + i * pin_spacing)  # Convert to int
+            color = colors[(pins_per_side + i) % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(self.width - 3, y - 2, 6, 4)
     
-    def _create_layers_group(self, parent_layout):
-        """Create Layers group"""
-        layers_group = QGroupBox("Layers")
-        layers_layout = QVBoxLayout(layers_group)
+    def _draw_qfp_pins(self, painter, config):
+        """Draw QFP package pins"""
+        pins_per_side = config['per_side']
         
-        # Layer list
-        self.layer_list = LayerListWidget()
-        self.layer_list.setMaximumHeight(120)
-        self.layer_list.layerVisibilityChanged.connect(self.on_layer_visibility_changed)
-        self.layer_list.layerSelected.connect(self.on_layer_selected)
-        layers_layout.addWidget(self.layer_list)
+        # Colors for pins
+        colors = [
+            QColor(255, 165, 0),    # Orange
+            QColor(255, 255, 0),    # Yellow
+            QColor(0, 255, 0),      # Green
+            QColor(0, 191, 255),    # Blue
+            QColor(255, 0, 255),    # Magenta
+            QColor(255, 0, 0),      # Red
+        ]
         
-        # Layer control buttons
-        buttons_layout = QHBoxLayout()
-        self.add_layer_btn = QPushButton("Add")
-        self.remove_layer_btn = QPushButton("Remove")
-        self.duplicate_layer_btn = QPushButton("Duplicate")
+        pin_spacing = (self.width - 20) / (pins_per_side - 1) if pins_per_side > 1 else 0
         
-        self.add_layer_btn.clicked.connect(self.add_new_layer)
-        self.remove_layer_btn.clicked.connect(self.remove_selected_layer)
-        self.duplicate_layer_btn.clicked.connect(self.duplicate_selected_layer)
+        # Top pins
+        for i in range(pins_per_side):
+            x = int(10 + i * pin_spacing)  # Convert to int
+            color = colors[i % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(x - 2, -3, 4, 6)
         
-        buttons_layout.addWidget(self.add_layer_btn)
-        buttons_layout.addWidget(self.remove_layer_btn)
-        buttons_layout.addWidget(self.duplicate_layer_btn)
-        layers_layout.addLayout(buttons_layout)
+        # Right pins
+        for i in range(pins_per_side):
+            y = int(10 + i * pin_spacing)  # Convert to int
+            color = colors[(pins_per_side + i) % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(self.width - 3, y - 2, 6, 4)
         
-        parent_layout.addWidget(layers_group)
+        # Bottom pins
+        for i in range(pins_per_side):
+            x = int(10 + (pins_per_side - 1 - i) * pin_spacing)  # Convert to int
+            color = colors[(2 * pins_per_side + i) % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(x - 2, self.height - 3, 4, 6)
+        
+        # Left pins
+        for i in range(pins_per_side):
+            y = int(10 + (pins_per_side - 1 - i) * pin_spacing)  # Convert to int
+            color = colors[(3 * pins_per_side + i) % len(colors)]
+            painter.setPen(QPen(color, 1))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(-3, y - 2, 6, 4)
+
+class GridSettingsDialog(QDialog):
+    """Grid settings dialog"""
     
-    def _create_layer_properties_group(self, parent_layout):
-        """Create Layer Properties group"""
-        props_group = QGroupBox("Layer Properties")
-        props_layout = QVBoxLayout(props_group)
-        
-        # Layer name
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("Name:"))
-        self.layer_name_edit = QLineEdit()
-        self.layer_name_edit.textChanged.connect(self.on_layer_name_changed)
-        name_layout.addWidget(self.layer_name_edit)
-        props_layout.addLayout(name_layout)
-        
-        # Position info (read-only display)
-        position_layout = QHBoxLayout()
-        position_layout.addWidget(QLabel("Position:"))
-        self.position_label = QLabel("PyQt6.QtCore.QPointF(-60.0, -140.0)")
-        self.position_label.setStyleSheet("font-family: monospace; font-size: 8px;")
-        position_layout.addWidget(self.position_label)
-        props_layout.addLayout(position_layout)
-        
-        # Size info (read-only display)
-        size_layout = QHBoxLayout()
-        size_layout.addWidget(QLabel("Size:"))
-        self.size_label = QLabel("PyQt6.QtCore.QSizeF(8.40, 0.53x6f(8.40)")
-        self.size_label.setStyleSheet("font-family: monospace; font-size: 8px;")
-        size_layout.addWidget(self.size_label)
-        props_layout.addLayout(size_layout)
-        
-        parent_layout.addWidget(props_group)
+    # Define signals at class level  
+    grid_changed = pyqtSignal(dict)
     
-    def _apply_theme(self):
-        """Apply theme colors to layer controls"""
-        if not self.app_settings:
-            self._apply_fallback_theme()
-            return
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Grid Settings")
+        self.setFixedSize(350, 400)
         
-        try:
-            # Get theme colors
-            bg_primary = self._get_theme_color("bg_primary", "#2c3e50")
-            bg_secondary = self._get_theme_color("bg_secondary", "#34495e")
-            text_primary = self._get_theme_color("text_primary", "#ffffff")
-            text_secondary = self._get_theme_color("text_secondary", "#bdc3c7")
-            panel_bg = self._get_theme_color("panel_bg", "#2c3e50")
-            border = self._get_theme_color("border", "#7f8c8d")
-            accent_primary = self._get_theme_color("accent_primary", "#3498db")
-            
-            # Apply theme stylesheet
-            theme_style = f"""
-            QWidget {{
-                background-color: {bg_primary};
-                color: {text_primary};
-                font-family: "Segoe UI", Arial, sans-serif;
-            }}
-            
-            QGroupBox {{
-                font-weight: bold;
-                border: 2px solid {border};
-                border-radius: 8px;
-                margin-top: 1ex;
-                padding-top: 8px;
-                background-color: {panel_bg};
-                color: {text_primary};
-            }}
-            
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 8px 0 8px;
-                color: {text_primary};
-                background-color: {bg_primary};
-            }}
-            
-            QCheckBox {{
-                color: {text_primary};
-                spacing: 8px;
-                font-weight: bold;
-            }}
-            
-            QRadioButton {{
-                color: {text_primary};
-                spacing: 8px;
-                font-weight: bold;
-            }}
-            
-            QLabel {{
-                color: {text_primary};
-                background-color: transparent;
-            }}
-            
-            QComboBox {{
-                background-color: {bg_secondary};
-                border: 1px solid {border};
-                color: {text_primary};
-                padding: 4px;
-                border-radius: 4px;
-                min-width: 100px;
-            }}
-            
-            QComboBox::drop-down {{
-                border: none;
-                background-color: {accent_primary};
-                border-radius: 2px;
-            }}
-            
-            QComboBox QAbstractItemView {{
-                background-color: {bg_secondary};
-                color: {text_primary};
-                selection-background-color: {accent_primary};
-            }}
-            
-            QLineEdit {{
-                background-color: {bg_secondary};
-                border: 1px solid {border};
-                color: {text_primary};
-                padding: 4px;
-                border-radius: 4px;
-            }}
-            
-            QListWidget {{
-                background-color: {bg_secondary};
-                border: 1px solid {border};
-                color: {text_primary};
-                selection-background-color: {accent_primary};
-            }}
-            
+        layout = QVBoxLayout(self)
+        
+        # Grid visibility
+        visibility_group = QFrame()
+        visibility_group.setFrameStyle(QFrame.Shape.Box)
+        visibility_layout = QVBoxLayout(visibility_group)
+        
+        visibility_layout.addWidget(QLabel("Grid Visibility"))
+        
+        self.show_grid = QCheckBox("Show Grid")
+        self.show_grid.setChecked(True)
+        visibility_layout.addWidget(self.show_grid)
+        
+        self.snap_to_grid = QCheckBox("Snap to Grid")
+        self.snap_to_grid.setChecked(True)
+        visibility_layout.addWidget(self.snap_to_grid)
+        
+        layout.addWidget(visibility_group)
+        
+        # Grid style
+        style_group = QFrame()
+        style_group.setFrameStyle(QFrame.Shape.Box)
+        style_layout = QGridLayout(style_group)
+        
+        style_layout.addWidget(QLabel("Grid Style"), 0, 0, 1, 2)
+        
+        self.grid_style = QComboBox()
+        self.grid_style.addItems(["Dotted", "Solid Lines", "Dashed Lines", "Cross Pattern"])
+        self.grid_style.setCurrentText("Dotted")
+        style_layout.addWidget(QLabel("Style:"), 1, 0)
+        style_layout.addWidget(self.grid_style, 1, 1)
+        
+        # Grid spacing
+        self.grid_spacing = QSpinBox()
+        self.grid_spacing.setRange(5, 100)
+        self.grid_spacing.setValue(25)
+        self.grid_spacing.setSuffix(" px")
+        style_layout.addWidget(QLabel("Spacing:"), 2, 0)
+        style_layout.addWidget(self.grid_spacing, 2, 1)
+        
+        # Grid colors
+        self.grid_color_btn = QPushButton("Grid Color")
+        self.grid_color_btn.clicked.connect(self.choose_grid_color)
+        self.grid_color = QColor(100, 100, 100, 100)
+        self.update_color_button()
+        style_layout.addWidget(QLabel("Color:"), 3, 0)
+        style_layout.addWidget(self.grid_color_btn, 3, 1)
+        
+        layout.addWidget(style_group)
+        
+        # Background settings
+        bg_group = QFrame()
+        bg_group.setFrameStyle(QFrame.Shape.Box)
+        bg_layout = QGridLayout(bg_group)
+        
+        bg_layout.addWidget(QLabel("Background"), 0, 0, 1, 2)
+        
+        self.bg_type = QComboBox()
+        self.bg_type.addItems(["Solid Color", "PCB Pattern", "Breadboard", "Perfboard", "White Canvas", "Light Gray Canvas"])
+        bg_layout.addWidget(QLabel("Type:"), 1, 0)
+        bg_layout.addWidget(self.bg_type, 1, 1)
+        
+        self.bg_color_btn = QPushButton("Background Color")
+        self.bg_color_btn.clicked.connect(self.choose_bg_color)
+        self.bg_color = QColor(40, 44, 52)
+        self.update_bg_color_button()
+        bg_layout.addWidget(QLabel("Color:"), 2, 0)
+        bg_layout.addWidget(self.bg_color_btn, 2, 1)
+        
+        layout.addWidget(bg_group)
+        
+        # Paper cut guides
+        guides_group = QFrame()
+        guides_group.setFrameStyle(QFrame.Shape.Box)
+        guides_layout = QVBoxLayout(guides_group)
+        
+        guides_layout.addWidget(QLabel("Paper Cut Guides"))
+        
+        self.show_margins = QCheckBox("Show Page Margins")
+        guides_layout.addWidget(self.show_margins)
+        
+        self.show_rulers = QCheckBox("Show Rulers")
+        guides_layout.addWidget(self.show_rulers)
+        
+        layout.addWidget(guides_group)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        apply_btn = QPushButton("Apply")
+        apply_btn.clicked.connect(self.apply_settings)
+        button_layout.addWidget(apply_btn)
+        
+        reset_btn = QPushButton("Reset")
+        reset_btn.clicked.connect(self.reset_settings)
+        button_layout.addWidget(reset_btn)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.close)
+        button_layout.addWidget(close_btn)
+        
+        layout.addLayout(button_layout)
+        
+        # Connect signals
+        self.show_grid.toggled.connect(self.emit_changes)
+        self.snap_to_grid.toggled.connect(self.emit_changes)
+        self.grid_style.currentTextChanged.connect(self.emit_changes)
+        self.grid_spacing.valueChanged.connect(self.emit_changes)
+        self.bg_type.currentTextChanged.connect(self.emit_changes)
+    
+    def choose_grid_color(self):
+        """Choose grid color"""
+        color = QColorDialog.getColor(self.grid_color, self, "Choose Grid Color")
+        if color.isValid():
+            self.grid_color = color
+            self.update_color_button()
+            self.emit_changes()
+    
+    def choose_bg_color(self):
+        """Choose background color"""
+        color = QColorDialog.getColor(self.bg_color, self, "Choose Background Color")
+        if color.isValid():
+            self.bg_color = color
+            self.update_bg_color_button()
+            self.emit_changes()
+    
+    def update_color_button(self):
+        """Update grid color button appearance"""
+        self.grid_color_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {accent_primary};
-                border: 1px solid {border};
-                color: {text_primary};
+                background-color: {self.grid_color.name()};
+                color: white;
+                border: 2px solid #bdc3c7;
                 padding: 6px 12px;
                 border-radius: 4px;
-                font-weight: bold;
-                min-width: 60px;
             }}
-            
-            QPushButton:hover {{
-                background-color: {self._get_theme_color("button_hover", "#2980b9")};
-            }}
-            
-            QPushButton:pressed {{
-                background-color: {self._get_theme_color("button_pressed", "#1f618d")};
-            }}
-            """
-            
-            self.setStyleSheet(theme_style)
-            print("✓ Layer controls theme applied")
-            
-        except Exception as e:
-            print(f"⚠️ Layer controls theme application failed: {e}")
-            self._apply_fallback_theme()
+        """)
     
-    def _apply_fallback_theme(self):
-        """Apply fallback theme for layer controls"""
-        fallback_style = """
-        QWidget {
-            background-color: #2c3e50;
-            color: #ffffff;
-            font-family: "Segoe UI", Arial, sans-serif;
-        }
-        
-        QGroupBox {
-            font-weight: bold;
-            border: 2px solid #7f8c8d;
-            border-radius: 8px;
-            margin-top: 1ex;
-            padding-top: 8px;
-            background-color: #34495e;
-            color: #ffffff;
-        }
-        
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 8px 0 8px;
-            color: #ffffff;
-            background-color: #2c3e50;
-        }
-        
-        QCheckBox {
-            color: #ffffff;
-            spacing: 8px;
-            font-weight: bold;
-        }
-        
-        QRadioButton {
-            color: #ffffff;
-            spacing: 8px;
-            font-weight: bold;
-        }
-        
-        QLabel {
-            color: #ffffff;
-            background-color: transparent;
-        }
-        
-        QComboBox {
-            background-color: #34495e;
-            border: 1px solid #7f8c8d;
-            color: #ffffff;
-            padding: 4px;
-            border-radius: 4px;
-            min-width: 100px;
-        }
-        
-        QComboBox::drop-down {
-            border: none;
-            background-color: #3498db;
-            border-radius: 2px;
-        }
-        
-        QLineEdit {
-            background-color: #34495e;
-            border: 1px solid #7f8c8d;
-            color: #ffffff;
-            padding: 4px;
-            border-radius: 4px;
-        }
-        
-        QListWidget {
-            background-color: #34495e;
-            border: 1px solid #7f8c8d;
-            color: #ffffff;
-            selection-background-color: #3498db;
-        }
-        
-        QPushButton {
-            background-color: #3498db;
-            border: 1px solid #7f8c8d;
-            color: #ffffff;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            min-width: 60px;
-        }
-        
-        QPushButton:hover {
-            background-color: #2980b9;
-        }
-        
-        QPushButton:pressed {
-            background-color: #1f618d;
-        }
-        """
-        
-        self.setStyleSheet(fallback_style)
-        print("✓ Layer controls fallback theme applied")
+    def update_bg_color_button(self):
+        """Update background color button appearance"""
+        self.bg_color_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.bg_color.name()};
+                color: white;
+                border: 2px solid #bdc3c7;
+                padding: 6px 12px;
+                border-radius: 4px;
+            }}
+        """)
     
-    def _create_default_layers(self):
-        """Create default layers"""
-        default_layers = [
-            {"name": "Background", "visible": True},
-            {"name": "Connections", "visible": True},
-            {"name": "Advanced", "visible": False}
+    def emit_changes(self):
+        """Emit grid settings changes"""
+        settings = {
+            'show_grid': self.show_grid.isChecked(),
+            'snap_to_grid': self.snap_to_grid.isChecked(),
+            'grid_style': self.grid_style.currentText(),
+            'grid_spacing': self.grid_spacing.value(),
+            'grid_color': self.grid_color,
+            'bg_type': self.bg_type.currentText(),
+            'bg_color': self.bg_color,
+            'show_margins': self.show_margins.isChecked(),
+            'show_rulers': self.show_rulers.isChecked()
+        }
+        self.grid_changed.emit(settings)
+    
+    def apply_settings(self):
+        """Apply settings"""
+        self.emit_changes()
+        print("✅ Grid settings applied")
+    
+    def reset_settings(self):
+        """Reset to default settings"""
+        self.show_grid.setChecked(True)
+        self.snap_to_grid.setChecked(True)
+        self.grid_style.setCurrentText("Dotted")
+        self.grid_spacing.setValue(25)
+        self.grid_color = QColor(100, 100, 100, 100)
+        self.bg_type.setCurrentText("Solid Color")
+        self.bg_color = QColor(40, 44, 52)
+        self.show_margins.setChecked(False)
+        self.show_rulers.setChecked(False)
+        self.update_color_button()
+        self.update_bg_color_button()
+        self.emit_changes()
+        print("🔄 Grid settings reset")
+
+class EnhancedPCBCanvas(QGraphicsView):
+    """Enhanced PCB Canvas with working functionality"""
+    
+    component_added = pyqtSignal(str, str, QPointF)  # category, component, position
+    component_selected = pyqtSignal(object)
+    zoom_changed = pyqtSignal(float)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        # Initialize scene
+        self.scene = QGraphicsScene()
+        self.setScene(self.scene)
+        
+        # Canvas settings
+        self.grid_settings = {
+            'show_grid': True,
+            'snap_to_grid': True,
+            'grid_style': 'Dotted',
+            'grid_spacing': 25,
+            'grid_color': QColor(100, 100, 100, 100),
+            'bg_type': 'Solid Color',
+            'bg_color': QColor(40, 44, 52),
+            'show_margins': False,
+            'show_rulers': False
+        }
+        
+        # Canvas state
+        self.current_tool = 'select'
+        self.zoom_factor = 1.0
+        self.components = {}
+        self.connections = []
+        
+        # Undo/Redo functionality
+        self.undo_stack = []
+        self.redo_stack = []
+        self.max_undo_levels = 50
+        
+        # Setup canvas
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+        self.setMouseTracking(True)
+        self.setAcceptDrops(True)
+        
+        # Create grid settings dialog
+        self.grid_dialog = GridSettingsDialog(self)
+        self.grid_dialog.grid_changed.connect(self.update_grid_settings)
+        
+        # Setup keyboard shortcuts
+        self.setup_shortcuts()
+        
+        # Initial setup
+        self.scene.setSceneRect(-2000, -2000, 4000, 4000)
+        self.update_background()
+        
+        print("✅ Enhanced PCB Canvas initialized")
+    
+    def setup_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        shortcuts = [
+            ('S', self.select_tool),
+            ('P', self.pan_tool),
+            ('+', self.zoom_in),
+            ('-', self.zoom_out),
+            ('F', self.fit_to_window),
+            ('G', self.show_grid_settings),
+            ('Ctrl+Z', self.undo),
+            ('Ctrl+Y', self.redo),
+            ('Delete', self.delete_selected),
+            ('Ctrl+A', self.select_all)
         ]
         
-        for layer_data in default_layers:
-            self._add_layer_to_list(layer_data["name"], layer_data["visible"])
+        for key, callback in shortcuts:
+            shortcut = QShortcut(QKeySequence(key), self)
+            shortcut.activated.connect(callback)
+    
+    def set_current_tool(self, tool):
+        """Set current tool"""
+        self.current_tool = tool
         
-        # Set first layer as current
-        if self.layer_list.count() > 0:
-            self.layer_list.setCurrentRow(0)
-            self.current_layer = "Background"
-            self.layer_name_edit.setText("Background")
-    
-    def _add_layer_to_list(self, name, visible=True):
-        """Add layer to the layer list"""
-        item = QListWidgetItem(name)
-        item.setCheckState(Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked)
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-        self.layer_list.addItem(item)
+        if tool == 'select':
+            self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        elif tool == 'pan':
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
         
-        self.layers[name] = {
-            "visible": visible,
-            "locked": False,
-            "opacity": 1.0
-        }
+        print(f"🔧 Tool changed to: {tool}")
     
-    # Grid event handlers
-    def _on_grid_visibility_changed(self, visible):
-        """Handle grid visibility change"""
-        self.grid_visible = visible
-        self.gridVisibilityChanged.emit(visible)
-        print(f"🔧 Grid visibility: {visible}")
+    def select_tool(self):
+        self.set_current_tool('select')
     
-    def _on_grid_style_changed(self, style):
-        """Handle grid style change"""
-        self.grid_style = style
-        self.gridStyleChanged.emit(style)
-        print(f"🔧 Grid style: {style}")
+    def pan_tool(self):
+        self.set_current_tool('pan')
     
-    def _on_grid_spacing_changed(self, spacing_text):
-        """Handle grid spacing change"""
-        if "Fine" in spacing_text:
-            spacing = 2.54
-        elif "Medium" in spacing_text:
-            spacing = 5.08
-        elif "Coarse" in spacing_text:
-            spacing = 10.16
+    def zoom_in(self):
+        """Zoom in"""
+        self.scale(1.2, 1.2)
+        self.zoom_factor *= 1.2
+        self.zoom_changed.emit(self.zoom_factor)
+        print(f"🔍+ Zoom: {self.zoom_factor:.2f}")
+    
+    def zoom_out(self):
+        """Zoom out"""
+        self.scale(0.8, 0.8)
+        self.zoom_factor *= 0.8
+        self.zoom_changed.emit(self.zoom_factor)
+        print(f"🔍- Zoom: {self.zoom_factor:.2f}")
+    
+    def fit_to_window(self):
+        """Fit canvas to window"""
+        if self.components:
+            # Calculate bounding rect of all components
+            items = [item for item in self.scene.items() if isinstance(item, ComponentItem)]
+            if items:
+                bounding_rect = items[0].boundingRect().translated(items[0].pos())
+                for item in items[1:]:
+                    item_rect = item.boundingRect().translated(item.pos())
+                    bounding_rect = bounding_rect.united(item_rect)
+                
+                self.fitInView(bounding_rect, Qt.AspectRatioMode.KeepAspectRatio)
+            else:
+                self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         else:
-            spacing = 2.54
+            self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         
-        self.grid_spacing = spacing
-        self.gridSpacingChanged.emit(spacing)
-        print(f"🔧 Grid spacing: {spacing}mm")
+        # Update zoom factor
+        transform = self.transform()
+        self.zoom_factor = transform.m11()
+        self.zoom_changed.emit(self.zoom_factor)
+        print(f"⬜ Fit to window - Zoom: {self.zoom_factor:.2f}")
     
-    def _on_snap_changed(self, snap):
-        """Handle snap to grid change"""
-        self.snap_to_grid = snap
-        self.snapToGridChanged.emit(snap)
-        print(f"🔧 Snap to grid: {snap}")
+    def show_grid_settings(self):
+        """Show grid settings dialog"""
+        self.grid_dialog.show()
+        self.grid_dialog.raise_()
     
-    def _on_mode_changed(self, button):
-        """Handle mode button change"""
-        mode = getattr(button, 'mode', 'Breadboard')
-        self._on_quick_mode_changed(mode)
+    def update_grid_settings(self, settings):
+        """Update grid settings"""
+        self.grid_settings.update(settings)
+        self.update_background()
+        self.scene.update()
+        print(f"⌗ Grid settings updated")
     
-    def _on_quick_mode_changed(self, mode):
-        """Handle quick mode change"""
-        if hasattr(self, '_mode_changing'):
+    def update_background(self):
+        """Update canvas background"""
+        bg_type = self.grid_settings['bg_type']
+        
+        if bg_type == "White Canvas":
+            bg_color = QColor(255, 255, 255)  # White
+        elif bg_type == "Light Gray Canvas":
+            bg_color = QColor(240, 240, 240)  # Light gray
+        else:
+            bg_color = self.grid_settings['bg_color']
+        
+        self.setBackgroundBrush(QBrush(bg_color))
+        self.scene.update()
+    
+    def drawBackground(self, painter, rect):
+        """Draw custom background with grid"""
+        super().drawBackground(painter, rect)
+        
+        if not self.grid_settings['show_grid']:
             return
         
-        self._mode_changing = True
-        self.current_mode = mode
-        self.modeChanged.emit(mode)
-        print(f"🔧 Mode changed: {mode}")
+        # Grid settings
+        spacing = self.grid_settings['grid_spacing']
+        color = self.grid_settings['grid_color']
+        style = self.grid_settings['grid_style']
+        bg_type = self.grid_settings['bg_type']
         
-        # Update grid style based on mode
-        if mode == "Breadboard":
-            self.grid_style_combo.setCurrentText("Breadboard")
-        elif mode == "PCB":
-            self.grid_style_combo.setCurrentText("Dots")
-        elif mode == "Schematic":
-            self.grid_style_combo.setCurrentText("Lines")
-        elif mode == "Freeform":
-            self.show_grid_check.setChecked(False)
+        # Adjust grid color for light backgrounds
+        if bg_type in ["White Canvas", "Light Gray Canvas"]:
+            # Use darker colors for light backgrounds
+            if color.lightness() > 150:  # If grid color is too light
+                color = QColor(80, 80, 80)  # Dark gray
         
-        delattr(self, '_mode_changing')
-    
-    # Layer event handlers
-    def add_new_layer(self):
-        """Add new layer"""
-        layer_name = f"Layer {self.layer_list.count() + 1}"
-        self._add_layer_to_list(layer_name)
-        self.layerAdded.emit(layer_name)
-        print(f"✓ Layer added: {layer_name}")
-    
-    def remove_selected_layer(self):
-        """Remove selected layer"""
-        current_row = self.layer_list.currentRow()
-        if current_row >= 0:
-            item = self.layer_list.item(current_row)
-            layer_name = item.text()
-            self.layer_list.takeItem(current_row)
+        # Setup pen
+        pen = QPen(color)
+        
+        if style == "Dotted":
+            pen.setStyle(Qt.PenStyle.DotLine)
+            pen.setWidth(1)
+        elif style == "Solid Lines":
+            pen.setStyle(Qt.PenStyle.SolidLine)
+            pen.setWidth(1)
+        elif style == "Dashed Lines":
+            pen.setStyle(Qt.PenStyle.DashLine)
+            pen.setWidth(1)
+        
+        painter.setPen(pen)
+        
+        # Calculate grid bounds
+        left = int(rect.left()) - (int(rect.left()) % spacing)
+        top = int(rect.top()) - (int(rect.top()) % spacing)
+        
+        # Draw grid
+        if style == "Cross Pattern":
+            # Draw cross pattern
+            for x in range(left, int(rect.right()), spacing):
+                for y in range(top, int(rect.bottom()), spacing):
+                    painter.drawLine(x-3, y, x+3, y)
+                    painter.drawLine(x, y-3, x, y+3)
+        elif style == "Dotted":
+            # Draw dots - make them more visible on light backgrounds
+            dot_size = 2 if bg_type in ["White Canvas", "Light Gray Canvas"] else 1
+            for x in range(left, int(rect.right()), spacing):
+                for y in range(top, int(rect.bottom()), spacing):
+                    if dot_size > 1:
+                        painter.drawEllipse(x-1, y-1, dot_size, dot_size)
+                    else:
+                        painter.drawPoint(x, y)
+        else:
+            # Draw lines - fix the type conversion issue
+            for x in range(left, int(rect.right()), spacing):
+                painter.drawLine(x, int(rect.top()), x, int(rect.bottom()))
             
-            if layer_name in self.layers:
-                del self.layers[layer_name]
+            for y in range(top, int(rect.bottom()), spacing):
+                painter.drawLine(int(rect.left()), y, int(rect.right()), y)
+    
+    # Component management
+    def add_component(self, category, component_name, position, package_type="DIP-40"):
+        """Add a component to the canvas"""
+        try:
+            # Save state for undo
+            self.save_state_for_undo()
             
-            self.layerRemoved.emit(layer_name)
-            print(f"✓ Layer removed: {layer_name}")
-    
-    def duplicate_selected_layer(self):
-        """Duplicate selected layer"""
-        current_row = self.layer_list.currentRow()
-        if current_row >= 0:
-            item = self.layer_list.item(current_row)
-            original_name = item.text()
-            new_name = f"{original_name} Copy"
+            # Create component item
+            component_item = ComponentItem(component_name, category, package_type)
+            component_item.setPos(position)
             
-            is_visible = item.checkState() == Qt.CheckState.Checked
-            self._add_layer_to_list(new_name, is_visible)
-            self.layerAdded.emit(new_name)
-            print(f"✓ Layer duplicated: {new_name}")
+            # Add to scene
+            self.scene.addItem(component_item)
+            
+            # Track component
+            component_id = f"{component_name}_{len(self.components)}"
+            self.components[component_id] = component_item
+            
+            # Emit signal
+            self.component_added.emit(category, component_name, position)
+            
+            print(f"✅ Component added: {component_name} at {position}")
+            return component_item
+            
+        except Exception as e:
+            print(f"❌ Error adding component: {e}")
+            return None
     
-    def on_layer_visibility_changed(self, layer_name, visible):
-        """Handle layer visibility change"""
-        if layer_name in self.layers:
-            self.layers[layer_name]["visible"] = visible
-        self.layerVisibilityChanged.emit(layer_name, visible)
-        print(f"🔧 Layer '{layer_name}' visibility: {visible}")
+    def remove_component(self, component_item):
+        """Remove a component from the canvas"""
+        try:
+            # Save state for undo
+            self.save_state_for_undo()
+            
+            # Remove from scene
+            self.scene.removeItem(component_item)
+            
+            # Remove from tracking
+            for comp_id, comp in list(self.components.items()):
+                if comp == component_item:
+                    del self.components[comp_id]
+                    break
+            
+            self.component_selected.emit(None)
+            print(f"🗑️ Component removed")
+            
+        except Exception as e:
+            print(f"❌ Error removing component: {e}")
     
-    def on_layer_selected(self, layer_name):
-        """Handle layer selection"""
-        self.current_layer = layer_name
-        self.layer_name_edit.setText(layer_name)
-        self.layerSelected.emit(layer_name)
-        print(f"🔧 Layer selected: {layer_name}")
+    def clear_canvas(self):
+        """Clear all components from canvas"""
+        self.save_state_for_undo()
+        self.scene.clear()
+        self.components.clear()
+        self.connections.clear()
+        print("🧹 Canvas cleared")
     
-    def on_layer_name_changed(self, new_name):
-        """Handle layer name change"""
-        if self.current_layer and new_name != self.current_layer:
-            # Update the list item
-            current_item = self.layer_list.currentItem()
-            if current_item:
-                old_name = current_item.text()
-                current_item.setText(new_name)
-                
-                # Update internal data
-                if old_name in self.layers:
-                    self.layers[new_name] = self.layers.pop(old_name)
-                
-                self.layerRenamed.emit(old_name, new_name)
-                self.current_layer = new_name
-                print(f"🔧 Layer renamed: {old_name} → {new_name}")
+    # Drag and drop functionality
+    def dragEnterEvent(self, event):
+        """Handle drag enter for component placement"""
+        if event.mimeData().hasText():
+            mime_text = event.mimeData().text()
+            if mime_text.startswith("component:"):
+                event.acceptProposedAction()
+                print(f"🎯 Drag enter accepted: {mime_text}")
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+    
+    def dragMoveEvent(self, event):
+        """Handle drag move"""
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+    
+    def dropEvent(self, event):
+        """Handle component drop"""
+        if event.mimeData().hasText():
+            mime_text = event.mimeData().text()
+            if mime_text.startswith("component:"):
+                try:
+                    # Parse component data: "component:category:name:package"
+                    parts = mime_text.split(":", 3)
+                    if len(parts) >= 3:
+                        category = parts[1]
+                        component_name = parts[2]
+                        package = parts[3] if len(parts) > 3 else "DIP-40"
+                        
+                        # Get drop position in scene coordinates
+                        scene_pos = self.mapToScene(event.position().toPoint())
+                        
+                        # Snap to grid if enabled
+                        if self.grid_settings['snap_to_grid']:
+                            spacing = self.grid_settings['grid_spacing']
+                            scene_pos.setX(round(scene_pos.x() / spacing) * spacing)
+                            scene_pos.setY(round(scene_pos.y() / spacing) * spacing)
+                        
+                        # Add component
+                        self.add_component(category, component_name, scene_pos, package)
+                        
+                        event.acceptProposedAction()
+                        print(f"📦 Component dropped: {component_name} from {category}")
+                    
+                except Exception as e:
+                    print(f"❌ Error handling drop: {e}")
+                    event.ignore()
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+    
+    # Mouse and keyboard events
+    def mousePressEvent(self, event):
+        """Handle mouse press events"""
+        if event.button() == Qt.MouseButton.RightButton:
+            # Right click - show context menu
+            self.show_context_menu(event.position().toPoint())
+        elif event.button() == Qt.MouseButton.MiddleButton:
+            # Middle click for pan
+            self.set_current_tool('pan')
+            super().mousePressEvent(event)
+        else:
+            # Check for component selection
+            item = self.itemAt(event.position().toPoint())
+            if isinstance(item, ComponentItem):
+                self.component_selected.emit(item)
+                print(f"🎯 Component selected: {item.name}")
+            else:
+                self.component_selected.emit(None)
+            
+            super().mousePressEvent(event)
+    
+    def wheelEvent(self, event):
+        """Handle wheel events for zooming"""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Zoom with Ctrl + wheel
+            if event.angleDelta().y() > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+        else:
+            super().wheelEvent(event)
+    
+    def keyPressEvent(self, event):
+        """Handle key press events"""
+        if event.key() == Qt.Key.Key_Delete:
+            # Delete selected components
+            self.delete_selected_components()
+        elif event.key() == Qt.Key.Key_Escape:
+            # Deselect all
+            self.scene.clearSelection()
+            self.component_selected.emit(None)
+        elif event.key() == Qt.Key.Key_A and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # Select all components
+            self.select_all_components()
+        else:
+            super().keyPressEvent(event)
+    
+    # Context menu
+    def show_context_menu(self, position):
+        """Show context menu at position"""
+        menu = QMenu(self)
+        
+        # Get item at position
+        item = self.itemAt(position)
+        
+        if isinstance(item, ComponentItem):
+            # Component context menu
+            menu.addAction("🔧 Properties", lambda: self.show_component_properties(item))
+            menu.addAction("📋 Copy", lambda: self.copy_component(item))
+            menu.addAction("🔄 Rotate", lambda: self.rotate_component(item))
+            menu.addSeparator()
+            menu.addAction("🗑️ Delete", lambda: self.remove_component(item))
+        else:
+            # Canvas context menu
+            scene_pos = self.mapToScene(position)
+            menu.addAction("📦 Add Component", lambda: self.show_add_component_dialog(scene_pos))
+            menu.addAction("📋 Paste", lambda: self.paste_component(scene_pos))
+            menu.addSeparator()
+            menu.addAction("⌗ Grid Settings", self.show_grid_settings)
+            menu.addAction("🧹 Clear Canvas", self.clear_canvas)
+        
+        # Show menu
+        global_pos = self.mapToGlobal(position)
+        menu.exec(global_pos)
+    
+    def show_component_properties(self, component):
+        """Show component properties dialog"""
+        print(f"🔧 Properties for {component.name}")
+    
+    def copy_component(self, component):
+        """Copy component to clipboard"""
+        print(f"📋 Copied {component.name}")
+    
+    def rotate_component(self, component):
+        """Rotate component"""
+        current_rotation = component.rotation()
+        component.setRotation(current_rotation + 90)
+        print(f"🔄 Rotated {component.name}")
+    
+    def show_add_component_dialog(self, position):
+        """Show add component dialog"""
+        print(f"📦 Add component at {position}")
+    
+    def paste_component(self, position):
+        """Paste component at position"""
+        print(f"📋 Paste at {position}")
+    
+    # Component selection methods
+    def delete_selected_components(self):
+        """Delete all selected components"""
+        selected_items = [item for item in self.scene.selectedItems() if isinstance(item, ComponentItem)]
+        
+        if selected_items:
+            for item in selected_items:
+                self.remove_component(item)
+            print(f"🗑️ Deleted {len(selected_items)} components")
+        else:
+            print("🗑️ No components selected to delete")
+    
+    def select_all_components(self):
+        """Select all components on canvas"""
+        component_items = [item for item in self.scene.items() if isinstance(item, ComponentItem)]
+        
+        for item in component_items:
+            item.setSelected(True)
+        
+        print(f"🔲 Selected {len(component_items)} components")
+    
+    def get_selected_components(self):
+        """Get list of selected components"""
+        return [item for item in self.scene.selectedItems() if isinstance(item, ComponentItem)]
+    
+    # Undo/Redo functionality
+    def save_state_for_undo(self):
+        """Save current state for undo functionality"""
+        state = self.save_canvas_state()
+        
+        # Add to undo stack
+        self.undo_stack.append(state)
+        
+        # Limit undo stack size
+        if len(self.undo_stack) > self.max_undo_levels:
+            self.undo_stack.pop(0)
+        
+        # Clear redo stack since new action was performed
+        self.redo_stack.clear()
+    
+    def undo(self):
+        """Undo last action"""
+        if self.undo_stack:
+            # Save current state to redo stack
+            current_state = self.save_canvas_state()
+            self.redo_stack.append(current_state)
+            
+            # Restore previous state
+            previous_state = self.undo_stack.pop()
+            self.load_canvas_state(previous_state)
+            
+            print("↶ Undo performed")
+        else:
+            print("↶ Nothing to undo")
+    
+    def redo(self):
+        """Redo last undone action"""
+        if self.redo_stack:
+            # Save current state to undo stack
+            current_state = self.save_canvas_state()
+            self.undo_stack.append(current_state)
+            
+            # Restore next state
+            next_state = self.redo_stack.pop()
+            self.load_canvas_state(next_state)
+            
+            print("↷ Redo performed")
+        else:
+            print("↷ Nothing to redo")
+    
+    # Canvas state management
+    def save_canvas_state(self):
+        """Save current canvas state"""
+        canvas_data = {
+            'components': [],
+            'connections': self.connections,
+            'grid_settings': self.grid_settings,
+            'zoom_factor': self.zoom_factor
+        }
+        
+        # Save component data
+        for comp_id, component in self.components.items():
+            comp_data = {
+                'id': comp_id,
+                'name': component.name,
+                'category': component.category,
+                'package_type': component.package_type,
+                'position': {'x': component.pos().x(), 'y': component.pos().y()},
+                'rotation': component.rotation()
+            }
+            canvas_data['components'].append(comp_data)
+        
+        return canvas_data
+    
+    def load_canvas_state(self, canvas_data):
+        """Load canvas state from data"""
+        try:
+            # Clear existing canvas
+            self.clear_canvas()
+            
+            # Load components
+            if 'components' in canvas_data:
+                for comp_data in canvas_data['components']:
+                    position = QPointF(comp_data['position']['x'], comp_data['position']['y'])
+                    component = self.add_component(
+                        comp_data['category'],
+                        comp_data['name'],
+                        position,
+                        comp_data.get('package_type', 'DIP-40')
+                    )
+                    
+                    if component and 'rotation' in comp_data:
+                        component.setRotation(comp_data['rotation'])
+            
+            # Load connections
+            if 'connections' in canvas_data:
+                self.connections = canvas_data['connections']
+            
+            # Load grid settings
+            if 'grid_settings' in canvas_data:
+                self.grid_settings.update(canvas_data['grid_settings'])
+                self.update_background()
+            
+            # Load zoom
+            if 'zoom_factor' in canvas_data:
+                target_zoom = canvas_data['zoom_factor']
+                current_zoom = self.zoom_factor
+                scale_factor = target_zoom / current_zoom
+                self.scale(scale_factor, scale_factor)
+                self.zoom_factor = target_zoom
+                self.zoom_changed.emit(self.zoom_factor)
+            
+            print(f"✅ Canvas state loaded: {len(self.components)} components")
+            
+        except Exception as e:
+            print(f"❌ Error loading canvas state: {e}")
+    
+    # Utility methods
+    def export_canvas_image(self, filename):
+        """Export canvas as image"""
+        try:
+            # Get scene bounding rect
+            scene_rect = self.scene.itemsBoundingRect()
+            if scene_rect.isEmpty():
+                scene_rect = QRectF(-500, -500, 1000, 1000)
+            
+            # Create pixmap
+            pixmap = QPixmap(int(scene_rect.width()), int(scene_rect.height()))
+            pixmap.fill(self.grid_settings['bg_color'])
+            
+            # Render scene to pixmap
+            painter = QPainter(pixmap)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self.scene.render(painter, QRectF(), scene_rect)
+            painter.end()
+            
+            # Save pixmap
+            pixmap.save(filename)
+            print(f"💾 Canvas exported to {filename}")
+            
+        except Exception as e:
+            print(f"❌ Error exporting canvas: {e}")
+    
+    def get_canvas_statistics(self):
+        """Get canvas statistics"""
+        stats = {
+            'total_components': len(self.components),
+            'component_types': {},
+            'total_connections': len(self.connections),
+            'canvas_bounds': self.scene.itemsBoundingRect(),
+            'zoom_level': self.zoom_factor
+        }
+        
+        # Count component types
+        for component in self.components.values():
+            category = component.category
+            stats['component_types'][category] = stats['component_types'].get(category, 0) + 1
+        
+        return stats
+    
+    # Compatibility methods
+    def delete_selected(self):
+        """Delete selected components"""
+        self.delete_selected_components()
+    
+    def select_all(self):
+        """Select all components"""
+        self.select_all_components()
+    
+    def save_canvas(self):
+        """Save canvas to file"""
+        print("💾 Canvas save functionality - use save_canvas_state()")
+    
+    def open_canvas(self):
+        """Open canvas from file"""
+        print("📁 Canvas open functionality - use load_canvas_state()")
 
-# Backward compatibility
-LayerControlsWidget = LayerControls
+# For compatibility
+PCBCanvas = EnhancedPCBCanvas
 
 # Export
-__all__ = ['LayerControls', 'LayerControlsWidget', 'LayerListWidget']
+__all__ = ['EnhancedPCBCanvas', 'PCBCanvas', 'GridSettingsDialog', 'ComponentItem']
