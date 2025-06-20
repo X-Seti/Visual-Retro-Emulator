@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
                 # Add welcome message
                 #self._add_welcome_message()
 
-                print("✓ Working fallback canvas created with drag/drop support")
+                print("✓ Canvas created with drag/drop support")
                 print(f"✓ Grid visible: {self.grid_visible}, Grid size: {self.grid_size}")
 
                 # Force initial grid draw
@@ -717,7 +717,7 @@ class MainWindow(QMainWindow):
         palette_widget = QWidget()
         layout = QVBoxLayout(palette_widget)
         title_label = QLabel("Component Palette")
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        title_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
         layout.addWidget(title_label)
         class SimpleWorkingTree(QTreeWidget):
             def __init__(self):
@@ -794,9 +794,6 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(palette_widget)
 
         # Title
-        title_label = QLabel("Component Palette")
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        layout.addWidget(title_label)
 
         # Create scroll area for the tree
         scroll_area = QScrollArea()
@@ -813,15 +810,6 @@ class MainWindow(QMainWindow):
         instructions = QLabel("Drag components to canvas\nExpanded library with scroll support")
         instructions.setStyleSheet("color: #888; font-style: italic; font-size: 10px;")
         layout.addWidget(instructions)
-
-        # Create dock
-        self.component_palette_dock = QDockWidget("Component Palette", self)
-        self.component_palette_dock.setWidget(palette_widget)
-        self.component_palette_dock.setMinimumWidth(250)
-        self.component_palette_dock.setMaximumWidth(350)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.component_palette_dock)
-
-        print("✅ Working component palette created with scroll support")
 
         self.component_palette_dock = QDockWidget("Component Palette", self)
         self.component_palette_dock.setWidget(palette_widget)
@@ -932,7 +920,7 @@ class MainWindow(QMainWindow):
 
         # Title
         title_label = QLabel("CAD Tools")
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        title_label.setFont(QFont("Arial", 9, QFont.Weight.Bold))
         layout.addWidget(title_label)
 
         # Tool buttons
@@ -965,26 +953,6 @@ class MainWindow(QMainWindow):
         # Settings group
         settings_group = QGroupBox("Settings")
         settings_layout = QFormLayout(settings_group)
-
-        # Grid settings
-        grid_check = QCheckBox("Show Grid")
-        grid_check.setChecked(True)
-        grid_check.toggled.connect(self._on_grid_visibility_changed)
-        settings_layout.addRow(grid_check)
-
-        snap_check = QCheckBox("Snap to Grid")
-        snap_check.setChecked(True)
-        snap_check.toggled.connect(self._on_snap_to_grid_changed)
-        settings_layout.addRow(snap_check)
-
-        # Grid size
-        grid_size_spin = QSpinBox()
-        grid_size_spin.setRange(5, 100)
-        grid_size_spin.setValue(20)
-        grid_size_spin.setSuffix(" px")
-        grid_size_spin.valueChanged.connect(self._on_grid_size_changed)
-        settings_layout.addRow("Grid Size:", grid_size_spin)
-        settings_layout.addRow("Grid Size:", grid_size_spin)
 
         layout.addWidget(settings_group)
 
@@ -1118,9 +1086,6 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(props_widget)
 
         # Title we don't need the word properties twice'
-        title_label = QLabel("Properties")
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        layout.addWidget(title_label)
 
         # No selection label
         self.no_selection_label = QLabel("No selection")
@@ -1222,7 +1187,7 @@ class MainWindow(QMainWindow):
         self.properties_dock.setMaximumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.properties_dock)
 
-        print("✅ Properties dock created with scroll support")
+        #print("✅ Properties dock created with scroll support")
 
     def _create_layer_controls_dock(self):
         """Create layer controls dock"""
@@ -1753,6 +1718,7 @@ class MainWindow(QMainWindow):
         self.simulation_engine = engine
         print("✓ Simulation engine connected")
 
+    #On the left bar - Works
     def _on_grid_visibility_changed(self, enabled):
         """Handle grid visibility change from CAD tools panel"""
         if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
@@ -2550,11 +2516,6 @@ class EnhancedComponentPalette(QWidget):
     def setup_ui(self):
         """Setup UI layout"""
         layout = QVBoxLayout(self)
-
-        # Title
-        title = QLabel("Component Palette")
-        title.setStyleSheet("font-weight: bold; font-size: 14px;")
-        layout.addWidget(title)
 
         # Tree widget for components
         self.tree = QTreeWidget()
