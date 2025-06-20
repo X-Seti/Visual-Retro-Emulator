@@ -33,6 +33,7 @@ class RetroEmulatorApp(QApplication):
         
         # Initialize main window
         self.main_window = None
+        self.fallback_window = None
         
         # Load systems step by step
         self.initialize_systems()
@@ -92,6 +93,7 @@ class RetroEmulatorApp(QApplication):
         try:
             # Try to import MainWindow from ui package
             from ui.main_window import MainWindow
+            from ui.fallback_window import MainWindow
             print("✓ MainWindow imported from ui package")
         except ImportError as e:
             print(f"⚠️ Could not import from ui.main_window: {e}")
