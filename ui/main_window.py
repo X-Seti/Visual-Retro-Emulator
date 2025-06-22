@@ -149,6 +149,12 @@ class MainWindow(QMainWindow):
                 self.grid_style = "dots"
                 self.grid_color = QColor(100, 140, 100, 120)
                 self.snap_to_grid = True
+                
+                # Display settings
+                self.show_pin_numbers = True
+                self.show_component_labels = True
+                
+                # Component tracking
                 self.components = {}
                 self.connections = []
 
@@ -194,6 +200,7 @@ class MainWindow(QMainWindow):
                     text = event.mimeData().text()
                     if (text.startswith("component:") or ":" in text):
                         event.acceptProposedAction()
+                        print(f"✅ Drag accepted: {text}")
                     else:
                         event.ignore()
                 else:
@@ -237,16 +244,445 @@ class MainWindow(QMainWindow):
                             scene_pos.setY(round(scene_pos.y() / self.grid_size) * self.grid_size)
 
                         # Create realistic component
-                        self._create_realistic_component(name, category, package, scene_pos)
+                        comp_id = self._create_realistic_component(name, category, package, scene_pos)
+                        if comp_id:
+                            print(f"🎯 Component created: {name} from {category}")
 
                         event.acceptProposedAction()
-                        print(f"🎯 Component dropped: {name} from {category}")
 
                     except Exception as e:
                         print(f"❌ Error handling drop: {e}")
+                        import traceback
+                        traceback.print_exc()
                         event.ignore()
                 else:
                     event.ignore()
+
+            def _create_realistic_component(self, name, category, package, position):
+                """Create a highly realistic visual component"""
+                try:
+                    from PyQt6.QtWidgets import QGraphicsItemGroup, QGraphicsEllipseItem
+                    
+                    # Create component group
+                    component_group = QGraphicsItemGroup()
+                    
+                    # Get package info
+                    package_info = self._get_package_info(package, name, category)
+                    width = package_info['width']
+                    height = package_info['height']
+                    pin_count = package_info['pin_count']
+                    
+                    # Create main chip body
+                    body_rect = QGraphicsRectItem(-width/2, -height/2, width, height)
+                    
+                    # Get realistic colors
+                    body_color, outline_color, text_color = self._get_chip_colors(name, category)
+                    
+                    body_rect.setBrush(QBrush(body_color))
+                    body_rect.setPen(QPen(outline_color, 1.8))
+                    component_group.addToGroup(body_rect)
+                    
+                    # Add package-specific features
+                    if package.startswith("DIP"):
+                        self._add_dip_notch(component_group, width, height)
+                        self._create_dip_pins(component_group, width, height, pin_count)
+                    elif package.startswith("QFP"):
+                        self._add_pin1_dot(component_group, width, height)
+                        self._create_qfp_pins(component_group, width, height, pin_count)
+                    
+                    # Add enhanced labels
+                    self._add_chip_labels(component_group, name, package, width, height, text_color, category)
+                    
+                    # Position and configure
+                    component_group.setPos(position)
+                    component_group.setFlag(QGraphicsItemGroup.GraphicsItemFlag.ItemIsSelectable, True)
+                    component_group.setFlag(QGraphicsItemGroup.GraphicsItemFlag.ItemIsMovable, True)
+                    
+                    # Add to scene
+                    self.scene().addItem(component_group)
+                    
+                    # Track component
+                    comp_id = f"{name}_{len(self.components)}"
+                    self.components[comp_id] = {
+                        'group': component_group,
+                        'name': name,
+                        'category': category,
+                        'package': package,
+                        'position': position,
+                        'width': width,
+                        'height': height,
+                        'pin_count': pin_count
+                    }
+
+                    print(f"✅ Realistic component created: {name} ({package}) - {pin_count} pins")
+                    return comp_id
+
+                except Exception as e:
+                    print(f"❌ Error creating realistic component: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+
+            def _get_package_info(self, package, name, category):
+                """Get package dimensions and pin info"""
+                info = {'width': 60, 'height': 120, 'pin_count': 40}
+                
+                if package.startswith("DIP"):
+                    try:
+                        pin_count = int(package.split("-")[1])
+                    except:
+                        pin_count = 40
+                    
+                    # Scale based on pin count
+                    if pin_count <= 8:
+                        info.update({'width': 32, 'height': 40, 'pin_count': pin_count})
+                    elif pin_count <= 14:
+                        info.update({'width': 32, 'height': 56, 'pin_count': pin_count})
+                    elif pin_count <= 16:
+                        info.update({'width': 32, 'height': 64, 'pin_count': pin_count})
+                    elif pin_count <= 20:
+                        info.update({'width': 32, 'height': 80, 'pin_count': pin_count})
+                    elif pin_count <= 24:
+                        info.update({'width': 32, 'height': 96, 'pin_count': pin_count})
+                    elif pin_count <= 28:
+                        info.update({'width': 32, 'height': 112, 'pin_count': pin_count})
+                    elif pin_count <= 40:
+                        info.update({'width': 32, 'height': 160, 'pin_count': pin_count})
+                    elif pin_count <= 64:
+                        info.update({'width': 38, 'height': 256, 'pin_count': pin_count})
+                
+                elif package.startswith("QFP"):
+                    try:
+                        pin_count = int(package.split("-")[1])
+                    except:
+                        pin_count = 44
+                    
+                    side_length = max(48, pin_count * 1.3)
+                    info.update({'width': side_length, 'height': side_length, 'pin_count': pin_count})
+                
+                return info
+
+            def _get_chip_colors(self, name, category):
+                """Get authentic chip colors"""
+                # Default colors
+                body_color = QColor(50, 50, 60)
+                outline_color = QColor(175, 175, 175)
+                text_color = QColor(255, 255, 255)
+                
+                if category == "CPUs":
+                    if "Z80" in name:
+                        body_color = QColor(35, 35, 45)  # Dark Zilog ceramic
+                    elif "6502" in name or "6510" in name:
+                        body_color = QColor(45, 35, 35)  # MOS brownish
+                    elif "68000" in name:
+                        body_color = QColor(40, 40, 50)  # Motorola ceramic
+                    elif "8080" in name or "8086" in name:
+                        body_color = QColor(45, 45, 55)  # Intel ceramic
+                        
+                elif category == "Memory":
+                    if "27" in name:  # EPROM
+                        body_color = QColor(55, 45, 65)  # Purple-tinted
+                    else:
+                        body_color = QColor(55, 55, 65)
+                        
+                elif category == "Graphics":
+                    if "VIC" in name or "6567" in name:
+                        body_color = QColor(45, 35, 55)  # Commodore purple-brown
+                    elif "TMS" in name:
+                        body_color = QColor(40, 50, 40)  # TI greenish
+                    elif name in ["Agnus", "Denise", "Paula"]:
+                        body_color = QColor(35, 45, 35)  # Amiga green
+                        
+                elif category == "Audio":
+                    if "SID" in name:
+                        body_color = QColor(45, 35, 55)  # Commodore SID
+                    elif "AY" in name or "YM" in name:
+                        body_color = QColor(40, 50, 50)  # Yamaha teal
+                        
+                elif category == "Logic":
+                    body_color = QColor(25, 25, 25)  # Black plastic
+                    text_color = QColor(220, 220, 220)
+                
+                return body_color, outline_color, text_color
+
+            def _add_dip_notch(self, group, width, height):
+                """Add DIP notch"""
+                notch_width = min(width * 0.4, 12)
+                notch_height = 4
+                notch = QGraphicsRectItem(-notch_width/2, -height/2 - 1, notch_width, notch_height)
+                notch.setBrush(QBrush(QColor(15, 15, 15)))
+                notch.setPen(QPen(QColor(80, 80, 80), 0.8))
+                group.addToGroup(notch)
+
+            def _add_pin1_dot(self, group, width, height):
+                """Add pin 1 dot for surface mount packages"""
+                dot = QGraphicsEllipseItem(-width/2 + 6, -height/2 + 6, 3, 3)
+                dot.setBrush(QBrush(QColor(255, 255, 255)))
+                dot.setPen(QPen(QColor(200, 200, 200), 0.5))
+                group.addToGroup(dot)
+
+            def _create_dip_pins(self, group, width, height, pin_count):
+                """Create DIP pins with numbers on the outside"""
+                pins_per_side = pin_count // 2
+                pin_spacing = (height - 20) / (pins_per_side - 1) if pins_per_side > 1 else 0
+                start_y = -height/2 + 10
+                
+                # Left side pins (1 to N/2)
+                for i in range(pins_per_side):
+                    y_pos = start_y + (i * pin_spacing)
+                    
+                    # Main pin body - extending outward from chip
+                    pin = QGraphicsRectItem(-width/2 - 8, y_pos - 1, 8, 2)
+                    pin.setBrush(QBrush(QColor(220, 220, 230)))
+                    pin.setPen(QPen(QColor(180, 180, 190), 0.8))
+                    group.addToGroup(pin)
+                    
+                    # Pin number - OUTSIDE the chip, to the left of the pin
+                    if self.show_pin_numbers and (pin_count <= 28 or i % 2 == 0):
+                        pin_num = QGraphicsTextItem(str(i + 1))
+                        pin_num.setDefaultTextColor(QColor(200, 200, 200))
+                        pin_num.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+                        pin_rect = pin_num.boundingRect()
+                        # Position to the left of the pin, outside the chip
+                        pin_num.setPos(-width/2 - 8 - pin_rect.width() - 2, y_pos - pin_rect.height()/2)
+                        group.addToGroup(pin_num)
+                
+                # Right side pins (N/2+1 to N) - numbered counter-clockwise
+                for i in range(pins_per_side):
+                    y_pos = start_y + ((pins_per_side - 1 - i) * pin_spacing)
+                    
+                    # Main pin body
+                    pin = QGraphicsRectItem(width/2, y_pos - 1, 8, 2)
+                    pin.setBrush(QBrush(QColor(220, 220, 230)))
+                    pin.setPen(QPen(QColor(180, 180, 190), 0.8))
+                    group.addToGroup(pin)
+                    
+                    # Pin number - OUTSIDE the chip, to the right of the pin
+                    if self.show_pin_numbers and (pin_count <= 28 or i % 2 == 0):
+                        pin_num = QGraphicsTextItem(str(pins_per_side + i + 1))
+                        pin_num.setDefaultTextColor(QColor(200, 200, 200))
+                        pin_num.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+                        pin_rect = pin_num.boundingRect()
+                        # Position to the right of the pin, outside the chip
+                        pin_num.setPos(width/2 + 8 + 2, y_pos - pin_rect.height()/2)
+                        group.addToGroup(pin_num)
+
+            def _create_qfp_pins(self, group, width, height, pin_count):
+                """Create QFP pins"""
+                pins_per_side = pin_count // 4
+                pin_size = 3
+                
+                # Top, Right, Bottom, Left sides
+                for side in range(4):
+                    for i in range(pins_per_side):
+                        if side == 0:  # Top
+                            x_pos = -width/2 + (width / (pins_per_side + 1)) * (i + 1)
+                            y_pos = -height/2 - pin_size
+                            pin_rect = QRectF(x_pos - pin_size/2, y_pos, pin_size, pin_size)
+                        elif side == 1:  # Right
+                            x_pos = width/2
+                            y_pos = -height/2 + (height / (pins_per_side + 1)) * (i + 1)
+                            pin_rect = QRectF(x_pos, y_pos - pin_size/2, pin_size, pin_size)
+                        elif side == 2:  # Bottom
+                            x_pos = width/2 - (width / (pins_per_side + 1)) * (i + 1)
+                            y_pos = height/2
+                            pin_rect = QRectF(x_pos - pin_size/2, y_pos, pin_size, pin_size)
+                        else:  # Left
+                            x_pos = -width/2 - pin_size
+                            y_pos = height/2 - (height / (pins_per_side + 1)) * (i + 1)
+                            pin_rect = QRectF(x_pos, y_pos - pin_size/2, pin_size, pin_size)
+                        
+                        pin = QGraphicsRectItem(pin_rect)
+                        pin.setBrush(QBrush(QColor(210, 210, 220)))
+                        pin.setPen(QPen(QColor(170, 170, 180), 0.6))
+                        group.addToGroup(pin)
+
+            def _add_chip_labels(self, group, name, package, width, height, text_color, category):
+                """Add enhanced chip labels oriented along the chip's length"""
+                # Check if labels should be shown
+                if not self.show_component_labels:
+                    return
+                
+                # Determine orientation based on chip dimensions
+                is_tall = height > width * 1.5  # Chip is taller than it is wide
+                
+                # Main component name
+                display_name = name
+                if len(name) > 10 and category != "Logic":
+                    if "-" in name:
+                        parts = name.split("-", 1)
+                        display_name = parts[0] + "\n" + parts[1]
+                
+                text_item = QGraphicsTextItem(display_name)
+                text_item.setDefaultTextColor(text_color)
+                
+                # Font sizing based on chip dimensions
+                if is_tall:
+                    # For tall chips, use the width to determine font size
+                    base_font_size = max(6, min(14, int(width / 4)))
+                else:
+                    # For wide chips, use the height to determine font size
+                    base_font_size = max(6, min(14, int(height / 4)))
+                
+                if category == "Logic":
+                    base_font_size = max(7, base_font_size)  # Logic chips need readable text
+                
+                font = QFont("Arial", base_font_size, QFont.Weight.Bold)
+                text_item.setFont(font)
+                
+                # Rotate text for tall chips to align with length
+                if is_tall:
+                    # Rotate 90 degrees for vertical orientation
+                    text_item.setRotation(90)
+                
+                # Center text after rotation
+                text_rect = text_item.boundingRect()
+                if is_tall:
+                    # For rotated text, adjust positioning
+                    text_item.setPos(-text_rect.height()/2, -text_rect.width()/2)
+                else:
+                    # Normal horizontal positioning
+                    text_item.setPos(-text_rect.width()/2, -text_rect.height()/2)
+                
+                group.addToGroup(text_item)
+                
+                # Package label (smaller, positioned appropriately)
+                if package not in ["DIP-40", "DIP-16", "DIP-14"]:
+                    package_text = QGraphicsTextItem(package)
+                    package_text.setDefaultTextColor(text_color.darker(130))
+                    package_font = QFont("Arial", max(4, base_font_size - 3))
+                    package_text.setFont(package_font)
+                    
+                    pkg_rect = package_text.boundingRect()
+                    
+                    if is_tall:
+                        # For tall chips, rotate package label too and position at bottom
+                        package_text.setRotation(90)
+                        package_text.setPos(text_rect.height()/2 + 5, -pkg_rect.width()/2)
+                    else:
+                        # For wide chips, position at bottom
+                        y_offset = height/2 - pkg_rect.height() - 2
+                        if y_offset > text_rect.height()/2 + 2:
+                            package_text.setPos(-pkg_rect.width()/2, y_offset)
+                    
+                    group.addToGroup(package_text)
+                
+                # Manufacturer labels for classic chips
+                if category == "CPUs" and (width > 25 or height > 80):
+                    mfg_text = ""
+                    if "Z80" in name:
+                        mfg_text = "ZILOG"
+                    elif "6502" in name or "6510" in name:
+                        mfg_text = "MOS"
+                    elif "68000" in name:
+                        mfg_text = "MOTOROLA"
+                    elif "8080" in name or "8086" in name:
+                        mfg_text = "INTEL"
+                    
+                    if mfg_text:
+                        mfg_label = QGraphicsTextItem(mfg_text)
+                        mfg_label.setDefaultTextColor(text_color.darker(160))
+                        mfg_font = QFont("Arial", max(4, base_font_size - 4))
+                        mfg_label.setFont(mfg_font)
+                        
+                        mfg_rect = mfg_label.boundingRect()
+                        
+                        if is_tall:
+                            # For tall chips, rotate manufacturer label
+                            mfg_label.setRotation(90)
+                            mfg_label.setPos(-text_rect.height()/2 - mfg_rect.height() - 3, -mfg_rect.width()/2)
+                        else:
+                            # For wide chips, position below main text
+                            mfg_label.setPos(-mfg_rect.width()/2, text_rect.height()/2 + 2)
+                        
+                        group.addToGroup(mfg_label)
+
+            # Working toggle methods
+            def toggle_pin_numbers(self, show=None):
+                """Toggle pin number visibility - WORKING VERSION"""
+                if show is None:
+                    self.show_pin_numbers = not self.show_pin_numbers
+                else:
+                    self.show_pin_numbers = show
+                
+                print(f"📍 Pin numbers toggle: {self.show_pin_numbers}")
+                
+                # Recreate all components with new settings
+                self._refresh_all_components()
+
+            def toggle_component_labels(self, show=None):
+                """Toggle component label visibility - WORKING VERSION"""
+                if show is None:
+                    self.show_component_labels = not self.show_component_labels
+                else:
+                    self.show_component_labels = show
+                
+                print(f"🏷️ Component labels toggle: {self.show_component_labels}")
+                
+                # Recreate all components with new settings
+                self._refresh_all_components()
+
+            def _refresh_all_components(self):
+                """Refresh all components to apply new display settings"""
+                # Store current component data
+                components_to_recreate = []
+                for comp_id, comp_data in self.components.items():
+                    if 'group' in comp_data:
+                        components_to_recreate.append({
+                            'name': comp_data['name'],
+                            'category': comp_data['category'],
+                            'package': comp_data['package'],
+                            'position': comp_data['group'].pos()
+                        })
+                        # Remove old component from scene
+                        self.scene().removeItem(comp_data['group'])
+                
+                # Clear components dict
+                self.components.clear()
+                
+                # Recreate all components with new settings
+                for comp_data in components_to_recreate:
+                    self._create_realistic_component(
+                        comp_data['name'],
+                        comp_data['category'],
+                        comp_data['package'],
+                        comp_data['position']
+                    )
+                
+                print(f"🔄 Refreshed {len(components_to_recreate)} components")
+
+            # Canvas control methods
+            def set_grid_visible(self, visible):
+                self.grid_visible = visible
+                self.viewport().update()
+                print(f"🔧 Grid visible: {visible}")
+
+            def set_grid_size(self, size):
+                self.grid_size = size
+                self.viewport().update()
+                print(f"🔧 Grid size: {size}")
+
+            def set_snap_to_grid(self, enabled):
+                self.snap_to_grid = enabled
+                print(f"🔧 Snap to grid: {enabled}")
+
+            def zoom_fit(self):
+                if self.components:
+                    self.fitInView(self.scene().itemsBoundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+                    print("🔍 Zoom fit")
+
+            def zoom_in(self):
+                self.scale(1.25, 1.25)
+                print("🔍+ Zoom in")
+
+            def zoom_out(self):
+                self.scale(0.8, 0.8)
+                print("🔍- Zoom out")
+
+            def clear(self):
+                self.scene().clear()
+                self.components.clear()
+                print("🧹 Canvas cleared")
 
             def _create_realistic_component(self, name, category, package, position):
                 """Create a highly realistic visual component"""
@@ -784,7 +1220,7 @@ class MainWindow(QMainWindow):
         print("✅ Enhanced component palette created")
 
     def _create_cad_tools_dock(self):
-        """Create CAD tools dock"""
+        """Create CAD tools dock with working controls"""
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -792,10 +1228,10 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tools_widget)
         layout.setContentsMargins(5, 5, 5, 5)
 
-        # Tool buttons
+        # Tool buttons group
         tools_group = QGroupBox("Tools")
         tools_layout = QVBoxLayout(tools_group)
-        tool_group = QButtonGroup()
+        self.tool_group = QButtonGroup(self)  # Store reference
 
         tools = [
             ("Select", "S", "select"),
@@ -808,12 +1244,20 @@ class MainWindow(QMainWindow):
             ("Delete", "Del", "delete")
         ]
 
+        # Store tool buttons for reference
+        self.tool_buttons = {}
+
         for tool_name, shortcut, tool_id in tools:
             btn = QPushButton(f"{tool_name} ({shortcut})")
             btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, t=tool_id: self._set_tool(t))
-            tool_group.addButton(btn)
+            btn.setObjectName(f"tool_{tool_id}")  # Set object name for identification
+            
+            # Connect with proper lambda capture
+            btn.clicked.connect(lambda checked, t=tool_id, b=btn: self._on_tool_clicked(t, b))
+            
+            self.tool_group.addButton(btn)
             tools_layout.addWidget(btn)
+            self.tool_buttons[tool_id] = btn
 
             if tool_id == "select":
                 btn.setChecked(True)
@@ -824,41 +1268,61 @@ class MainWindow(QMainWindow):
         display_group = QGroupBox("Display")
         display_layout = QVBoxLayout(display_group)
 
-        # Pin number toggle
+        # Pin number toggle - with explicit connection
         self.pin_numbers_check = QCheckBox("Show Pin Numbers")
         self.pin_numbers_check.setChecked(True)
-        self.pin_numbers_check.toggled.connect(self._on_pin_numbers_changed)
+        self.pin_numbers_check.setObjectName("pin_numbers_check")
+        # Use explicit connection method
+        self.pin_numbers_check.stateChanged.connect(self._pin_numbers_state_changed)
         display_layout.addWidget(self.pin_numbers_check)
 
-        # Component labels toggle
+        # Component labels toggle - with explicit connection
         self.component_labels_check = QCheckBox("Show Component Labels")
         self.component_labels_check.setChecked(True)
-        self.component_labels_check.toggled.connect(self._on_component_labels_changed)
+        self.component_labels_check.setObjectName("component_labels_check")
+        # Use explicit connection method
+        self.component_labels_check.stateChanged.connect(self._component_labels_state_changed)
         display_layout.addWidget(self.component_labels_check)
 
         layout.addWidget(display_group)
 
-        # Grid settings
+        # Grid settings group
         grid_group = QGroupBox("Grid Settings")
-        grid_layout = QFormLayout(grid_group)
+        grid_layout = QVBoxLayout(grid_group)
 
-        grid_check = QCheckBox("Show Grid")
-        grid_check.setChecked(True)
-        grid_check.toggled.connect(self._on_grid_visibility_changed)
-        grid_layout.addRow(grid_check)
+        # Grid visibility
+        self.grid_check = QCheckBox("Show Grid")
+        self.grid_check.setChecked(True)
+        self.grid_check.setObjectName("grid_check")
+        self.grid_check.stateChanged.connect(self._grid_state_changed)
+        grid_layout.addWidget(self.grid_check)
 
-        snap_check = QCheckBox("Snap to Grid")
-        snap_check.setChecked(True)
-        snap_check.toggled.connect(self._on_snap_to_grid_changed)
-        grid_layout.addRow(snap_check)
+        # Snap to grid
+        self.snap_check = QCheckBox("Snap to Grid")
+        self.snap_check.setChecked(True)
+        self.snap_check.setObjectName("snap_check")
+        self.snap_check.stateChanged.connect(self._snap_state_changed)
+        grid_layout.addWidget(self.snap_check)
 
-        grid_size_spin = QSpinBox()
-        grid_size_spin.setRange(5, 100)
-        grid_size_spin.setValue(20)
-        grid_size_spin.valueChanged.connect(self._on_grid_size_changed)
-        grid_layout.addRow("Size:", grid_size_spin)
+        # Grid size
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(QLabel("Grid Size:"))
+        self.grid_size_spin = QSpinBox()
+        self.grid_size_spin.setRange(5, 100)
+        self.grid_size_spin.setValue(20)
+        self.grid_size_spin.setSuffix(" px")
+        self.grid_size_spin.setObjectName("grid_size_spin")
+        self.grid_size_spin.valueChanged.connect(self._grid_size_value_changed)
+        size_layout.addWidget(self.grid_size_spin)
+        grid_layout.addLayout(size_layout)
 
         layout.addWidget(grid_group)
+
+        # Test button to verify connections
+        test_btn = QPushButton("🧪 Test Controls")
+        test_btn.clicked.connect(self._test_controls)
+        layout.addWidget(test_btn)
+
         layout.addStretch()
 
         scroll_area.setWidget(tools_widget)
@@ -869,58 +1333,161 @@ class MainWindow(QMainWindow):
         self.cad_tools_dock.setMaximumWidth(280)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.cad_tools_dock)
 
-        print("✅ Enhanced CAD tools dock created with display controls")
+        print("✅ Enhanced CAD tools dock created with working controls")
 
-    # Display control handlers
-    def _on_pin_numbers_changed(self, enabled):
-        """Handle pin number visibility toggle"""
+    # Working event handlers with explicit state parameter
+    def _on_tool_clicked(self, tool_id, button):
+        """Handle tool button clicks - WORKING VERSION"""
+        print(f"🔧 Tool button clicked: {tool_id}")
+        
+        # Uncheck all other buttons
+        for tid, btn in self.tool_buttons.items():
+            if tid != tool_id:
+                btn.setChecked(False)
+        
+        # Ensure clicked button stays checked
+        button.setChecked(True)
+        
+        # Set the tool
+        self._set_tool_direct(tool_id)
+
+    def _pin_numbers_state_changed(self, state):
+        """Handle pin numbers checkbox state change - WORKING VERSION"""
+        enabled = state == 2  # Qt.CheckState.Checked = 2
+        print(f"📍 Pin numbers checkbox changed: {enabled} (state: {state})")
+        
         if self.canvas and hasattr(self.canvas, 'toggle_pin_numbers'):
             self.canvas.toggle_pin_numbers(enabled)
-            print(f"📍 Pin numbers: {'shown' if enabled else 'hidden'}")
+            print(f"📍 Canvas pin numbers toggled: {enabled}")
+        else:
+            print("⚠️ Canvas pin number control not available")
 
-    def _on_component_labels_changed(self, enabled):
-        """Handle component label visibility toggle"""
+    def _component_labels_state_changed(self, state):
+        """Handle component labels checkbox state change - WORKING VERSION"""
+        enabled = state == 2  # Qt.CheckState.Checked = 2
+        print(f"🏷️ Component labels checkbox changed: {enabled} (state: {state})")
+        
         if self.canvas and hasattr(self.canvas, 'toggle_component_labels'):
             self.canvas.toggle_component_labels(enabled)
-            print(f"🏷️ Component labels: {'shown' if enabled else 'hidden'}")
+            print(f"🏷️ Canvas component labels toggled: {enabled}")
+        else:
+            print("⚠️ Canvas label control not available")
 
-    # Add keyboard shortcut for pin number toggle
-    def _setup_hotkeys(self):
-        """Setup keyboard shortcuts"""
-        print("Setting up hotkeys...")
-
-        # Standard shortcuts
-        QShortcut(QKeySequence('Ctrl+F'), self, self._show_search_dialog)
-        QShortcut(QKeySequence('F1'), self, self._show_shortcuts)
-        QShortcut(QKeySequence('Escape'), self, self._cancel_current_operation)
-
-        # Tool shortcuts
-        QShortcut(QKeySequence('S'), self, lambda: self._set_tool('select'))
-        QShortcut(QKeySequence('P'), self, lambda: self._set_tool('place'))
-        QShortcut(QKeySequence('W'), self, lambda: self._set_tool('wire'))
-        QShortcut(QKeySequence('T'), self, lambda: self._set_tool('trace'))
-        QShortcut(QKeySequence('V'), self, lambda: self._set_tool('via'))
-
-        # View shortcuts
-        QShortcut(QKeySequence('Ctrl+G'), self, self._toggle_grid)
+    def _grid_state_changed(self, state):
+        """Handle grid checkbox state change - WORKING VERSION"""
+        enabled = state == 2  # Qt.CheckState.Checked = 2
+        print(f"🔲 Grid checkbox changed: {enabled} (state: {state})")
         
-        # Display shortcuts (NEW)
-        QShortcut(QKeySequence('Ctrl+P'), self, self._toggle_pin_numbers)
-        QShortcut(QKeySequence('Ctrl+L'), self, self._toggle_component_labels)
+        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
+            self.canvas.set_grid_visible(enabled)
+            print(f"🔲 Canvas grid visibility: {enabled}")
+        else:
+            print("⚠️ Canvas grid control not available")
 
-        print("✓ Enhanced hotkeys setup complete")
+    def _snap_state_changed(self, state):
+        """Handle snap checkbox state change - WORKING VERSION"""
+        enabled = state == 2  # Qt.CheckState.Checked = 2
+        print(f"🧲 Snap checkbox changed: {enabled} (state: {state})")
+        
+        if self.canvas and hasattr(self.canvas, 'set_snap_to_grid'):
+            self.canvas.set_snap_to_grid(enabled)
+            print(f"🧲 Canvas snap to grid: {enabled}")
+        else:
+            print("⚠️ Canvas snap control not available")
 
+    def _grid_size_value_changed(self, value):
+        """Handle grid size spinner change - WORKING VERSION"""
+        print(f"📏 Grid size changed: {value}")
+        
+        if self.canvas and hasattr(self.canvas, 'set_grid_size'):
+            self.canvas.set_grid_size(value)
+            print(f"📏 Canvas grid size: {value}")
+        else:
+            print("⚠️ Canvas grid size control not available")
+
+    def _test_controls(self):
+        """Test all controls to verify they work"""
+        print("🧪 Testing CAD controls...")
+        
+        # Test pin numbers
+        current_pin_state = self.pin_numbers_check.isChecked()
+        print(f"📍 Pin numbers checkbox state: {current_pin_state}")
+        
+        # Test component labels
+        current_label_state = self.component_labels_check.isChecked()
+        print(f"🏷️ Component labels checkbox state: {current_label_state}")
+        
+        # Test grid
+        current_grid_state = self.grid_check.isChecked()
+        print(f"🔲 Grid checkbox state: {current_grid_state}")
+        
+        # Test canvas availability
+        if self.canvas:
+            print(f"✅ Canvas available: {type(self.canvas).__name__}")
+            canvas_methods = [method for method in dir(self.canvas) if not method.startswith('_')]
+            print(f"🔧 Canvas methods: {', '.join(canvas_methods[:10])}...")
+        else:
+            print("❌ Canvas not available")
+
+    def _set_tool_direct(self, tool_name):
+        """Set current tool - DIRECT VERSION"""
+        print(f"🔧 Setting tool directly: {tool_name}")
+        self.current_tool = tool_name
+        
+        # Update tool label if available
+        if hasattr(self, 'tool_label') and self.tool_label:
+            self.tool_label.setText(f"Tool: {tool_name.title()}")
+            print(f"📊 Status updated: Tool: {tool_name.title()}")
+        
+        # Update status bar if available
+        if hasattr(self, 'status_bar') and self.status_bar:
+            self.status_bar.showMessage(f"Tool: {tool_name.title()}", 3000)
+        
+        # Tool-specific feedback
+        tool_messages = {
+            "select": "👆 Select tool - click and drag components",
+            "place": "📦 Place tool - drag components from palette",
+            "wire": "🔌 Wire tool - connect component pins",
+            "trace": "📏 Trace tool - draw PCB traces",
+            "via": "⚪ Via tool - add layer connections",
+            "pad": "🔲 Pad tool - add connection pads",
+            "measure": "📐 Measure tool - measure distances",
+            "delete": "🗑️ Delete tool - click to remove components"
+        }
+        
+        if tool_name in tool_messages:
+            print(tool_messages[tool_name])
+
+    # Update keyboard shortcut methods to use working versions
     def _toggle_pin_numbers(self):
-        """Toggle pin numbers via keyboard shortcut"""
-        if hasattr(self, 'pin_numbers_check'):
+        """Toggle pin numbers via keyboard shortcut - WORKING"""
+        if hasattr(self, 'pin_numbers_check') and self.pin_numbers_check:
             current_state = self.pin_numbers_check.isChecked()
-            self.pin_numbers_check.setChecked(not current_state)
+            new_state = not current_state
+            self.pin_numbers_check.setChecked(new_state)
+            print(f"⌨️ Pin numbers toggled via Ctrl+P: {new_state}")
+        else:
+            print("⚠️ Pin numbers checkbox not found")
 
     def _toggle_component_labels(self):
-        """Toggle component labels via keyboard shortcut"""
-        if hasattr(self, 'component_labels_check'):
+        """Toggle component labels via keyboard shortcut - WORKING"""
+        if hasattr(self, 'component_labels_check') and self.component_labels_check:
             current_state = self.component_labels_check.isChecked()
-            self.component_labels_check.setChecked(not current_state)
+            new_state = not current_state
+            self.component_labels_check.setChecked(new_state)
+            print(f"⌨️ Component labels toggled via Ctrl+L: {new_state}")
+        else:
+            print("⚠️ Component labels checkbox not found")
+
+    def _toggle_grid(self):
+        """Toggle grid display - WORKING"""
+        if hasattr(self, 'grid_check') and self.grid_check:
+            current_state = self.grid_check.isChecked()
+            new_state = not current_state
+            self.grid_check.setChecked(new_state)
+            print(f"⌨️ Grid toggled via Ctrl+G: {new_state}")
+        else:
+            print("⚠️ Grid checkbox not found")
 
     def _create_properties_dock(self):
         """Create properties dock"""
@@ -1149,28 +1716,38 @@ class MainWindow(QMainWindow):
         self.simulation_engine = engine
         print("✓ Simulation engine connected")
 
-    # Grid and tool handlers
-    def _on_grid_visibility_changed(self, enabled):
-        """Handle grid visibility change"""
-        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
-            self.canvas.set_grid_visible(enabled)
+    def _setup_hotkeys(self):
+        """Setup keyboard shortcuts"""
+        print("Setting up hotkeys...")
 
-    def _on_snap_to_grid_changed(self, enabled):
-        """Handle snap to grid change"""
-        if self.canvas and hasattr(self.canvas, 'set_snap_to_grid'):
-            self.canvas.set_snap_to_grid(enabled)
+        # Standard shortcuts
+        QShortcut(QKeySequence('Ctrl+F'), self, self._show_search_dialog)
+        QShortcut(QKeySequence('F1'), self, self._show_shortcuts)
+        QShortcut(QKeySequence('Escape'), self, self._cancel_current_operation)
 
-    def _on_grid_size_changed(self, size):
-        """Handle grid size change"""
-        if self.canvas and hasattr(self.canvas, 'set_grid_size'):
-            self.canvas.set_grid_size(size)
+        # Tool shortcuts - with working references
+        QShortcut(QKeySequence('S'), self, lambda: self._set_tool_direct('select'))
+        QShortcut(QKeySequence('P'), self, lambda: self._set_tool_direct('place'))
+        QShortcut(QKeySequence('W'), self, lambda: self._set_tool_direct('wire'))
+        QShortcut(QKeySequence('T'), self, lambda: self._set_tool_direct('trace'))
+        QShortcut(QKeySequence('V'), self, lambda: self._set_tool_direct('via'))
+        QShortcut(QKeySequence('A'), self, lambda: self._set_tool_direct('pad'))
+        QShortcut(QKeySequence('M'), self, lambda: self._set_tool_direct('measure'))
+        QShortcut(QKeySequence('Delete'), self, lambda: self._set_tool_direct('delete'))
 
-    def _set_tool(self, tool_name):
-        """Set current tool"""
-        self.current_tool = tool_name
-        if hasattr(self, 'tool_label') and self.tool_label:
-            self.tool_label.setText(f"Tool: {tool_name.title()}")
-        print(f"🔧 Tool set to: {tool_name}")
+        # View shortcuts
+        QShortcut(QKeySequence('Ctrl+G'), self, self._toggle_grid)
+        
+        # Display shortcuts - WORKING VERSIONS
+        QShortcut(QKeySequence('Ctrl+P'), self, self._toggle_pin_numbers)
+        QShortcut(QKeySequence('Ctrl+L'), self, self._toggle_component_labels)
+
+        # Zoom shortcuts
+        QShortcut(QKeySequence('Ctrl++'), self, self._zoom_in)
+        QShortcut(QKeySequence('Ctrl+-'), self, self._zoom_out)
+        QShortcut(QKeySequence('Ctrl+0'), self, self._zoom_fit)
+
+        print("✓ Enhanced hotkeys setup complete with working references")
 
     # Project operations
     def _new_project(self):
@@ -1239,32 +1816,49 @@ class MainWindow(QMainWindow):
     def _show_shortcuts(self):
         """Show keyboard shortcuts"""
         shortcuts_text = """
-<b>Keyboard Shortcuts</b><br><br>
+<b>Enhanced Keyboard Shortcuts</b><br><br>
 
-<b>Tools:</b><br>
-S - Select Tool<br>
-P - Place Component<br>
-W - Wire Tool<br>
-T - Trace Tool<br>
-V - Via Tool<br><br>
+<b>🔧 Tools:</b><br>
+<b>S</b> - Select Tool<br>
+<b>P</b> - Place Component<br>
+<b>W</b> - Wire Tool<br>
+<b>T</b> - Trace Tool<br>
+<b>V</b> - Via Tool<br><br>
 
-<b>View:</b><br>
-Ctrl+G - Toggle Grid<br>
-Ctrl++ - Zoom In<br>
-Ctrl+- - Zoom Out<br><br>
+<b>👁️ Display Controls:</b><br>
+<b>Ctrl+P</b> - Toggle Pin Numbers<br>
+<b>Ctrl+L</b> - Toggle Component Labels<br>
+<b>Ctrl+G</b> - Toggle Grid<br><br>
 
-<b>File:</b><br>
-Ctrl+N - New Project<br>
-Ctrl+O - Open Project<br>
-Ctrl+S - Save Project<br><br>
+<b>🔍 View:</b><br>
+<b>Ctrl++</b> - Zoom In<br>
+<b>Ctrl+-</b> - Zoom Out<br>
+<b>Ctrl+0</b> - Zoom Fit<br><br>
 
-<b>Other:</b><br>
-Ctrl+F - Search<br>
-F1 - This Help<br>
-F5 - Start Simulation<br>
-Esc - Cancel Operation
+<b>📁 File:</b><br>
+<b>Ctrl+N</b> - New Project<br>
+<b>Ctrl+O</b> - Open Project<br>
+<b>Ctrl+S</b> - Save Project<br><br>
+
+<b>✏️ Edit:</b><br>
+<b>Ctrl+Z</b> - Undo<br>
+<b>Ctrl+Y</b> - Redo<br><br>
+
+<b>🎮 Simulation:</b><br>
+<b>F5</b> - Start Simulation<br><br>
+
+<b>🔍 Other:</b><br>
+<b>Ctrl+F</b> - Search Components<br>
+<b>F1</b> - This Help<br>
+<b>Esc</b> - Cancel Operation<br><br>
+
+<b>💡 Tips:</b><br>
+• Pin numbers appear outside the chip edges<br>
+• Text rotates on tall chips for better readability<br>
+• Use display controls to toggle visibility<br>
+• All settings are remembered during session
         """
-        QMessageBox.information(self, "Keyboard Shortcuts", shortcuts_text)
+        QMessageBox.information(self, "Enhanced Keyboard Shortcuts", shortcuts_text)
 
     def _cancel_current_operation(self):
         """Cancel current operation"""
