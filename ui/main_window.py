@@ -17,6 +17,13 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                            QLineEdit, QDoubleSpinBox, QScrollArea)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize, QRect, QRectF
 from PyQt6.QtGui import QShortcut, QKeySequence, QAction, QIcon, QFont, QPixmap, QPainter, QColor, QBrush, QPen
+from .canvas_chip_integration import ChipCanvasItem, CanvasChipIntegration
+
+"""
+from .canvas_chip_integration import ChipCanvasItem, CanvasChipIntegration
+"""
+
+# ADD THESE METHODS TO YOUR MAINWINDOW CLASS:
 
 class MainWindow(QMainWindow):
     """Complete main window with ALL functionality - RESTORED TO ORIGINAL SIZE"""
@@ -402,100 +409,192 @@ class MainWindow(QMainWindow):
         print("✓ Dock widgets created")
 
 
-    def _create_component_palette_dock(self):
-        """Create the single working component palette with scroll support"""
-        from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QScrollArea
-        from PyQt6.QtCore import QMimeData, QPoint
-        from PyQt6.QtGui import QDrag, QPixmap, QPainter, QPen, QColor, QFont
+    def _create_component_palette_dock_with_chips(self):
+        """Create component palette dock with realistic chip integration"""
+        from .component_palette import ComponentPalette
 
-        class ComponentTreelist(QTreeWidget):
-            def __init__(self):
-                super().__init__()
-                self.setHeaderLabel("Components")
-                self.setDragEnabled(True)
-                self.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
+        # Create the component palette
+        self.component_palette = ComponentPalette()
 
-                # Populate with working components
-                categories = {
-                    "CPUs": ["Z80", "6502", "68000", "8080", "6809", "8086", "8088", "80286", "80386", "68020", "68030"],
-                    "Memory": ["RAM", "ROM", "EEPROM", "SRAM", "DRAM", "NVRAM", "Flash", "EPROM", "PROM"],
-                    "Graphics": ["VIC-II", "TMS9918", "PPU", "CGA", "EGA", "VGA", "SVGA", "Amiga Denise", "Atari GTIA"],
-                    "Audio": ["SID", "AY-3-8910", "YM2612", "Pokey", "TIA", "Paula", "OPL3", "SN76489"],
-                    "Logic": ["74LS00", "74LS08", "74LS74", "74LS138", "74LS139", "74LS245", "74LS373", "74LS377"],
-                    "I/O": ["PIA", "VIA", "UART", "8255", "Z80-PIO", "6522", "8251", "16550"],
-                    "Timers": ["8253", "8254", "6840", "NE555", "MC6840"],
-                    "Analog": ["LM358", "NE555", "LM7805", "TL072", "LM386", "LM393", "LM339"],
-                    "Power": ["7805", "7812", "7815", "LM317", "78L05", "79L05"],
-                    "Connectors": ["DB25", "DB9", "DIN", "RCA", "BNC", "Header"]
-                }
+        # Connect signals for chip integration
+        self.component_palette.component_selected.connect(self._on_component_selected)
+        self.component_palette.component_double_clicked.connect(self._on_component_add_to_canvas)
 
-                for category, components in categories.items():
-                    cat_item = QTreeWidgetItem(self, [f"📁 {category}"])
-                    cat_item.setExpanded(True)
+        # Create dock widget
+        palette_dock = QDockWidget("Component Library", self)
+        palette_dock.setWidget(self.component_palette)
+        palette_dock.setMinimumWidth(300)
+        palette_dock.setMaximumWidth(400)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, palette_dock)
 
-                    for comp in components:
-                        comp_item = QTreeWidgetItem(cat_item, [f"🔲 {comp}"])
-                        comp_item.setData(0, Qt.ItemDataRole.UserRole, f"component:{category}:{comp}:DIP-40")
+        print("✅ Component palette with realistic chips loaded")
+        print(f"📦 Total components available: {self.component_palette.get_total_components()}")
 
-                print("✅ Component tree created with expanded library")
+    def _on_component_selected(self, component_id: str, component_data: dict):
+        """Handle component selection from palette"""
+        print(f"🔍 Selected component: {component_data.get('name', 'Unknown')}")
 
-            def startDrag(self, supportedActions):
-                """Handle drag start"""
-                current_item = self.currentItem()
-                if current_item and current_item.parent():
-                    drag_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+        # Update properties panel if available
+        if hasattr(self, 'properties_panel') and self.properties_panel:
+            # Create a mock object with the component data for properties panel
+            mock_component = type('Component', (), component_data)()
+            mock_component.component_name = component_data.get('name', 'Unknown')
+            mock_component.component_type = component_data.get('category', 'Unknown')
+            mock_component.package_type = component_data.get('package_type', 'DIP-40')
 
-                    if drag_data:
-                        drag = QDrag(self)
-                        mime_data = QMimeData()
-                        mime_data.setText(drag_data)
-                        drag.setMimeData(mime_data)
+            # Add position methods
+            from PyQt6.QtCore import QPointF
+            mock_component.pos = lambda: QPointF(0, 0)
+            mock_component.setPos = lambda x, y: None
 
-                        pixmap = QPixmap(120, 30)
-                        pixmap.fill(QColor(52, 152, 219, 180))
+            self.properties_panel.setObject(mock_component)
 
-                        painter = QPainter(pixmap)
-                        painter.setPen(QPen(QColor(255, 255, 255)))
-                        painter.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+    def _on_component_add_to_canvas(self, component_id: str, component_data: dict):
+        """Add component to canvas with realistic chip image"""
+        if not self.canvas or not hasattr(self.canvas, 'scene'):
+            print("❌ Canvas not available")
+            return
 
-                        comp_name = current_item.text(0).replace("🔲 ", "")
-                        painter.drawText(5, 20, comp_name)
-                        painter.end()
+        try:
+            # Use the canvas integration to add the chip
+            chip_item = CanvasChipIntegration.add_component_to_canvas(
+                self.canvas,
+                component_data
+            )
 
-                        drag.setPixmap(pixmap)
-                        drag.setHotSpot(QPoint(60, 15))
+            # Connect chip signals to main window
+            chip_item.selectionChanged.connect(self._on_chip_selection_changed)
+            chip_item.propertyChanged.connect(self._on_chip_property_changed)
 
-                        result = drag.exec(Qt.DropAction.CopyAction)
-                        print(f"🎯 Drag executed: {drag_data} (result: {result})")
-                        return
+            # Update status
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage(f"Added {component_data['name']} to canvas", 3000)
 
-                super().startDrag(supportedActions)
+            # Mark project as modified
+            self.is_modified = True
+            self._update_window_title()
+            self._update_status_counts()
 
-        # Create main widget with scroll area
-        palette_widget = QWidget()
-        layout = QVBoxLayout(palette_widget)
-        layout.setContentsMargins(5, 5, 5, 5)
+            print(f"✅ Successfully added {component_data['name']} to canvas")
 
-        # Title we don't need the "Component Liberty" shown twice
+        except Exception as e:
+            print(f"❌ Error adding component to canvas: {e}")
+            import traceback
+            traceback.print_exc()
 
-        # Create the tree (no extra scroll area - QTreeWidget has built-in scrolling)
-        tree = ComponentTreelist()
-        tree.setMinimumHeight(400)
-        layout.addWidget(tree)
+    def _on_chip_selection_changed(self, selected: bool):
+        """Handle chip selection change on canvas"""
+        if selected:
+            # Get the selected chip item
+            selected_items = self.canvas.scene().selectedItems()
+            if selected_items and isinstance(selected_items[0], ChipCanvasItem):
+                chip_item = selected_items[0]
 
-        # Instructions
-        instructions = QLabel("Drag components to canvas")
-        instructions.setStyleSheet("color: #888; font-style: italic; font-size: 10px; padding: 5px;")
-        layout.addWidget(instructions)
+                # Update properties panel
+                if hasattr(self, 'properties_panel') and self.properties_panel:
+                    self.properties_panel.setObject(chip_item)
 
-        # Create dock
-        self.component_palette_dock = QDockWidget("Component Library", self)
-        self.component_palette_dock.setWidget(palette_widget)
-        self.component_palette_dock.setMinimumWidth(250)
-        self.component_palette_dock.setMaximumWidth(350)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.component_palette_dock)
+                print(f"🎯 Selected chip on canvas: {chip_item.component_name}")
 
-        print("✅ Working component palette created with built-in scroll support")
+    def _on_chip_property_changed(self, property_name: str, value):
+        """Handle chip property change"""
+        print(f"🔧 Chip property changed: {property_name} = {value}")
+
+        # Mark project as modified
+        self.is_modified = True
+        self._update_window_title()
+
+    def replace_rectangular_components_with_chips(self):
+        """Replace any existing rectangular components with realistic chips"""
+        if self.canvas and hasattr(self.canvas, 'scene'):
+            CanvasChipIntegration.replace_rectangles_with_chips(self.canvas)
+
+    # CANVAS DROP EVENT INTEGRATION:
+    def setup_canvas_drop_handling(self):
+        """Setup canvas to handle component drops with realistic chips"""
+        if not self.canvas:
+            return
+
+        # Enable drops on canvas
+        self.canvas.setAcceptDrops(True)
+
+        # Override the canvas dragEnterEvent if needed
+        original_drag_enter = getattr(self.canvas, 'dragEnterEvent', None)
+
+        def enhanced_drag_enter_event(event):
+            """Enhanced drag enter event for canvas"""
+            if event.mimeData().hasText():
+                # Check if it's a component drag
+                text = event.mimeData().text()
+                if text.startswith('component:'):
+                    event.acceptProposedAction()
+                    return
+
+            # Call original handler if it exists
+            if original_drag_enter:
+                original_drag_enter(event)
+
+        def enhanced_drop_event(event):
+            """Enhanced drop event for canvas"""
+            if event.mimeData().hasText():
+                text = event.mimeData().text()
+                if text.startswith('component:'):
+                    try:
+                        # Parse component info from drag data
+                        parts = text.split(':')
+                        if len(parts) >= 3:
+                            category = parts[1]
+                            component_name = parts[2]
+
+                            # Find component in palette
+                            if hasattr(self, 'component_palette'):
+                                component = self.component_palette.get_component_by_id(component_name)
+                                if component:
+                                    # Get drop position
+                                    drop_pos = self.canvas.mapToScene(event.position().toPoint())
+
+                                    # Add component at drop position
+                                    chip_item = CanvasChipIntegration.add_component_to_canvas(
+                                        self.canvas,
+                                        component,
+                                        drop_pos
+                                    )
+
+                                    # Connect signals
+                                    chip_item.selectionChanged.connect(self._on_chip_selection_changed)
+                                    chip_item.propertyChanged.connect(self._on_chip_property_changed)
+
+                                    event.acceptProposedAction()
+                                    print(f"📍 Dropped {component_name} at {drop_pos}")
+                                    return
+
+                    except Exception as e:
+                        print(f"❌ Error handling drop: {e}")
+
+            event.ignore()
+
+        # Set the enhanced event handlers
+        self.canvas.dragEnterEvent = enhanced_drag_enter_event
+        self.canvas.dropEvent = enhanced_drop_event
+
+        print("✅ Canvas drop handling setup for realistic chips")
+
+    # INTEGRATION INITIALIZATION:
+    def initialize_chip_integration(self):
+        """Initialize the complete chip integration system"""
+        print("🔗 Initializing chip integration...")
+
+        # Setup component palette with chips
+        self._create_component_palette_dock_with_chips()
+
+        # Setup canvas drop handling
+        self.setup_canvas_drop_handling()
+
+        # Replace any existing rectangular components
+        self.replace_rectangular_components_with_chips()
+
+        print("✅ Chip integration initialized!")
+        print("🎉 Your Visual Retro Emulator now has realistic chip graphics!")
 
 
     def _create_cad_tools_dock(self):
@@ -1625,6 +1724,7 @@ if __name__ == "__main__":
     # Create and show main window
     window = MainWindow()
     window.show()
+    self.initialize_chip_integration()
 
     print("🚀 Main Window running!")
     print("=" * 60)
