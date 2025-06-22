@@ -168,6 +168,21 @@ class MainWindow(QMainWindow):
                 print("✓ Enhanced canvas created with realistic chip rendering")
                 self.viewport().update()
 
+            def _on_pin_numbers_changed(self, enabled):
+                """Handle pin numbers visibility change from CAD tools panel"""
+                if self.canvas and hasattr(self.canvas, 'set_pin_numbers_visible'):
+                    self.canvas.set_pin_numbers_visible(enabled)
+                    print(f"🏷️ Pin numbers {'enabled' if enabled else 'disabled'}")
+                else:
+                    print(f"⚠️ Canvas doesn't support set_pin_numbers_visible")
+
+            def set_pin_numbers_visible(self, visible):
+                """Set pin numbers visibility on all components"""
+                for component in self.components:  # or however you store components
+                    if hasattr(component, 'set_pin_numbers_visible'):
+                        component.set_pin_numbers_visible(visible)
+                self.update()  # Refresh the display
+
             def drawBackground(self, painter, rect):
                 super().drawBackground(painter, rect)
                 if self.grid_visible:
@@ -604,9 +619,9 @@ class MainWindow(QMainWindow):
                     self.show_pin_numbers = not self.show_pin_numbers
                 else:
                     self.show_pin_numbers = show
-                
+
                 print(f"📍 Pin numbers toggle: {self.show_pin_numbers}")
-                
+
                 # Recreate all components with new settings
                 self._refresh_all_components()
 
@@ -1268,8 +1283,9 @@ class MainWindow(QMainWindow):
         display_group = QGroupBox("Display")
         display_layout = QVBoxLayout(display_group)
 
-        # Pin number toggle - with explicit connection
+
         self.pin_numbers_check = QCheckBox("Show Pin Numbers")
+        self.pin_numbers_check.toggled.connect(self._toggle_pin_numbers)
         self.pin_numbers_check.setChecked(True)
         self.pin_numbers_check.setObjectName("pin_numbers_check")
         # Use explicit connection method
@@ -1315,8 +1331,12 @@ class MainWindow(QMainWindow):
         self.grid_size_spin.valueChanged.connect(self._grid_size_value_changed)
         size_layout.addWidget(self.grid_size_spin)
         grid_layout.addLayout(size_layout)
-
+        grid_layout.addRow("Size:", grid_size_spin)
         layout.addWidget(grid_group)
+        pin_numbers_check = QCheckBox("Show Pin Numbers")
+        pin_numbers_check.setChecked(True)
+        pin_numbers_check.toggled.connect(self._on_pin_numbers_changed)
+        grid_layout.addRow(pin_numbers_check)
 
         # Test button to verify connections
         test_btn = QPushButton("🧪 Test Controls")

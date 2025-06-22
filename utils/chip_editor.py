@@ -162,6 +162,11 @@ class DraggablePin(QGraphicsRectItem):
         self._update_label_position()
         self.pin_label.setZValue(60)
 
+    def set_pin_number_visible(self, visible):
+        """Set pin number label visibility"""
+        if self.pin_label:
+            self.pin_label.setVisible(visible)
+
     def _update_label_position(self):
         """Update label position based on pin side"""
         if not self.pin_label:
@@ -374,6 +379,19 @@ class InteractiveChipScene(QGraphicsScene):
         self.font_size = 8
 
         self.setSceneRect(0, 0, 600, 400)
+
+    def toggle_pin_numbers(self, show):
+        """Toggle pin number visibility"""
+        # Handle DraggablePin pin labels
+        for pin_item in self.pin_items:
+            if hasattr(pin_item, 'pin_label') and pin_item.pin_label:
+                pin_item.pin_label.setVisible(show)
+
+        # Handle separate pin number labels if they exist
+        if hasattr(self, 'pin_numbers'):
+            for label in self.pin_numbers:
+                if label:
+                    label.setVisible(show)
 
     def set_undo_manager(self, undo_manager):
         """Set undo manager after creation"""
@@ -702,6 +720,11 @@ class InteractiveChipEditor(QMainWindow):
         self._create_toolbar()
         self._create_shortcuts()
         self._generate_sample_chip()
+
+    def _toggle_pin_numbers(self, show):
+    """Toggle pin number display"""
+    self.scene.toggle_pin_numbers(show)
+
 
     def _create_toolbar(self):
         """Create toolbar with undo/redo and zoom controls"""
