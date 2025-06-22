@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-May27, 2025 X-Seti - Retro Chip Image Generator
+May27, 2025 X-Seti - Chip Image Generator
 Generates realistic chip images for various retro computer components
-Uses the fixed ChipPackageRenderer to create images for the component database
 """
 
 import os

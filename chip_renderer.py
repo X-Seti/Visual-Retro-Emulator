@@ -1,5 +1,5 @@
 """
-May26, 2025 X-Seti - Realistic Chip Package Image Generator
+May26, 2025 X-Seti - Chip Package Image Generator
 Creates realistic chip package images with transparent backgrounds for better integration
 """
 

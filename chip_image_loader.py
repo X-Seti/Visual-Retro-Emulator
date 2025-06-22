@@ -1,5 +1,5 @@
 """
-X-Seti - June07 2025 - Enhanced Chip Image Loader
+X-Seti - June07 2025 - Chip Image Loader
 Connects retro_chip_generator images with canvas display
 """
 
