@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 X-Seti - June22 2025 - Main Window Implementation
@@ -16,6 +17,13 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                            QLineEdit, QDoubleSpinBox, QScrollArea)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QSize, QRect, QRectF
 from PyQt6.QtGui import QShortcut, QKeySequence, QAction, QIcon, QFont, QPixmap, QPainter, QColor, QBrush, QPen
+from .canvas_chip_integration import ChipCanvasItem, CanvasChipIntegration
+
+"""
+from .canvas_chip_integration import ChipCanvasItem, CanvasChipIntegration
+"""
+
+# ADD THESE METHODS TO YOUR MAINWINDOW CLASS:
 
 class MainWindow(QMainWindow):
     """Complete main window with ALL functionality - RESTORED TO ORIGINAL SIZE"""
@@ -92,41 +100,25 @@ class MainWindow(QMainWindow):
         """Initialize all manager components"""
         print("Initializing managers...")
 
-        try:
-            # Initialize Layer Manager
-            from managers.layer_manager import LayerManager
-            self.layer_manager = LayerManager()
-            print("✓ Layer Manager initialized")
-        except ImportError as e:
-            print(f"⚠️ Layer Manager not available: {e}")
-            self.layer_manager = None
+        # Initialize Layer Manager
+        from managers.layer_manager import LayerManager
+        self.layer_manager = LayerManager()
+        print("✓ Layer Manager initialized")
 
-        try:
-            # Initialize Component Manager
-            from core.components import ComponentManager
-            self.component_manager = ComponentManager()
-            print("✓ Component Manager initialized")
-        except ImportError as e:
-            print(f"⚠️ Component Manager not available: {e}")
-            self.component_manager = None
+        # Initialize Component Manager
+        from core.components import ComponentManager
+        self.component_manager = ComponentManager()
+        print("✓ Component Manager initialized")
 
-        try:
-            # Initialize Project Manager
-            from managers.project_manager import ProjectManager
-            self.project_manager = ProjectManager()
-            print("✓ Project Manager initialized")
-        except ImportError as e:
-            print(f"⚠️ Project Manager not available: {e}")
-            self.project_manager = None
+        # Initialize Project Manager
+        from managers.project_manager import ProjectManager
+        self.project_manager = ProjectManager()
+        print("✓ Project Manager initialized")
 
-        try:
-            # Initialize Simulation Engine
-            from core.simulation import SimulationEngine
-            self.simulation_engine = SimulationEngine()
-            print("✓ Simulation Engine initialized")
-        except ImportError as e:
-            print(f"⚠️ Simulation Engine not available: {e}")
-            self.simulation_engine = None
+        # Initialize Simulation Engine
+        from core.simulation import SimulationEngine
+        self.simulation_engine = SimulationEngine()
+        print("✓ Simulation Engine initialized")
 
     def _create_canvas(self):
         """Create main canvas"""
@@ -269,290 +261,52 @@ class MainWindow(QMainWindow):
                     event.ignore()
 
             def _create_component(self, name, category, package, position):
-                """Create a realistic visual component on the canvas with pins and proper styling"""
+                """Create a visual component on the canvas"""
                 try:
-                    from PyQt6.QtWidgets import QGraphicsItemGroup, QGraphicsEllipseItem
-                    
-                    # Create component group
-                    component_group = QGraphicsItemGroup()
-                    
-                    # Determine package dimensions and pin configuration
-                    package_info = self._get_package_info(package, name, category)
-                    width = package_info['width']
-                    height = package_info['height']
-                    pin_count = package_info['pin_count']
-                    pin_spacing = package_info['pin_spacing']
-                    
-                    # Create main chip body
-                    body_rect = QGraphicsRectItem(-width/2, -height/2, width, height)
-                    
-                    # Set realistic chip colors based on era/type
-                    if category in ["CPUs", "Custom ICs", "Retro Specific"]:
-                        # Dark ceramic for CPUs and custom chips
-                        body_color = QColor(45, 45, 55)
-                        outline_color = QColor(180, 180, 180)
-                    elif category == "Memory":
-                        # Slightly lighter for memory
-                        body_color = QColor(55, 55, 65)
-                        outline_color = QColor(170, 170, 170)
-                    elif category == "Logic":
-                        # Classic plastic DIP color
-                        body_color = QColor(40, 40, 40)
-                        outline_color = QColor(160, 160, 160)
-                    else:
-                        # Default chip color
-                        body_color = QColor(50, 50, 60)
-                        outline_color = QColor(175, 175, 175)
-                    
-                    body_rect.setBrush(QBrush(body_color))
-                    body_rect.setPen(QPen(outline_color, 1.5))
-                    component_group.addToGroup(body_rect)
-                    
-                    # Add notch or dot for pin 1 indication
+                    # Create component rectangle
                     if package.startswith("DIP"):
-                        # Add classic DIP notch
-                        notch_width = width * 0.3
-                        notch_height = 3
-                        notch = QGraphicsRectItem(-notch_width/2, -height/2, notch_width, notch_height)
-                        notch.setBrush(QBrush(QColor(20, 20, 20)))
-                        notch.setPen(QPen(QColor(100, 100, 100), 0.5))
-                        component_group.addToGroup(notch)
+                        width = 60
+                        height = 120
+                    elif package.startswith("QFP"):
+                        width = 80
+                        height = 80
                     else:
-                        # Add pin 1 dot for other packages
-                        dot_size = 4
-                        dot = QGraphicsEllipseItem(-width/2 + 5, -height/2 + 5, dot_size, dot_size)
-                        dot.setBrush(QBrush(QColor(255, 255, 255)))
-                        dot.setPen(QPen(QColor(200, 200, 200), 0.5))
-                        component_group.addToGroup(dot)
-                    
-                    # Create pins based on package type
-                    if package.startswith("DIP"):
-                        self._create_dip_pins(component_group, width, height, pin_count, pin_spacing)
-                    elif package.startswith("QFP") or package.startswith("PLCC"):
-                        self._create_quad_pins(component_group, width, height, pin_count)
-                    elif package == "TO-220":
-                        self._create_to220_pins(component_group, width, height)
-                    else:
-                        # Default to DIP-style pins
-                        self._create_dip_pins(component_group, width, height, pin_count, pin_spacing)
-                    
-                    # Add component label with better formatting
-                    label_text = f"{name}"
-                    if len(name) > 12:  # Wrap long names
-                        words = name.split()
-                        if len(words) > 1:
-                            mid = len(words) // 2
-                            label_text = " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
-                    
-                    text_item = QGraphicsTextItem(label_text)
+                        width = 70
+                        height = 100
+
+                    # Create component visual
+                    rect_item = QGraphicsRectItem(-width/2, -height/2, width, height)
+                    rect_item.setBrush(QBrush(QColor(60, 60, 80)))
+                    rect_item.setPen(QPen(QColor(150, 150, 150), 2))
+                    rect_item.setPos(position)
+
+                    # Add component label
+                    text_item = QGraphicsTextItem(f"{name}\n{package}")
                     text_item.setDefaultTextColor(QColor(255, 255, 255))
-                    
-                    # Adjust font size based on chip size
-                    font_size = max(6, min(10, int(width / 8)))
-                    font = QFont("Arial", font_size, QFont.Weight.Bold)
-                    text_item.setFont(font)
-                    
-                    # Center the text
-                    text_rect = text_item.boundingRect()
-                    text_item.setPos(-text_rect.width()/2, -text_rect.height()/2)
-                    component_group.addToGroup(text_item)
-                    
-                    # Add package type label (smaller, at bottom)
-                    if package != "DIP-40":  # Don't show default package
-                        package_text = QGraphicsTextItem(package)
-                        package_text.setDefaultTextColor(QColor(180, 180, 180))
-                        package_font = QFont("Arial", max(5, font_size - 2))
-                        package_text.setFont(package_font)
-                        
-                        pkg_rect = package_text.boundingRect()
-                        package_text.setPos(-pkg_rect.width()/2, height/2 - pkg_rect.height() - 2)
-                        component_group.addToGroup(package_text)
-                    
-                    # Position the component group
-                    component_group.setPos(position)
-                    
-                    # Make component selectable and movable
-                    component_group.setFlag(QGraphicsItemGroup.GraphicsItemFlag.ItemIsSelectable, True)
-                    component_group.setFlag(QGraphicsItemGroup.GraphicsItemFlag.ItemIsMovable, True)
-                    
+                    text_item.setFont(QFont("Arial", 8))
+                    text_item.setPos(position.x() - width/2 + 5, position.y() - height/2 + 5)
+
                     # Add to scene
-                    self.scene().addItem(component_group)
-                    
+                    self.scene().addItem(rect_item)
+                    self.scene().addItem(text_item)
+
                     # Track component
                     comp_id = f"{name}_{len(self.components)}"
                     self.components[comp_id] = {
-                        'group': component_group,
+                        'rect': rect_item,
+                        'text': text_item,
                         'name': name,
                         'category': category,
                         'package': package,
-                        'position': position,
-                        'width': width,
-                        'height': height,
-                        'pin_count': pin_count
+                        'position': position
                     }
 
-                    print(f"✅ Realistic component created: {name} ({package}) with {pin_count} pins")
+                    print(f"✅ Component created: {name} ({package})")
                     return comp_id
 
                 except Exception as e:
                     print(f"❌ Error creating component: {e}")
                     return None
-            
-            def _get_package_info(self, package, name, category):
-                """Get detailed package information for realistic rendering"""
-                # Default values
-                info = {
-                    'width': 60,
-                    'height': 120,
-                    'pin_count': 40,
-                    'pin_spacing': 6
-                }
-                
-                if package.startswith("DIP"):
-                    # Extract pin count from package name
-                    try:
-                        pin_count = int(package.split("-")[1])
-                    except:
-                        pin_count = 40
-                    
-                    # DIP package dimensions based on pin count
-                    if pin_count <= 8:
-                        info.update({'width': 24, 'height': 30, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 14:
-                        info.update({'width': 24, 'height': 42, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 16:
-                        info.update({'width': 24, 'height': 48, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 20:
-                        info.update({'width': 24, 'height': 60, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 24:
-                        info.update({'width': 24, 'height': 72, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 28:
-                        info.update({'width': 24, 'height': 84, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 40:
-                        info.update({'width': 24, 'height': 120, 'pin_count': pin_count, 'pin_spacing': 4})
-                    elif pin_count <= 64:
-                        info.update({'width': 30, 'height': 192, 'pin_count': pin_count, 'pin_spacing': 4})
-                    else:
-                        info.update({'width': 24, 'height': 120, 'pin_count': 40, 'pin_spacing': 4})
-                        
-                elif package.startswith("QFP"):
-                    # Quad Flat Package - square with pins on all sides
-                    try:
-                        pin_count = int(package.split("-")[1])
-                    except:
-                        pin_count = 44
-                    
-                    side_length = max(40, pin_count * 1.2)
-                    info.update({'width': side_length, 'height': side_length, 'pin_count': pin_count, 'pin_spacing': 3})
-                    
-                elif package.startswith("PLCC"):
-                    # Plastic Leaded Chip Carrier
-                    try:
-                        pin_count = int(package.split("-")[1])
-                    except:
-                        pin_count = 68
-                    
-                    side_length = max(35, pin_count * 1.0)
-                    info.update({'width': side_length, 'height': side_length, 'pin_count': pin_count, 'pin_spacing': 2.5})
-                    
-                elif package == "TO-220":
-                    # TO-220 transistor/regulator package
-                    info.update({'width': 20, 'height': 30, 'pin_count': 3, 'pin_spacing': 8})
-                    
-                else:
-                    # Default DIP-40
-                    info.update({'width': 24, 'height': 120, 'pin_count': 40, 'pin_spacing': 4})
-                
-                return info
-            
-            def _create_dip_pins(self, group, width, height, pin_count, spacing):
-                """Create DIP package pins"""
-                pin_width = 8
-                pin_height = 2
-                pins_per_side = pin_count // 2
-                
-                # Left side pins (pins 1 to N/2)
-                for i in range(pins_per_side):
-                    y_pos = -height/2 + 10 + (i * spacing)
-                    pin = QGraphicsRectItem(-width/2 - pin_width, y_pos - pin_height/2, pin_width, pin_height)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))  # Silver pins
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-                    
-                    # Pin number
-                    pin_num = QGraphicsTextItem(str(i + 1))
-                    pin_num.setDefaultTextColor(QColor(255, 255, 255))
-                    pin_num.setFont(QFont("Arial", 6))
-                    pin_rect = pin_num.boundingRect()
-                    pin_num.setPos(-width/2 + 2, y_pos - pin_rect.height()/2)
-                    group.addToGroup(pin_num)
-                
-                # Right side pins (pins N/2+1 to N) - numbered counter-clockwise
-                for i in range(pins_per_side):
-                    y_pos = height/2 - 10 - (i * spacing)
-                    pin = QGraphicsRectItem(width/2, y_pos - pin_height/2, pin_width, pin_height)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))  # Silver pins
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-                    
-                    # Pin number
-                    pin_num = QGraphicsTextItem(str(pins_per_side + i + 1))
-                    pin_num.setDefaultTextColor(QColor(255, 255, 255))
-                    pin_num.setFont(QFont("Arial", 6))
-                    pin_rect = pin_num.boundingRect()
-                    pin_num.setPos(width/2 - pin_rect.width() - 2, y_pos - pin_rect.height()/2)
-                    group.addToGroup(pin_num)
-            
-            def _create_quad_pins(self, group, width, height, pin_count):
-                """Create QFP/PLCC package pins (4-sided)"""
-                pins_per_side = pin_count // 4
-                pin_size = 2
-                spacing = min(width, height) / (pins_per_side + 1)
-                
-                # Top side pins
-                for i in range(pins_per_side):
-                    x_pos = -width/2 + spacing * (i + 1)
-                    pin = QGraphicsRectItem(x_pos - pin_size/2, -height/2 - pin_size, pin_size, pin_size)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-                
-                # Right side pins
-                for i in range(pins_per_side):
-                    y_pos = -height/2 + spacing * (i + 1)
-                    pin = QGraphicsRectItem(width/2, y_pos - pin_size/2, pin_size, pin_size)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-                
-                # Bottom side pins
-                for i in range(pins_per_side):
-                    x_pos = width/2 - spacing * (i + 1)
-                    pin = QGraphicsRectItem(x_pos - pin_size/2, height/2, pin_size, pin_size)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-                
-                # Left side pins
-                for i in range(pins_per_side):
-                    y_pos = height/2 - spacing * (i + 1)
-                    pin = QGraphicsRectItem(-width/2 - pin_size, y_pos - pin_size/2, pin_size, pin_size)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
-            
-            def _create_to220_pins(self, group, width, height):
-                """Create TO-220 package pins"""
-                pin_width = 2
-                pin_height = 8
-                
-                # Three pins for TO-220
-                for i in range(3):
-                    x_pos = -6 + (i * 6)  # Spread pins across bottom
-                    pin = QGraphicsRectItem(x_pos - pin_width/2, height/2, pin_width, pin_height)
-                    pin.setBrush(QBrush(QColor(200, 200, 200)))
-                    pin.setPen(QPen(QColor(150, 150, 150), 0.5))
-                    group.addToGroup(pin)
 
             # Canvas control methods
             def set_grid_visible(self, visible):
@@ -588,6 +342,29 @@ class MainWindow(QMainWindow):
                 print("🧹 Canvas cleared")
 
         return Canvas_DoodleArea()
+        """Create layer manager"""
+        class LayerManager:
+            def __init__(self):
+                self.layers = ["Top Layer", "Bottom Layer", "Silkscreen", "Solder Mask"]
+                self.active_layer = "Top Layer"
+                self.layer_visibility = {layer: True for layer in self.layers}
+
+            def get_layers(self):
+                return self.layers
+
+            def set_active_layer(self, layer):
+                self.active_layer = layer
+
+            def get_active_layer(self):
+                return self.active_layer
+
+            def toggle_layer_visibility(self, layer):
+                if layer in self.layer_visibility:
+                    self.layer_visibility[layer] = not self.layer_visibility[layer]
+
+        return LayerManager()
+
+
 
     def _create_ui(self):
         """Create main user interface"""
@@ -612,6 +389,7 @@ class MainWindow(QMainWindow):
 
         print("✓ Main UI created")
 
+
     def _create_docks(self):
         """Create dock widgets"""
         print("Creating dock widgets...")
@@ -630,394 +408,194 @@ class MainWindow(QMainWindow):
 
         print("✓ Dock widgets created")
 
-    def _create_component_palette_dock(self):
-        """Create the single working component palette with scroll support - ENHANCED WITH MORE CHIPS"""
-        from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QScrollArea
-        from PyQt6.QtCore import QMimeData, QPoint
-        from PyQt6.QtGui import QDrag, QPixmap, QPainter, QPen, QColor, QFont
 
-        class ComponentTreelist(QTreeWidget):
-            def __init__(self):
-                super().__init__()
-                self.setHeaderLabel("Components")
-                self.setDragEnabled(True)
-                self.setDragDropMode(QTreeWidget.DragDropMode.DragOnly)
+    def _create_component_palette_dock_with_chips(self):
+        """Create component palette dock with realistic chip integration"""
+        from .component_palette import ComponentPalette
 
-                # ENHANCED: Comprehensive component library with ALL retro chips
-                categories = {
-                    "CPUs": [
-                        # 8-bit CPUs
-                        "Z80", "Z80A", "Z80B", "Z84C00", 
-                        "6502", "6502A", "6510", "6507", "65C02", "65C816",
-                        "8080", "8080A", "8085", "8085A",
-                        "6800", "6802", "6808", "6809", "6809E", "68HC11",
-                        "CDP1802", "SC/MP", "F8", "2650",
-                        # 16-bit CPUs
-                        "8086", "8088", "80186", "80188", "80286",
-                        "68000", "68008", "68010", "68020", "68030", "68040",
-                        "TMS9900", "TMS99105", "16032", "32016",
-                        # Specialty CPUs
-                        "T11", "PDP-11", "1802", "6100", "Am9511"
-                    ],
-                    "Memory": [
-                        # RAM Types
-                        "2114", "4116", "4164", "41256", "1Mx4", "4Mx1",
-                        "6116", "6264", "62256", "628128", "6264LP",
-                        "2016", "2048", "2112", "2147", "2149",
-                        # ROM Types  
-                        "2708", "2716", "2732", "2764", "27128", "27256", "27512", "271024",
-                        "2532", "2564", "25128", "25256",
-                        # EPROM/EEPROM
-                        "2816", "2817", "2864", "28256", "28512", "281024",
-                        "X2816A", "X2864A", "X28256",
-                        # NVRAM
-                        "6116RTC", "6264RTC", "DS1220Y", "DS1230Y", "M48T02"
-                    ],
-                    "Graphics": [
-                        # Commodore
-                        "VIC", "VIC-II", "6567", "6569", "8564", "8566",
-                        "VDC", "8563", "8568",
-                        # Atari
-                        "TIA", "GTIA", "CTIA", "ANTIC", "POKEY",
-                        "MARIA", "SALLY", "TMS9918A", "TMS9928A", "TMS9929A",
-                        # Amiga
-                        "Agnus", "Denise", "Paula", "Gary", "Buster", "Super Agnus",
-                        "Lisa", "Fat Agnus", "Super Denise", "Alice", "ECS Agnus",
-                        # General Video
-                        "6845", "MC6845", "HD46505", "UM6845", "SY6545",
-                        "TMS9918", "TMS9118", "TMS9128", "TMS9929", "V9938", "V9958",
-                        "CGA", "EGA", "VGA", "SVGA", "Hercules",
-                        "82720", "82716", "HD63484", "TMS34010", "TMS34020"
-                    ],
-                    "Audio": [
-                        # Commodore Sound
-                        "SID", "6581", "8580", "6582",
-                        # General Sound Chips
-                        "AY-3-8910", "AY-3-8912", "YM2149", "YM2203", "YM2608", "YM2610", "YM2612", "YM3526",
-                        "SN76489", "SN76496", "T6W28", "NCR8496",
-                        "TIA", "Pokey", "Paula", "VERA",
-                        # Advanced Sound
-                        "OPL", "OPL2", "OPL3", "OPL4", "OPN", "OPNA", "OPM",
-                        "C140", "C219", "RF5C68", "YMF262", "YMF278B",
-                        "K053260", "K054539", "X1-010"
-                    ],
-                    "Logic": [
-                        # 74LS Series
-                        "74LS00", "74LS01", "74LS02", "74LS03", "74LS04", "74LS05", "74LS06", "74LS07", "74LS08", "74LS09",
-                        "74LS10", "74LS11", "74LS12", "74LS13", "74LS14", "74LS15", "74LS16", "74LS17", "74LS18", "74LS19",
-                        "74LS20", "74LS21", "74LS22", "74LS26", "74LS27", "74LS28", "74LS30", "74LS32", "74LS33", "74LS37",
-                        "74LS38", "74LS40", "74LS42", "74LS47", "74LS48", "74LS51", "74LS54", "74LS55", "74LS73", "74LS74",
-                        "74LS75", "74LS76", "74LS78", "74LS83", "74LS85", "74LS86", "74LS90", "74LS92", "74LS93", "74LS95",
-                        "74LS107", "74LS109", "74LS112", "74LS113", "74LS114", "74LS122", "74LS123", "74LS125", "74LS126",
-                        "74LS132", "74LS133", "74LS136", "74LS138", "74LS139", "74LS145", "74LS147", "74LS148", "74LS151",
-                        "74LS153", "74LS154", "74LS155", "74LS156", "74LS157", "74LS158", "74LS160", "74LS161", "74LS162",
-                        "74LS163", "74LS164", "74LS165", "74LS166", "74LS168", "74LS169", "74LS170", "74LS173", "74LS174",
-                        "74LS175", "74LS181", "74LS189", "74LS190", "74LS191", "74LS192", "74LS193", "74LS194", "74LS195",
-                        "74LS221", "74LS240", "74LS241", "74LS242", "74LS243", "74LS244", "74LS245", "74LS247", "74LS248",
-                        "74LS251", "74LS253", "74LS257", "74LS258", "74LS259", "74LS260", "74LS266", "74LS273", "74LS279",
-                        "74LS280", "74LS283", "74LS290", "74LS293", "74LS298", "74LS299", "74LS322", "74LS323", "74LS365",
-                        "74LS366", "74LS367", "74LS368", "74LS373", "74LS374", "74LS375", "74LS377", "74LS378", "74LS379",
-                        "74LS390", "74LS393", "74LS395", "74LS399"
-                    ],
-                    "I/O": [
-                        # General I/O
-                        "8255", "8255A", "Z80-PIO", "Z84C20", "6522", "6821", "6840", "6850",
-                        "8251", "8251A", "Z80-SIO", "Z80-DART", "Z80-SCC",
-                        "16550", "16550A", "16650", "16750", "16850", "16950",
-                        # Commodore I/O
-                        "6526", "CIA", "8520", "CIA-A", "CIA-B",
-                        "6551", "ACIA", "6530", "RIOT", "6532", "RIOT",
-                        # Atari I/O
-                        "ANTIC", "GTIA", "POKEY", "PIA", "RIOT",
-                        # General Purpose
-                        "8279", "8253", "8254", "Z80-CTC", "Z80-DMA"
-                    ],
-                    "Timers": [
-                        "8253", "8254", "Z80-CTC", "Z84C30", 
-                        "6840", "PTM", "6522", "VIA",
-                        "NE555", "556", "558", "MC6840",
-                        "TMS9901", "CDP1878", "AM9513"
-                    ],
-                    "Analog": [
-                        # Op-Amps
-                        "LM324", "LM358", "LM741", "TL071", "TL072", "TL074", "TL081", "TL082", "TL084",
-                        "LF351", "LF353", "LF356", "LF411", "LF412", "OP07", "OP27", "OP37",
-                        # Comparators
-                        "LM311", "LM339", "LM393", "LM710", "LM733",
-                        # Audio
-                        "LM386", "LM380", "LM383", "LM384", "TDA2002", "TDA2030", "TDA2040",
-                        # Timers
-                        "NE555", "NE556", "LM555", "ICM7555",
-                        # ADC/DAC
-                        "ADC0808", "ADC0809", "DAC0800", "DAC0808", "ZN425E", "ZN426E"
-                    ],
-                    "Power": [
-                        # Linear Regulators
-                        "7805", "7806", "7808", "7809", "7812", "7815", "7818", "7824",
-                        "7905", "7906", "7908", "7909", "7912", "7915", "7918", "7924",
-                        "78L05", "78L06", "78L08", "78L09", "78L12", "78L15",
-                        "79L05", "79L06", "79L08", "79L09", "79L12", "79L15",
-                        # Adjustable
-                        "LM317", "LM337", "LM350", "LM338", "LM396",
-                        # Low Dropout
-                        "LM2940", "LM2941", "LP2950", "LP2951"
-                    ],
-                    "Connectors": [
-                        # Computer Connectors
-                        "DB25", "DB9", "DB15", "DB37", "DB50",
-                        "DIN-5", "DIN-8", "DIN-13", "Mini-DIN",
-                        "Centronics-36", "IEEE-488", "SCSI-50", "SCSI-68",
-                        # Modern
-                        "USB-A", "USB-B", "USB-Mini", "USB-Micro", "USB-C",
-                        "Ethernet", "RJ45", "RJ11", "RJ12",
-                        # Audio/Video
-                        "RCA", "BNC", "XLR", "TRS", "TRRS",
-                        "S-Video", "Composite", "Component", "HDMI", "VGA",
-                        # Headers
-                        "Header-2x1", "Header-2x2", "Header-2x3", "Header-2x5", "Header-2x10", "Header-2x20",
-                        "IDC-10", "IDC-14", "IDC-16", "IDC-20", "IDC-26", "IDC-34", "IDC-40", "IDC-50"
-                    ],
-                    "Custom ICs": [
-                        # Commodore Custom
-                        "PLA", "906114-01", "906114-02", "251715-01", "251715-02",
-                        "Kernal ROM", "Basic ROM", "Char ROM",
-                        # Amiga Custom  
-                        "8361", "8362", "8364", "8365", "8370", "8371", "8372", "8373", "8374", "8375",
-                        "Fat Gary", "Super Buster", "Ramsey", "Big Foot",
-                        # Atari Custom
-                        "CO12294", "CO14805", "CO25953", "CO61851",
-                        # Apple Custom
-                        "IOU", "MMU", "VGC", "ADB", "SWIM", "FDHD"
-                    ],
-                    "Retro Specific": [
-                        # Commodore 64
-                        "6510", "6567", "6569", "6581", "8580", "6526", "PLA", "Kernal", "Basic", "Characters",
-                        # Commodore 128
-                        "8502", "8563", "8564", "8721", "MMU",
-                        # Amiga 500/1000/2000
-                        "68000", "8361", "8362", "8364", "Fat Agnus", "Denise", "Paula", "Gary", "Buster",
-                        # Atari ST
-                        "68000", "GLUE", "MMU", "SHIFTER", "DMA", "MFP", "ACIA", "YM2149",
-                        # Apple II
-                        "6502", "ROM", "Language Card", "Disk II", "Super Serial Card",
-                        # ZX Spectrum
-                        "Z80", "ULA", "ROM", "Keyboard", "Tape Interface"
-                    ]
-                }
+        # Create the component palette
+        self.component_palette = ComponentPalette()
 
-                for category, components in categories.items():
-                    cat_item = QTreeWidgetItem(self, [f"📁 {category}"])
-                    cat_item.setExpanded(True)
+        # Connect signals for chip integration
+        self.component_palette.component_selected.connect(self._on_component_selected)
+        self.component_palette.component_double_clicked.connect(self._on_component_add_to_canvas)
 
-                    for comp in components:
-                        comp_item = QTreeWidgetItem(cat_item, [f"🔲 {comp}"])
-                        # Determine package based on component type
-                        package = self._determine_package(comp, category)
-                        comp_item.setData(0, Qt.ItemDataRole.UserRole, f"component:{category}:{comp}:{package}")
+        # Create dock widget
+        palette_dock = QDockWidget("Component Library", self)
+        palette_dock.setWidget(self.component_palette)
+        palette_dock.setMinimumWidth(300)
+        palette_dock.setMaximumWidth(400)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, palette_dock)
 
-                print(f"✅ Component tree created with expanded library - {sum(len(comps) for comps in categories.values())} components")
+        print("✅ Component palette with realistic chips loaded")
+        print(f"📦 Total components available: {self.component_palette.get_total_components()}")
 
-            def _determine_package(self, component, category):
-                """Determine appropriate package for component"""
-                # CPU packages
-                if category == "CPUs":
-                    if component in ["68000", "68008", "68010", "68020", "68030", "68040"]:
-                        return "DIP-64"
-                    elif component in ["8086", "8088", "80186", "80188", "80286"]:
-                        return "DIP-40"
-                    elif component in ["Z80", "6502", "8080", "6800", "6809"]:
-                        return "DIP-40"
-                    else:
-                        return "DIP-40"
-                
-                # Memory packages
-                elif category == "Memory":
-                    if component in ["2708", "2716", "2732", "2764"]:
-                        return "DIP-24"
-                    elif component in ["27128", "27256", "27512", "271024"]:
-                        return "DIP-28"
-                    elif component in ["4116", "4164", "41256"]:
-                        return "DIP-16"
-                    elif component in ["6116", "6264", "62256"]:
-                        return "DIP-28"
-                    else:
-                        return "DIP-28"
-                
-                # Graphics chips
-                elif category == "Graphics":
-                    if component in ["VIC-II", "6567", "6569", "TMS9918", "TMS9928A"]:
-                        return "DIP-40"
-                    elif component in ["Agnus", "Denise", "Paula"]:
-                        return "PLCC-84"
-                    elif component in ["6845", "MC6845"]:
-                        return "DIP-40"
-                    else:
-                        return "DIP-40"
-                
-                # Audio chips
-                elif category == "Audio":
-                    if component in ["SID", "6581", "8580"]:
-                        return "DIP-28"
-                    elif component in ["AY-3-8910", "YM2149"]:
-                        return "DIP-40"
-                    elif component in ["YM2612", "YM3526"]:
-                        return "DIP-24"
-                    else:
-                        return "DIP-28"
-                
-                # Logic chips
-                elif category == "Logic":
-                    if component.startswith("74LS"):
-                        # Most common 74LS packages
-                        if component in ["74LS00", "74LS02", "74LS04", "74LS08", "74LS10", "74LS20", "74LS32", "74LS86"]:
-                            return "DIP-14"
-                        elif component in ["74LS74", "74LS76", "74LS83", "74LS85", "74LS90", "74LS93", "74LS107", "74LS112"]:
-                            return "DIP-14"
-                        elif component in ["74LS138", "74LS139", "74LS151", "74LS153", "74LS157", "74LS158", "74LS160", "74LS161"]:
-                            return "DIP-16"
-                        elif component in ["74LS240", "74LS241", "74LS244", "74LS245", "74LS373", "74LS374", "74LS377"]:
-                            return "DIP-20"
-                        elif component in ["74LS154", "74LS181", "74LS189"]:
-                            return "DIP-24"
-                        else:
-                            return "DIP-16"
-                    else:
-                        return "DIP-16"
-                
-                # I/O chips
-                elif category == "I/O":
-                    if component in ["8255", "Z80-PIO", "6522", "6821"]:
-                        return "DIP-40"
-                    elif component in ["8251", "Z80-SIO", "6551"]:
-                        return "DIP-28"
-                    elif component in ["16550", "16550A"]:
-                        return "DIP-40"
-                    else:
-                        return "DIP-40"
-                
-                # Timer chips
-                elif category == "Timers":
-                    if component in ["8253", "8254", "Z80-CTC"]:
-                        return "DIP-24"
-                    elif component in ["6840", "NE555", "556"]:
-                        return "DIP-14"
-                    else:
-                        return "DIP-16"
-                
-                # Analog chips
-                elif category == "Analog":
-                    if component in ["LM324", "LM339", "LM393"]:
-                        return "DIP-14"
-                    elif component in ["LM358", "LM741", "TL072", "TL082"]:
-                        return "DIP-8"
-                    elif component in ["LM386", "NE555"]:
-                        return "DIP-8"
-                    else:
-                        return "DIP-8"
-                
-                # Power regulators
-                elif category == "Power":
-                    if component.startswith("78") or component.startswith("79"):
-                        return "TO-220"
-                    elif component in ["LM317", "LM337"]:
-                        return "TO-220"
-                    else:
-                        return "TO-220"
-                
-                # Connectors
-                elif category == "Connectors":
-                    if component.startswith("DB"):
-                        return "D-SUB"
-                    elif component.startswith("DIN"):
-                        return "DIN"
-                    elif component.startswith("Header"):
-                        return "Header"
-                    elif component.startswith("IDC"):
-                        return "IDC"
-                    else:
-                        return "Connector"
-                
-                # Custom ICs
-                elif category == "Custom ICs":
-                    if component in ["PLA", "MMU", "IOU"]:
-                        return "DIP-28"
-                    elif component.startswith("8"):  # Amiga chips
-                        return "PLCC-68"
-                    else:
-                        return "DIP-40"
-                
-                # Retro specific
-                elif category == "Retro Specific":
-                    if component in ["6510", "Z80", "68000"]:
-                        return "DIP-40"
-                    elif component in ["6567", "6569", "8563"]:
-                        return "DIP-40"
-                    elif component in ["6581", "8580", "YM2149"]:
-                        return "DIP-28"
-                    elif component in ["ULA", "GLUE", "SHIFTER"]:
-                        return "PLCC-68"
-                    else:
-                        return "DIP-40"
-                
-                # Default
-                else:
-                    return "DIP-40"
+    def _on_component_selected(self, component_id: str, component_data: dict):
+        """Handle component selection from palette"""
+        print(f"🔍 Selected component: {component_data.get('name', 'Unknown')}")
 
-            def startDrag(self, supportedActions):
-                """Handle drag start"""
-                current_item = self.currentItem()
-                if current_item and current_item.parent():
-                    drag_data = current_item.data(0, Qt.ItemDataRole.UserRole)
+        # Update properties panel if available
+        if hasattr(self, 'properties_panel') and self.properties_panel:
+            # Create a mock object with the component data for properties panel
+            mock_component = type('Component', (), component_data)()
+            mock_component.component_name = component_data.get('name', 'Unknown')
+            mock_component.component_type = component_data.get('category', 'Unknown')
+            mock_component.package_type = component_data.get('package_type', 'DIP-40')
 
-                    if drag_data:
-                        drag = QDrag(self)
-                        mime_data = QMimeData()
-                        mime_data.setText(drag_data)
-                        drag.setMimeData(mime_data)
+            # Add position methods
+            from PyQt6.QtCore import QPointF
+            mock_component.pos = lambda: QPointF(0, 0)
+            mock_component.setPos = lambda x, y: None
 
-                        pixmap = QPixmap(120, 30)
-                        pixmap.fill(QColor(52, 152, 219, 180))
+            self.properties_panel.setObject(mock_component)
 
-                        painter = QPainter(pixmap)
-                        painter.setPen(QPen(QColor(255, 255, 255)))
-                        painter.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+    def _on_component_add_to_canvas(self, component_id: str, component_data: dict):
+        """Add component to canvas with realistic chip image"""
+        if not self.canvas or not hasattr(self.canvas, 'scene'):
+            print("❌ Canvas not available")
+            return
 
-                        comp_name = current_item.text(0).replace("🔲 ", "")
-                        painter.drawText(5, 20, comp_name)
-                        painter.end()
+        try:
+            # Use the canvas integration to add the chip
+            chip_item = CanvasChipIntegration.add_component_to_canvas(
+                self.canvas,
+                component_data
+            )
 
-                        drag.setPixmap(pixmap)
-                        drag.setHotSpot(QPoint(60, 15))
+            # Connect chip signals to main window
+            chip_item.selectionChanged.connect(self._on_chip_selection_changed)
+            chip_item.propertyChanged.connect(self._on_chip_property_changed)
 
-                        result = drag.exec(Qt.DropAction.CopyAction)
-                        print(f"🎯 Drag executed: {drag_data} (result: {result})")
-                        return
+            # Update status
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage(f"Added {component_data['name']} to canvas", 3000)
 
-                super().startDrag(supportedActions)
+            # Mark project as modified
+            self.is_modified = True
+            self._update_window_title()
+            self._update_status_counts()
 
-        # Create main widget with scroll area
-        palette_widget = QWidget()
-        layout = QVBoxLayout(palette_widget)
-        layout.setContentsMargins(5, 5, 5, 5)
+            print(f"✅ Successfully added {component_data['name']} to canvas")
 
-        # Create the tree (no extra scroll area - QTreeWidget has built-in scrolling)
-        tree = ComponentTreelist()
-        tree.setMinimumHeight(400)
-        layout.addWidget(tree)
+        except Exception as e:
+            print(f"❌ Error adding component to canvas: {e}")
+            import traceback
+            traceback.print_exc()
 
-        # Instructions
-        instructions = QLabel("Drag components to canvas")
-        instructions.setStyleSheet("color: #888; font-style: italic; font-size: 10px; padding: 5px;")
-        layout.addWidget(instructions)
+    def _on_chip_selection_changed(self, selected: bool):
+        """Handle chip selection change on canvas"""
+        if selected:
+            # Get the selected chip item
+            selected_items = self.canvas.scene().selectedItems()
+            if selected_items and isinstance(selected_items[0], ChipCanvasItem):
+                chip_item = selected_items[0]
 
-        # Create dock
-        self.component_palette_dock = QDockWidget("Component Library", self)
-        self.component_palette_dock.setWidget(palette_widget)
-        self.component_palette_dock.setMinimumWidth(250)
-        self.component_palette_dock.setMaximumWidth(350)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.component_palette_dock)
+                # Update properties panel
+                if hasattr(self, 'properties_panel') and self.properties_panel:
+                    self.properties_panel.setObject(chip_item)
 
-        print("✅ Enhanced component palette created with comprehensive retro chip library")
+                print(f"🎯 Selected chip on canvas: {chip_item.component_name}")
+
+    def _on_chip_property_changed(self, property_name: str, value):
+        """Handle chip property change"""
+        print(f"🔧 Chip property changed: {property_name} = {value}")
+
+        # Mark project as modified
+        self.is_modified = True
+        self._update_window_title()
+
+    def replace_rectangular_components_with_chips(self):
+        """Replace any existing rectangular components with realistic chips"""
+        if self.canvas and hasattr(self.canvas, 'scene'):
+            CanvasChipIntegration.replace_rectangles_with_chips(self.canvas)
+
+    # CANVAS DROP EVENT INTEGRATION:
+    def setup_canvas_drop_handling(self):
+        """Setup canvas to handle component drops with realistic chips"""
+        if not self.canvas:
+            return
+
+        # Enable drops on canvas
+        self.canvas.setAcceptDrops(True)
+
+        # Override the canvas dragEnterEvent if needed
+        original_drag_enter = getattr(self.canvas, 'dragEnterEvent', None)
+
+        def enhanced_drag_enter_event(event):
+            """Enhanced drag enter event for canvas"""
+            if event.mimeData().hasText():
+                # Check if it's a component drag
+                text = event.mimeData().text()
+                if text.startswith('component:'):
+                    event.acceptProposedAction()
+                    return
+
+            # Call original handler if it exists
+            if original_drag_enter:
+                original_drag_enter(event)
+
+        def enhanced_drop_event(event):
+            """Enhanced drop event for canvas"""
+            if event.mimeData().hasText():
+                text = event.mimeData().text()
+                if text.startswith('component:'):
+                    try:
+                        # Parse component info from drag data
+                        parts = text.split(':')
+                        if len(parts) >= 3:
+                            category = parts[1]
+                            component_name = parts[2]
+
+                            # Find component in palette
+                            if hasattr(self, 'component_palette'):
+                                component = self.component_palette.get_component_by_id(component_name)
+                                if component:
+                                    # Get drop position
+                                    drop_pos = self.canvas.mapToScene(event.position().toPoint())
+
+                                    # Add component at drop position
+                                    chip_item = CanvasChipIntegration.add_component_to_canvas(
+                                        self.canvas,
+                                        component,
+                                        drop_pos
+                                    )
+
+                                    # Connect signals
+                                    chip_item.selectionChanged.connect(self._on_chip_selection_changed)
+                                    chip_item.propertyChanged.connect(self._on_chip_property_changed)
+
+                                    event.acceptProposedAction()
+                                    print(f"📍 Dropped {component_name} at {drop_pos}")
+                                    return
+
+                    except Exception as e:
+                        print(f"❌ Error handling drop: {e}")
+
+            event.ignore()
+
+        # Set the enhanced event handlers
+        self.canvas.dragEnterEvent = enhanced_drag_enter_event
+        self.canvas.dropEvent = enhanced_drop_event
+
+        print("✅ Canvas drop handling setup for realistic chips")
+
+    # INTEGRATION INITIALIZATION:
+    def initialize_chip_integration(self):
+        """Initialize the complete chip integration system"""
+        print("🔗 Initializing chip integration...")
+
+        # Setup component palette with chips
+        self._create_component_palette_dock_with_chips()
+
+        # Setup canvas drop handling
+        self.setup_canvas_drop_handling()
+
+        # Replace any existing rectangular components
+        self.replace_rectangular_components_with_chips()
+
+        print("✅ Chip integration initialized!")
+        print("🎉 Your Visual Retro Emulator now has realistic chip graphics!")
+
 
     def _create_cad_tools_dock(self):
         """Create the single working CAD tools with scroll support"""
@@ -1030,6 +608,8 @@ class MainWindow(QMainWindow):
         tools_widget = QWidget()
         layout = QVBoxLayout(tools_widget)
         layout.setContentsMargins(5, 5, 5, 5)
+
+        # Title removed, we don't need Cad shown twice
 
         # Tool buttons group
         tools_group = QGroupBox("Tools")
@@ -1113,6 +693,7 @@ class MainWindow(QMainWindow):
 
         print("✅ Working CAD tools created with scroll support")
 
+
     def _create_properties_dock(self):
         """Create the single working properties panel with scroll support"""
         # Create scrollable content
@@ -1124,6 +705,8 @@ class MainWindow(QMainWindow):
         props_widget = QWidget()
         layout = QVBoxLayout(props_widget)
         layout.setContentsMargins(5, 5, 5, 5)
+
+        # Title removed - we don't need the name twice.
 
         # No selection message
         self.no_selection_label = QLabel("No component selected\n\nClick on a component to view its properties")
@@ -1200,127 +783,29 @@ class MainWindow(QMainWindow):
 
         print("✅ Working properties panel created with scroll support")
 
-    def _create_layer_controls_dock(self):
+
+    def _create_layer_controls_dock(self): #ui_layer_controls.py
         """Create layer controls dock"""
-        try:
-            from ui.layer_controls import LayerControls
-            self.layer_controls = LayerControls()
-            layer_dock = QDockWidget("Layers", self)
-            layer_dock.setWidget(self.layer_controls)
-            layer_dock.setMinimumWidth(180)
-            layer_dock.setMaximumWidth(250)
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, layer_dock)
-            print("✓ Layer controls dock created")
-        except ImportError:
-            print("⚠️ Layer controls not available - using fallback")
-            # Fallback layer controls implementation
-            self._create_fallback_layer_controls()
+        from ui.layer_controls import LayerControls
+        self.layer_controls = LayerControls()
+        layer_dock = QDockWidget("Layers", self)
+        layer_dock.setWidget(self.layer_controls)
+        layer_dock.setMinimumWidth(180)
+        layer_dock.setMaximumWidth(250)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, layer_dock)
+        print("✓ Layer controls dock created")
 
-    def _create_fallback_layer_controls(self):
-        """Create fallback layer controls"""
-        layer_widget = QWidget()
-        layout = QVBoxLayout(layer_widget)
+    def _create_menu_bar(self): #ui_menu_bar.py
+        from ui.menu_bar import RetroEmulatorMenuBar
+        self.menu_manager = RetroEmulatorMenuBar(self)
+        self.setMenuBar(self.menu_manager)
+        print("✓ Menu bar created")
 
-        title_label = QLabel("Layers")
-        title_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        layout.addWidget(title_label)
-
-        layers = ["Top Copper", "Bottom Copper", "Solder Mask", "Silk Screen", "Drill", "Components"]
-        
-        for layer in layers:
-            layer_frame = QFrame()
-            layer_layout = QHBoxLayout(layer_frame)
-            layer_layout.setContentsMargins(2, 2, 2, 2)
-            
-            visible_checkbox = QCheckBox()
-            visible_checkbox.setChecked(True)
-            layer_layout.addWidget(visible_checkbox)
-            
-            layer_label = QLabel(layer)
-            layer_layout.addWidget(layer_label)
-            
-            layer_layout.addStretch()
-            layout.addWidget(layer_frame)
-
-        layout.addStretch()
-
-        self.layer_controls_dock = QDockWidget("Layers", self)
-        self.layer_controls_dock.setWidget(layer_widget)
-        self.layer_controls_dock.setMinimumWidth(150)
-        self.layer_controls_dock.setMaximumWidth(250)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_controls_dock)
-        print("✅ Fallback layer controls dock created")
-
-    def _create_menu_bar(self):
-        """Create menu bar"""
-        try:
-            from ui.menu_bar import RetroEmulatorMenuBar
-            self.menu_manager = RetroEmulatorMenuBar(self)
-            self.setMenuBar(self.menu_manager)
-            print("✓ Menu bar created")
-        except ImportError:
-            print("⚠️ Menu bar not available - using fallback")
-            self._create_fallback_menu_bar()
-
-    def _create_fallback_menu_bar(self):
-        """Create fallback menu bar"""
-        menubar = self.menuBar()
-
-        # File menu
-        file_menu = menubar.addMenu('&File')
-        file_menu.addAction('&New Project', self._new_project, QKeySequence.StandardKey.New)
-        file_menu.addAction('&Open Project', self._open_project, QKeySequence.StandardKey.Open)
-        file_menu.addAction('&Save Project', self._save_project, QKeySequence.StandardKey.Save)
-        file_menu.addSeparator()
-        file_menu.addAction('E&xit', self.close, QKeySequence.StandardKey.Quit)
-
-        # Edit menu
-        edit_menu = menubar.addMenu('&Edit')
-        edit_menu.addAction('&Undo', self._undo, QKeySequence.StandardKey.Undo)
-        edit_menu.addAction('&Redo', self._redo, QKeySequence.StandardKey.Redo)
-
-        # View menu
-        view_menu = menubar.addMenu('&View')
-        view_menu.addAction('Zoom &In', self._zoom_in, 'Ctrl++')
-        view_menu.addAction('Zoom &Out', self._zoom_out, 'Ctrl+-')
-        view_menu.addAction('&Toggle Grid', self._toggle_grid, 'Ctrl+G')
-
-        # Tools menu
-        tools_menu = menubar.addMenu('&Tools')
-        tools_menu.addAction('&Simulate', self._start_simulation, 'F5')
-
-        print("✓ Fallback menu bar created")
-
-    def _create_status_bar(self):
+    def _create_status_bar(self): #ui_status_bar.py
         """Create status bar"""
-        try:
-            from ui.status_bar import StatusBarManager
-            self.status_manager = StatusBarManager(self)
-            print("✓ Status bar created")
-        except ImportError:
-            print("⚠️ Status bar not available - using fallback")
-            self._create_fallback_status_bar()
-
-    def _create_fallback_status_bar(self):
-        """Create fallback status bar"""
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-
-        self.coordinate_label = QLabel("X: 0, Y: 0")
-        self.zoom_label = QLabel("Zoom: 100%")
-        self.tool_label = QLabel("Tool: Select")
-        self.component_count_label = QLabel("Components: 0")
-
-        self.status_bar.addWidget(self.coordinate_label)
-        self.status_bar.addPermanentWidget(self.zoom_label)
-        self.status_bar.addPermanentWidget(self.tool_label)
-        self.status_bar.addPermanentWidget(self.component_count_label)
-
-        self.status_bar.showMessage("Ready")
-        print("✅ Fallback status bar created")
-
-    # [Rest of the methods remain the same from your original file...]
-    # I'll continue with the remaining methods from your backed up version
+        from ui.status_bar import StatusBarManager
+        self.status_manager = StatusBarManager(self)
+        print("✓ Status bar created")
 
     def _create_toolbars(self):
         """Create toolbars"""
@@ -1510,6 +995,7 @@ class MainWindow(QMainWindow):
 
         print("✓ Post-initialization complete")
 
+
     def set_component_manager(self, manager):
         """Set component manager"""
         self.component_manager = manager
@@ -1568,6 +1054,7 @@ class MainWindow(QMainWindow):
             else:
                 print(f"⚠️ Canvas doesn't support set_grid_size for preset")
 
+
     def _set_tool(self, tool_name):
         """Set current tool"""
         self.current_tool = tool_name
@@ -1589,6 +1076,7 @@ class MainWindow(QMainWindow):
     def _on_tool_changed(self, tool_name):
         """Handle tool change from CAD panel"""
         self._set_tool(tool_name)
+
 
     def _new_project(self):
         """Create new project"""
@@ -1681,6 +1169,16 @@ class MainWindow(QMainWindow):
         # TODO: Implement loading last project from settings
         pass
 
+    def _import_project(self):
+        """Import project from other formats"""
+        print("📥 Import project requested")
+        # TODO: Implement project import
+
+    def _export_project(self):
+        """Export project to other formats"""
+        print("📤 Export project requested")
+        # TODO: Implement project export
+
     def _check_unsaved_changes(self):
         """Check for unsaved changes"""
         if self.is_modified:
@@ -1702,6 +1200,7 @@ class MainWindow(QMainWindow):
         return True
 
     # EDIT OPERATIONS
+
     def _undo(self):
         """Undo last operation"""
         print("↶ Undo")
@@ -1739,7 +1238,9 @@ class MainWindow(QMainWindow):
         if self.canvas and hasattr(self.canvas, 'select_all'):
             self.canvas.select_all()
 
+
     # VIEW OPERATIONS
+
     def _zoom_in(self):
         """Zoom in"""
         if self.canvas and hasattr(self.canvas, 'zoom_in'):
@@ -1795,7 +1296,9 @@ class MainWindow(QMainWindow):
             self.canvas.set_grid_size(size)
         print(f"🔲 Grid size: {size}")
 
+
     # PANEL TOGGLES
+
     def _toggle_component_palette(self, visible):
         """Toggle component palette visibility"""
         if hasattr(self, 'component_palette_dock'):
@@ -1818,7 +1321,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'layer_controls_dock'):
             self.layer_controls_dock.setVisible(visible)
 
+
     # COMPONENT OPERATIONS
+
     def _add_component(self, component_type):
         """Add component to canvas"""
         if self.canvas and hasattr(self.canvas, 'add_component'):
@@ -1830,7 +1335,57 @@ class MainWindow(QMainWindow):
 
         print(f"🔧 Adding component: {component_type}")
 
+
+    # PRESET OPERATIONS
+
+    def _apply_preset(self, preset_name):
+        """Apply CAD preset"""
+        presets = {
+            'fine': {
+                'grid_size': 5,
+                'trace_width': 0.1,
+                'via_size': 0.2,
+                'pad_size': 0.8
+            },
+            'standard': {
+                'grid_size': 10,
+                'trace_width': 0.2,
+                'via_size': 0.3,
+                'pad_size': 1.0
+            },
+            'prototype': {
+                'grid_size': 20,
+                'trace_width': 0.3,
+                'via_size': 0.4,
+                'pad_size': 1.2
+            },
+            'breadboard': {
+                'grid_size': 25,
+                'trace_width': 0.5,
+                'via_size': 0.6,
+                'pad_size': 1.5
+            }
+        }
+
+        if preset_name in presets:
+            preset = presets[preset_name]
+
+            # Apply grid size
+            if self.canvas and hasattr(self.canvas, 'set_grid_size'):
+                self.canvas.set_grid_size(preset['grid_size'])
+
+            # Apply other settings to CAD tools panel
+            if self.cad_tools_panel and hasattr(self.cad_tools_panel, 'apply_preset'):
+                self.cad_tools_panel.apply_preset(preset)
+
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage(f"Applied preset: {preset_name}", 2000)
+
+            print(f"🎯 Applied preset: {preset_name}")
+
+
     # SIMULATION OPERATIONS
+
     def _start_simulation(self):
         """Start simulation"""
         if self.simulation_engine:
@@ -1863,7 +1418,14 @@ class MainWindow(QMainWindow):
         print("🔄 Simulation reset")
         # TODO: Implement reset
 
+    def _show_simulation_settings(self):
+        """Show simulation settings dialog"""
+        print("⚙️ Simulation settings")
+        # TODO: Implement simulation settings dialog
+
+
     # DIALOG FUNCTIONS
+
     def _show_search_dialog(self):
         """Show search dialog (Ctrl+F)"""
         from PyQt6.QtWidgets import QInputDialog
@@ -1879,15 +1441,12 @@ class MainWindow(QMainWindow):
 
         commands = [
             "New Project",
-            "Open Project", 
+            "Open Project",
             "Save Project",
             "Toggle Grid",
             "Zoom Fit",
-            "Add Z80",
-            "Add 6502",
-            "Add 68000",
-            "Add VIC-II",
-            "Add SID",
+            "Add Resistor",
+            "Add Capacitor",
             "Start Simulation",
             "Stop Simulation",
             "Apply Fine Preset",
@@ -1900,10 +1459,15 @@ class MainWindow(QMainWindow):
             print(f"⚡ Executing command: {command}")
             # TODO: Implement command execution
 
+    def _show_preferences(self):
+        """Show preferences dialog"""
+        print("⚙️ Preferences")
+        # TODO: Implement preferences dialog
+
     def _show_shortcuts(self):
         """Show keyboard shortcuts help"""
         shortcuts_text = """
-<b>🎹 Enhanced Shortcuts</b><br><br>
+<b>🎹 Shortcuts</b><br><br>
 
 <b>📁 File Operations:</b><br>
 <b>Ctrl+N</b> - New Project<br>
@@ -1937,62 +1501,55 @@ class MainWindow(QMainWindow):
 <b>Ctrl+0</b> - Zoom Fit<br>
 <b>Ctrl+1</b> - Actual Size<br>
 <b>Ctrl+G</b> - Toggle Grid<br>
+<b>Ctrl+R</b> - Toggle Rulers<br>
 <b>Ctrl+D</b> - Toggle CAD Tools Panel<br><br>
 
 <b>🎮 Simulation:</b><br>
 <b>F5</b> - Start Simulation<br>
-<b>Shift+F5</b> - Stop Simulation<br><br>
+<b>Shift+F5</b> - Stop Simulation<br>
+<b>F6</b> - Pause Simulation<br>
+<b>F10</b> - Step Forward<br>
+<b>Ctrl+F5</b> - Reset Simulation<br><br>
 
 <b>🔍 Search & Help:</b><br>
-<b>Ctrl+F</b> - Search Components<br>
+<b>Ctrl+F</b> - Search<br>
 <b>Ctrl+Shift+P</b> - Command Palette<br>
-<b>F1</b> - Show This Help<br><br>
-
-<b>🎯 Quick Component Access:</b><br>
-Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
-• Classic CPUs (Z80, 6502, 68000)<br>
-• Retro Graphics (VIC-II, TMS9918, Denise)<br>
-• Audio Chips (SID, AY-3-8910, Paula)<br>
-• Memory & Logic ICs<br>
+<b>F1</b> - Show This Help<br>
         """
 
-        QMessageBox.information(self, "Enhanced Keyboard Shortcuts", shortcuts_text)
+        QMessageBox.information(self, "Keyboard Shortcuts", shortcuts_text)
 
     def _show_about(self):
         """Show about dialog"""
         about_text = """
 <b>Visual Retro System Emulator Builder</b><br>
-<i>Enhanced Edition with Comprehensive Chip Library</i><br><br>
+<i>CAD Edition</i><br><br>
 
-<b>Version:</b> 1.1.0 Enhanced<br>
-<b>Date:</b> June 22, 2025<br><br>
+<b>Version:</b> 1.0.0 CAD Functions<br>
+<b>Date:</b> June 17, 2025<br><br>
 
-<b>🔧 Enhanced Features:</b><br>
-• Comprehensive Retro Chip Library (300+ Components)<br>
-• All Classic CPUs (Z80, 6502, 68000, 8080, etc.)<br>
-• Complete Graphics Chips (VIC-II, TMS9918, Amiga customs)<br>
-• Sound Synthesis ICs (SID, AY-3-8910, Paula, OPL)<br>
-• Full 74LS Logic Series<br>
-• Memory ICs (RAM, ROM, EPROM, EEPROM)<br>
-• I/O Controllers & Timers<br>
-• Power Management ICs<br>
-• Authentic Package Types<br>
-• Professional CAD Tools<br>
-• Real-time Simulation Engine<br><br>
+<b>🔧 Features:</b><br>
+• Professional Electronic CAD Tools<br>
+• Multi-layer PCB Design Support<br>
+• Component Library with Retro Chips<br>
+• Real-time Grid and Snap System<br>
+• Complete Project Management<br>
+• Professional Keyboard Shortcuts<br>
+• Comprehensive Simulation Engine<br>
+• Dark Theme Interface<br>
+• Export to Manufacturing Formats<br><br>
 
 <b>🎯 Target Systems:</b><br>
-• Commodore 64/128/Amiga<br>
-• Atari 8-bit/ST<br>
-• Apple II/Mac<br>
-• ZX Spectrum/Amstrad CPC<br>
-• MSX/TRS-80<br>
+• Z80-based Computers<br>
+• 6502-based Systems<br>
+• 68000-based Machines<br>
 • Custom Retro Designs<br><br>
 
 <b>📧 Support:</b> support@xseti.com<br>
 <b>🌐 Website:</b> www.xseti.com<br>
         """
 
-        QMessageBox.about(self, "About Enhanced X-Seti", about_text)
+        QMessageBox.about(self, "About X-Seti", about_text)
 
     def _cancel_current_operation(self):
         """Cancel current operation (Escape)"""
@@ -2004,10 +1561,12 @@ Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
 
         print("❌ Operation cancelled")
 
+
     # UPDATE FUNCTIONS
+
     def _update_window_title(self):
         """Update window title"""
-        title = "Visual Retro System Emulator Builder - Enhanced Edition"
+        title = "Visual Retro System Emulator Builder - CAD Functons"
 
         if self.current_project_path:
             project_name = os.path.basename(self.current_project_path)
@@ -2040,6 +1599,14 @@ Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
 
             self.connection_count_label.setText(f"Connections: {connection_count}")
 
+        if hasattr(self, 'cad_item_count_label') and self.cad_item_count_label is not None:
+            # CAD item count
+            cad_count = 0
+            if self.canvas and hasattr(self.canvas, 'cad_items'):
+                cad_count = len(self.canvas.cad_items)
+
+            self.cad_item_count_label.setText(f"CAD Items: {cad_count}")
+
     def _update_ui_state(self):
         """Update UI state based on current conditions"""
         # Update counts
@@ -2049,7 +1616,15 @@ Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
         if hasattr(self, 'tool_label') and self.tool_label is not None:
             self.tool_label.setText(f"Tool: {self.current_tool.title()}")
 
+        # Update zoom display if available
+        if hasattr(self, 'zoom_label') and self.zoom_label is not None and self.canvas:
+            if hasattr(self.canvas, 'zoom_factor'):
+                zoom_percent = int(self.canvas.zoom_factor * 100)
+                self.zoom_label.setText(f"Zoom: {zoom_percent}%")
+
+
     # EVENT HANDLERS
+
     def mouseMoveEvent(self, event):
         """Handle mouse move events for coordinate display"""
         super().mouseMoveEvent(event)
@@ -2088,7 +1663,9 @@ Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
         if self.canvas and hasattr(self.canvas, 'keyPressEvent'):
             self.canvas.keyPressEvent(event)
 
+
     # UTILITY METHODS
+
     def get_current_tool(self):
         """Get current tool name"""
         return self.current_tool
@@ -2135,37 +1712,30 @@ Use Command Palette (Ctrl+Shift+P) to quickly add:<br>
         if self.layer_controls and hasattr(self.layer_controls, 'refresh'):
             self.layer_controls.refresh()
 
-    def refresh_component_palette(self):
-        """Refresh component palette"""
-        if self.component_palette:
-            print("✓ Component palette refreshed")
 
 # Export all variants
 __all__ = ['MainWindow']
 
 # MODULE TEST
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Create and show main window
     window = MainWindow()
     window.show()
+    self.initialize_chip_integration()
 
-    print("🚀 Enhanced Main Window running!")
+    print("🚀 Main Window running!")
     print("=" * 60)
     print("✅ ALL FEATURES AVAILABLE:")
-    print("  • Enhanced Component Library (300+ chips)")
-    print("  • All Classic Retro CPUs")
-    print("  • Complete Graphics & Audio ICs")
-    print("  • Full 74LS Logic Series")
-    print("  • Memory & I/O Controllers")
-    print("  • Professional CAD Tools")
-    print("  • Multiple Toolbars & Panels")
+    print("  • Multiple Toolbars")
+    print("  • Dockable Panels")
     print("  • Keyboard Shortcuts")
     print("  • Project Management")
+    print("  • Component Library")
     print("  • Grid & Snap Controls")
     print("  • Zoom & Pan Controls")
-    print("  • Real-time Simulation")
     print("=" * 60)
 
     sys.exit(app.exec())

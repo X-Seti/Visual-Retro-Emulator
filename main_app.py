@@ -3,6 +3,7 @@
 X-Seti - June22 2025 - Visual Retro System Emulator Builder - Main Application
 Refactored modular architecture with fixed imports
 """
+#this belongs in main_app.py
 
 import sys
 import os
@@ -37,31 +38,59 @@ class RetroEmulatorApp(QApplication):
         self.initialize_systems()
         self.setup_main_window()
         
+    def show_error(self, title, message):
+        """Show error message dialog"""
+        try:
+            QMessageBox.critical(None, title, message)
+        except Exception as e:
+            print(f"💥 Critical error showing dialog: {e}")
+            print(f"Original error - {title}: {message}")
+        
     def initialize_systems(self):
         """Initialize core systems with error handling"""
         print("Initializing core systems...")
         
-        # Initialize Component Manager
-        from core.components import ComponentManager
-        self.component_manager = ComponentManager()
-        print("✓ Component Manager initialized")
+        try:
+            # Initialize Component Manager
+            from core.components import ComponentManager
+            self.component_manager = ComponentManager()
+            print("✓ Component Manager initialized")
+        except ImportError as e:
+            print(f"⚠️ Could not load ComponentManager: {e}")
+            self.component_manager = None
         
-        # Initialize Project Manager
-        from managers.project_manager import ProjectManager
-        from project_manager import ProjectManager
-        print("✓ Project Manager loaded from root")
-        self.project_manager = ProjectManager()
-        print("✓ Project Manager initialized")
+        try:
+            # Initialize Project Manager - try multiple import paths
+            try:
+                from managers.project_manager import ProjectManager
+                print("✓ Project Manager loaded from managers")
+            except ImportError:
+                from project_manager import ProjectManager
+                print("✓ Project Manager loaded from root")
+            
+            self.project_manager = ProjectManager()
+            print("✓ Project Manager initialized")
+        except ImportError as e:
+            print(f"⚠️ Could not load ProjectManager: {e}")
+            self.project_manager = None
 
-        # Initialize Simulation Engine
-        from core.simulation import SimulationEngine
-        self.simulation_engine = SimulationEngine(self.component_manager)
-        print("✓ Simulation Engine initialized")
+        try:
+            # Initialize Simulation Engine
+            from core.simulation import SimulationEngine
+            self.simulation_engine = SimulationEngine(self.component_manager)
+            print("✓ Simulation Engine initialized")
+        except ImportError as e:
+            print(f"⚠️ Could not load SimulationEngine: {e}")
+            self.simulation_engine = None
 
-        # Initialize Component Loader
-        from component_loader import get_global_loader
-        self.component_loader = get_global_loader()
-        print("✓ Component Loader initialized")
+        try:
+            # Initialize Component Loader
+            from component_loader import get_global_loader
+            self.component_loader = get_global_loader()
+            print("✓ Component Loader initialized")
+        except ImportError as e:
+            print(f"⚠️ Could not load ComponentLoader: {e}")
+            self.component_loader = None
 
         
     def setup_main_window(self):
