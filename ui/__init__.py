@@ -88,7 +88,7 @@ except ImportError as e:
 # Properties Panel
 PropertiesPanel = None
 try:
-    from .right_panel import PropertiesPanel
+    from .property_panel import PropertiesPanel
     print("✓ PropertiesPanel imported")
 except ImportError as e:
     print(f"⚠️ Could not import PropertiesPanel: {e}")

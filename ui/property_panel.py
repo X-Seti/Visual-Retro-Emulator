@@ -1,8 +1,8 @@
 """
-X-Seti - June22 2025 - Properties Panel Widget
+X-Seti - June22 2025 - Property Panel Widget
 """
 
-#this belongs in ui/properties_panel.py
+#this belongs in ui/property_panel.py
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
