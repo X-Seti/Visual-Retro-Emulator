@@ -131,6 +131,14 @@ class MainWindow(QMainWindow):
         """Create main canvas"""
         self.canvas = self._create_canvasarea()
 
+    def _on_pin_numbers_changed(self, enabled):
+        """Handle pin numbers visibility change from CAD tools panel"""
+        if self.canvas and hasattr(self.canvas, 'set_pin_numbers_visible'):
+            self.canvas.set_pin_numbers_visible(enabled)
+            print(f"🏷️ Pin numbers {'enabled' if enabled else 'disabled'}")
+        else:
+            print(f"⚠️ Canvas doesn't support set_pin_numbers_visible")
+
     def _create_canvasarea(self):
         """Create enhanced canvas with realistic chip rendering"""
         from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsTextItem
@@ -168,13 +176,6 @@ class MainWindow(QMainWindow):
                 print("✓ Enhanced canvas created with realistic chip rendering")
                 self.viewport().update()
 
-            def _on_pin_numbers_changed(self, enabled):
-                """Handle pin numbers visibility change from CAD tools panel"""
-                if self.canvas and hasattr(self.canvas, 'set_pin_numbers_visible'):
-                    self.canvas.set_pin_numbers_visible(enabled)
-                    print(f"🏷️ Pin numbers {'enabled' if enabled else 'disabled'}")
-                else:
-                    print(f"⚠️ Canvas doesn't support set_pin_numbers_visible")
 
             def set_pin_numbers_visible(self, visible):
                 """Set pin numbers visibility on all components"""
@@ -1246,7 +1247,7 @@ class MainWindow(QMainWindow):
         # Tool buttons group
         tools_group = QGroupBox("Tools")
         tools_layout = QVBoxLayout(tools_group)
-        self.tool_group = QButtonGroup(self)  # Store reference
+        self.tool_group = QButtonGroup(self)
 
         tools = [
             ("Select", "S", "select"),
@@ -1259,17 +1260,13 @@ class MainWindow(QMainWindow):
             ("Delete", "Del", "delete")
         ]
 
-        # Store tool buttons for reference
         self.tool_buttons = {}
 
         for tool_name, shortcut, tool_id in tools:
             btn = QPushButton(f"{tool_name} ({shortcut})")
             btn.setCheckable(True)
-            btn.setObjectName(f"tool_{tool_id}")  # Set object name for identification
-            
-            # Connect with proper lambda capture
+            btn.setObjectName(f"tool_{tool_id}")
             btn.clicked.connect(lambda checked, t=tool_id, b=btn: self._on_tool_clicked(t, b))
-            
             self.tool_group.addButton(btn)
             tools_layout.addWidget(btn)
             self.tool_buttons[tool_id] = btn
@@ -1283,20 +1280,17 @@ class MainWindow(QMainWindow):
         display_group = QGroupBox("Display")
         display_layout = QVBoxLayout(display_group)
 
-
+        # Pin numbers checkbox (ONLY ONE - remove duplicate)
         self.pin_numbers_check = QCheckBox("Show Pin Numbers")
-        self.pin_numbers_check.toggled.connect(self._toggle_pin_numbers)
         self.pin_numbers_check.setChecked(True)
         self.pin_numbers_check.setObjectName("pin_numbers_check")
-        # Use explicit connection method
-        self.pin_numbers_check.stateChanged.connect(self._pin_numbers_state_changed)
+        self.pin_numbers_check.toggled.connect(self._on_pin_numbers_changed)
         display_layout.addWidget(self.pin_numbers_check)
 
-        # Component labels toggle - with explicit connection
+        # Component labels toggle
         self.component_labels_check = QCheckBox("Show Component Labels")
         self.component_labels_check.setChecked(True)
         self.component_labels_check.setObjectName("component_labels_check")
-        # Use explicit connection method
         self.component_labels_check.stateChanged.connect(self._component_labels_state_changed)
         display_layout.addWidget(self.component_labels_check)
 
@@ -1304,41 +1298,34 @@ class MainWindow(QMainWindow):
 
         # Grid settings group
         grid_group = QGroupBox("Grid Settings")
-        grid_layout = QVBoxLayout(grid_group)
+        grid_layout = QFormLayout(grid_group)
 
         # Grid visibility
         self.grid_check = QCheckBox("Show Grid")
         self.grid_check.setChecked(True)
         self.grid_check.setObjectName("grid_check")
         self.grid_check.stateChanged.connect(self._grid_state_changed)
-        grid_layout.addWidget(self.grid_check)
+        grid_layout.addRow(self.grid_check)
 
         # Snap to grid
         self.snap_check = QCheckBox("Snap to Grid")
         self.snap_check.setChecked(True)
         self.snap_check.setObjectName("snap_check")
         self.snap_check.stateChanged.connect(self._snap_state_changed)
-        grid_layout.addWidget(self.snap_check)
+        grid_layout.addRow(self.snap_check)
 
         # Grid size
-        size_layout = QHBoxLayout()
-        size_layout.addWidget(QLabel("Grid Size:"))
         self.grid_size_spin = QSpinBox()
         self.grid_size_spin.setRange(5, 100)
         self.grid_size_spin.setValue(20)
         self.grid_size_spin.setSuffix(" px")
         self.grid_size_spin.setObjectName("grid_size_spin")
         self.grid_size_spin.valueChanged.connect(self._grid_size_value_changed)
-        size_layout.addWidget(self.grid_size_spin)
-        grid_layout.addLayout(size_layout)
-        grid_layout.addRow("Size:", grid_size_spin)
-        layout.addWidget(grid_group)
-        pin_numbers_check = QCheckBox("Show Pin Numbers")
-        pin_numbers_check.setChecked(True)
-        pin_numbers_check.toggled.connect(self._on_pin_numbers_changed)
-        grid_layout.addRow(pin_numbers_check)
+        grid_layout.addRow("Size:", self.grid_size_spin)
 
-        # Test button to verify connections
+        layout.addWidget(grid_group)
+
+        # Test button
         test_btn = QPushButton("🧪 Test Controls")
         test_btn.clicked.connect(self._test_controls)
         layout.addWidget(test_btn)
