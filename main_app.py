@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June07 2025 - Visual Retro System Emulator Builder - Main Application
+X-Seti - June22 2025 - Visual Retro System Emulator Builder - Main Application
 Refactored modular architecture with fixed imports
 """
 
@@ -25,7 +25,6 @@ class RetroEmulatorApp(QApplication):
         self.setApplicationVersion("1.0.0")
         self.setOrganizationName("Retro Computing Project")
         
-        # Initialize core systems with fallbacks
         self.component_manager = None
         self.project_manager = None
         self.simulation_engine = None
@@ -33,7 +32,6 @@ class RetroEmulatorApp(QApplication):
         
         # Initialize main window
         self.main_window = None
-        self.fallback_window = None
         
         # Load systems step by step
         self.initialize_systems()
@@ -44,47 +42,27 @@ class RetroEmulatorApp(QApplication):
         print("Initializing core systems...")
         
         # Initialize Component Manager
-        try:
-            from core.components import ComponentManager
-            self.component_manager = ComponentManager()
-            print("✓ Component Manager initialized")
-        except ImportError as e:
-            print(f"⚠️ Using fallback ComponentManager: {e}")
-            self.component_manager = self.create_fallback_component_manager()
+        from core.components import ComponentManager
+        self.component_manager = ComponentManager()
+        print("✓ Component Manager initialized")
         
         # Initialize Project Manager
-        try:
-            # Try multiple import paths
-            try:
-                from managers.project_manager import ProjectManager
-                print("✓ Project Manager loaded from managers")
-            except ImportError:
-                from project_manager import ProjectManager
-                print("✓ Project Manager loaded from root")
-            
-            self.project_manager = ProjectManager()
-            print("✓ Project Manager initialized")
-        except ImportError as e:
-            print(f"⚠️ Using fallback ProjectManager: {e}")
-            self.project_manager = self.create_fallback_project_manager()
-        
+        from managers.project_manager import ProjectManager
+        from project_manager import ProjectManager
+        print("✓ Project Manager loaded from root")
+        self.project_manager = ProjectManager()
+        print("✓ Project Manager initialized")
+
         # Initialize Simulation Engine
-        try:
-            from core.simulation import SimulationEngine
-            self.simulation_engine = SimulationEngine(self.component_manager)
-            print("✓ Simulation Engine initialized")
-        except ImportError as e:
-            print(f"⚠️ Using fallback SimulationEngine: {e}")
-            self.simulation_engine = self.create_fallback_simulation_engine()
-        
+        from core.simulation import SimulationEngine
+        self.simulation_engine = SimulationEngine(self.component_manager)
+        print("✓ Simulation Engine initialized")
+
         # Initialize Component Loader
-        try:
-            from integration_component_loader import get_global_loader
-            self.component_loader = get_global_loader()
-            print("✓ Component Loader initialized")
-        except ImportError as e:
-            print(f"⚠️ Using fallback ComponentLoader: {e}")
-            self.component_loader = self.create_fallback_component_loader()
+        from component_loader import get_global_loader
+        self.component_loader = get_global_loader()
+        print("✓ Component Loader initialized")
+
         
     def setup_main_window(self):
         """Setup the main application window with robust error handling"""
@@ -93,7 +71,6 @@ class RetroEmulatorApp(QApplication):
         try:
             # Try to import MainWindow from ui package
             from ui.main_window import MainWindow
-            from ui.fallback_window import MainWindow
             print("✓ MainWindow imported from ui package")
         except ImportError as e:
             print(f"⚠️ Could not import from ui.main_window: {e}")
@@ -171,125 +148,6 @@ class RetroEmulatorApp(QApplication):
             print(f"⚠️ Error loading components: {e}")
             # Don't exit on component loading failure - continue with empty library
     
-    def create_fallback_component_manager(self):
-        """Create fallback component manager"""
-        class FallbackComponentManager:
-            def __init__(self):
-                self.components = {}
-                self.connections = []
-                print("⚠️ Using fallback ComponentManager")
-            
-            def add_component(self, component):
-                if hasattr(component, 'id'):
-                    self.components[component.id] = component
-                return True
-            
-            def remove_component(self, component_id):
-                return self.components.pop(component_id, None) is not None
-            
-            def get_component(self, component_id):
-                return self.components.get(component_id)
-            
-            def get_all_components(self):
-                return list(self.components.values())
-        
-        return FallbackComponentManager()
-    
-    def create_fallback_project_manager(self):
-        """Create fallback project manager"""
-        class FallbackProjectManager:
-            def __init__(self):
-                self.current_project = None
-                self.project_file = None
-                self.modified = False
-                print("⚠️ Using fallback ProjectManager")
-            
-            def new_project(self, name: str = "Untitled"):
-                print(f"Creating new project: {name}")
-                self.current_project = {"name": name, "components": {}, "connections": []}
-                self.modified = False
-                return True
-            
-            def open_project(self, path: str):
-                print(f"Opening project: {path}")
-                self.project_file = path
-                return True
-            
-            def save_project(self, path: str = None):
-                if path:
-                    self.project_file = path
-                print(f"Saving project: {self.project_file}")
-                self.modified = False
-                return True
-            
-            def close_project(self):
-                print("Closing project")
-                self.current_project = None
-                self.project_file = None
-                self.modified = False
-            
-            def is_modified(self):
-                return self.modified
-            
-            def get_current_file(self):
-                return self.project_file
-        
-        return FallbackProjectManager()
-    
-    def create_fallback_simulation_engine(self):
-        """Create fallback simulation engine"""
-        class FallbackSimulationEngine:
-            def __init__(self, component_manager=None):
-                self.component_manager = component_manager
-                self.running = False
-                print("⚠️ Using fallback SimulationEngine")
-            
-            def start_simulation(self):
-                print("Starting simulation...")
-                self.running = True
-                return True
-            
-            def stop_simulation(self):
-                print("Stopping simulation...")
-                self.running = False
-                return True
-            
-            def is_running(self):
-                return self.running
-        
-        return FallbackSimulationEngine(self.component_manager)
-    
-    def create_fallback_component_loader(self):
-        """Create fallback component loader"""
-        class FallbackComponentLoader:
-            def __init__(self):
-                print("⚠️ Using fallback ComponentLoader")
-            
-            def refresh_library(self):
-                print("Refreshing component library (fallback)")
-                return []
-            
-            def load_from_directory(self, directory):
-                print(f"Loading from directory: {directory} (fallback)")
-                return []
-        
-        return FallbackComponentLoader()
-            
-    def show_error(self, title: str, message: str):
-        """Show error message"""
-        print(f"ERROR: {title}: {message}")
-        
-        # Try to show GUI message box if possible
-        try:
-            msg_box = QMessageBox()
-            msg_box.setIcon(QMessageBox.Icon.Critical)
-            msg_box.setWindowTitle(title)
-            msg_box.setText(message)
-            msg_box.exec()
-        except:
-            # Fallback to console output
-            print(f"GUI Error Dialog Failed - Console output only")
-
 def main():
     """Main entry point with comprehensive error handling"""
     print("="*60)

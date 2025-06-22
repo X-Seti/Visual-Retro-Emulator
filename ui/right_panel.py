@@ -1,6 +1,5 @@
 """
-X-Seti - June05 2025 - Properties Panel Widget
-Displays and allows editing of selected component properties
+X-Seti - June22 2025 - Properties Panel Widget
 """
 
 #this belongs in ui/properties_panel.py
@@ -196,7 +195,7 @@ class ColorPropertyEditor(PropertyEditor):
 
 class PropertiesPanel(QWidget):
     """
-    COMPLETE Enhanced Properties Panel
+    Properties Panel
     
     Features:
     - Dynamic property editing for any selected object
@@ -218,7 +217,7 @@ class PropertiesPanel(QWidget):
         # Setup UI
         self._setup_ui()
         
-        print("✓ Enhanced Properties Panel initialized")
+        print("✓ Properties Panel initialized")
     
     def _setup_ui(self):
         """Setup the properties panel UI"""
@@ -228,7 +227,7 @@ class PropertiesPanel(QWidget):
         
         # Title
         title_label = QLabel("Properties")
-        title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #2c3e50; margin: 4px;")
         main_layout.addWidget(title_label)
         

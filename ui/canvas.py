@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June17 2025 - Enhanced Canvas with Complete CAD Tool Implementation
-Enhanced canvas that implements all 14 CAD tools with full functionality
+X-Seti - June22 2025 - Canvas functionality
 """
 #this belongs in ui/ canvas.py
 
@@ -406,10 +405,10 @@ if PYQT6_AVAILABLE:
             })
             return props
     
-    # === ENHANCED CANVAS CLASS ===
+    # === CANVAS CLASS ===
     
-    class EnhancedPCBCanvas(QGraphicsView):
-        """Enhanced PCB Canvas with complete CAD tool functionality"""
+    class PCBCanvas(QGraphicsView):
+        """PCB Canvas"""
         
         # Signals
         component_selected = pyqtSignal(object)
@@ -460,7 +459,7 @@ if PYQT6_AVAILABLE:
             self.text_input = ""
             
             self._setup_canvas()
-            print("✅ Enhanced PCB Canvas with CAD tools initialized")
+            print("✅ PCB Canvas with CAD tools initialized")
         
         def _setup_canvas(self):
             """Setup canvas properties"""
@@ -1111,32 +1110,32 @@ if PYQT6_AVAILABLE:
             print(f"✅ Loaded {len(self.cad_items)} CAD items")
 
 else:
-    # Fallback class when PyQt6 is not available
-    class EnhancedPCBCanvas:
-        """Fallback Enhanced PCB Canvas"""
+
+    class PCBCanvas:
+        """PCB Canvas"""
         
         def __init__(self, parent=None):
-            print("⚠️ Enhanced PCB Canvas: PyQt6 not available")
+            print("⚠️ PCB Canvas: PyQt6 not available")
         
         def set_cad_tool(self, tool):
             print(f"⚠️ Fallback canvas: CAD tool {tool}")
 
 # Export
 __all__ = [
-    'EnhancedPCBCanvas', 'CADTool', 'TraceStyle', 'PadType', 'ViaType',
+    'PCBCanvas', 'CADTool', 'TraceStyle', 'PadType', 'ViaType',
     'PCBTrace', 'PCBPad', 'PCBVia', 'PCBText', 'PCBRectangle', 'PCBCircle',
     'CADGraphicsItem'
 ]
 
 if __name__ == "__main__":
-    # Test the enhanced canvas
+    # Test the canvas
     if PYQT6_AVAILABLE:
         app = QApplication(sys.argv)
-        canvas = EnhancedPCBCanvas()
+        canvas = PCBCanvas()
         canvas.show()
         canvas.set_cad_tool(CADTool.TRACE)
-        print("🧪 Enhanced Canvas test - close window to continue")
+        print("🧪 Canvas test - close window to continue")
         app.exec()
-        print("✅ Enhanced Canvas test completed")
+        print("✅ Canvas test completed")
     else:
         print("⚠️ Cannot test - PyQt6 not available")

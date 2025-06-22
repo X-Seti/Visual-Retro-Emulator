@@ -1,5 +1,5 @@
 """
-X-Seti June14 2025 - Canvas Grid System
+X-Seti June22 2025 - Canvas Grid System
 Visual Retro System Emulator Builder - Advanced Grid Options
 """
 
@@ -355,7 +355,7 @@ class PCBCanvasWithGrid(QGraphicsView):
         self._setup_interactions()
     
     def _setup_canvas(self):
-        """Setup canvas properties with enhanced grid"""
+        """Setup canvas properties grid"""
         # Set scene size for large designs
         self.scene.setSceneRect(-5000, -5000, 10000, 10000)
         
@@ -375,10 +375,10 @@ class PCBCanvasWithGrid(QGraphicsView):
         self.setMouseTracking(True)
     
     def drawBackground(self, painter: QPainter, rect: QRectF):
-        """Draw background with enhanced grid system"""
+        """Draw background grid system"""
         super().drawBackground(painter, rect)
         
-        # Use the enhanced grid system
+        # Use the grid system
         self.grid_system.draw_grid_background(painter, rect)
     
     # Grid control methods

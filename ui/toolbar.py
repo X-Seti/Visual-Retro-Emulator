@@ -1,9 +1,7 @@
 #this belongs in ui/ toolbar_integration.py
 
 """
-Simple Integration for Horizontal Component Toolbar
-Adds horizontal toolbar to existing Visual Retro System Emulator Builder
-WITHOUT modifying existing main window structure
+X-Seti - June22 2025 - Simple Integration for Horizontal Component Toolbar
 """
 
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
@@ -59,14 +57,14 @@ def add_horizontal_toolbar_to_existing_window(main_window):
         print(f"⚠️ Failed to add horizontal toolbar: {e}")
         return None
 
-def create_enhanced_main_window_class(existing_main_window_class):
+def create_main_window_class(existing_main_window_class):
     """
-    Create enhanced version of existing main window class
+    Create better version of existing main window class
     Adds horizontal toolbar while preserving all existing functionality
     """
     
-    class EnhancedMainWindow(existing_main_window_class):
-        """Enhanced main window with horizontal component toolbar"""
+    class MainWindow(existing_main_window_class):
+        """main window with horizontal component toolbar"""
         
         def __init__(self):
             # Initialize parent class first
@@ -75,7 +73,7 @@ def create_enhanced_main_window_class(existing_main_window_class):
             # Add horizontal toolbar after parent initialization
             self.horizontal_toolbar = add_horizontal_toolbar_to_existing_window(self)
             
-            print("✅ Enhanced main window with horizontal toolbar created")
+            print("✅ main window with horizontal toolbar created")
         
         def _on_component_selected_from_toolbar(self, category, component_name):
             """Handle component selection from horizontal toolbar"""
@@ -98,49 +96,30 @@ def create_enhanced_main_window_class(existing_main_window_class):
             """Get reference to horizontal toolbar"""
             return getattr(self, 'horizontal_toolbar', None)
     
-    return EnhancedMainWindow
+    return MainWindow
 
 # Convenience function for easy integration
 def integrate_horizontal_toolbar(main_window_class=None):
-    """
-    Integrate horizontal toolbar with existing or new main window
-    
-    Usage:
-        # Option 1: Add to existing window instance
-        toolbar = add_horizontal_toolbar_to_existing_window(my_window)
-        
-        # Option 2: Create enhanced class
-        EnhancedMainWindow = integrate_horizontal_toolbar(MyMainWindowClass)
-        window = EnhancedMainWindow()
-    """
     if main_window_class is None:
         # Return the integration function for existing instances
         return add_horizontal_toolbar_to_existing_window
     else:
-        # Return enhanced class
-        return create_enhanced_main_window_class(main_window_class)
+        # Return window class
+        return create_main_window_class(main_window_class)
 
 # Example usage for your project
 def integrate_with_visual_retro_emulator():
     """
     Specific integration for Visual Retro System Emulator Builder
     """
-    try:
-        # Try to import your existing main window
-        from ui.main_window import MainWindow
+    # Try to import your existing main window
+    from ui.main_window import MainWindow
+
+    MainWindow = create_main_window_class(MainWindow)
+    print("✅ Visual Retro Emulator integration ready")
         
-        # Create enhanced version
-        EnhancedMainWindow = create_enhanced_main_window_class(MainWindow)
+    return MainWindow
         
-        print("✅ Visual Retro Emulator integration ready")
-        print("   Use EnhancedMainWindow instead of MainWindow")
-        
-        return EnhancedMainWindow
-        
-    except ImportError as e:
-        print(f"⚠️ Could not integrate with existing main window: {e}")
-        print("   Use add_horizontal_toolbar_to_existing_window() manually")
-        return None
 
 if __name__ == "__main__":
     # Test integration
@@ -150,13 +129,13 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # Test with Visual Retro Emulator
-    EnhancedMainWindow = integrate_with_visual_retro_emulator()
+    MainWindow = integrate_with_visual_retro_emulator()
     
-    if EnhancedMainWindow:
-        window = EnhancedMainWindow()
+    if MainWindow:
+        window = MainWindow()
         window.show()
         
-        print("🚀 Enhanced Visual Retro Emulator with horizontal toolbar running!")
+        print("🚀 Visual Retro Emulator with horizontal toolbar running!")
         sys.exit(app.exec())
     else:
         print("❌ Integration failed")

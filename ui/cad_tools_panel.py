@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June17 2025 - CAD Tools Panel - Complete Merged Version
+X-Seti - June22 2025 - CAD Tools Panel - Complete Merged Version
 Full CAD tools panel with all features from both versions merged
 """
 #this belongs in ui/ cad_tools_panel.py

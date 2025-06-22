@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-X-Seti - June17 2025 - CAD Tools Integration Guide
+X-Seti - June22 2025 - CAD Tools Integration Guide
 How to add Electronic CAD tools to X-Seti main window
 """
-
-# === METHOD 1: Add CAD Tools Panel to Main Window ===
 
 def integrate_cad_tools_to_main_window():
     """

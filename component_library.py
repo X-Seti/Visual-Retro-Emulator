@@ -1,5 +1,5 @@
 """
-Component Library System
+X-Seti - June22 2025 - Component Library System
 Manages and loads various retro computer components
 """
 

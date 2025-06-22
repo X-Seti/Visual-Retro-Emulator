@@ -27,10 +27,16 @@ class GridStyle(Enum):
 class GridSpacing(Enum):
     """Grid spacing presets"""
     FINE = "Fine (2.54mm)"
-    MEDIUM = "Medium (5.08mm)"
+    MEDIUM = "Medium (5.08mm)" 
     COARSE = "Coarse (10.16mm)"
     CUSTOM = "Custom"
 
+class QuickMode(Enum):
+    """Quick mode presets"""
+    BREADBOARD = "breadboard"
+    PCB_DESIGN = "pcb_design"
+    SCHEMATIC = "schematic"
+    FREEFORM = "freeform"
 
 # === LAYER DATA STRUCTURES ===
 class LayerItem:
@@ -160,9 +166,19 @@ class LayerControls(QWidget):
     
     Includes:
     - Original comprehensive layer management (LayerItem, LayerListWidget)
+    - NEW: Grid Settings with style, spacing, visibility, snap-to-grid
+    - NEW: Quick Modes (Breadboard, PCB Design, Schematic, Freeform)
     - Color management, opacity controls, layer properties
     - Complete signal system for main window integration
     """
+    
+    # === ALL SIGNALS FOR COMPLETE INTEGRATION ===
+    # Grid signals (NEW)
+    gridStyleChanged = pyqtSignal(GridStyle)  # style
+    gridSpacingChanged = pyqtSignal(GridSpacing, float)  # spacing_type, custom_value
+    gridVisibilityChanged = pyqtSignal(bool)  # visible
+    snapToGridChanged = pyqtSignal(bool)  # enabled
+    quickModeChanged = pyqtSignal(QuickMode)  # mode
     
     # Layer signals (ORIGINAL)
     layerAdded = pyqtSignal(str)  # layer_name
@@ -178,6 +194,12 @@ class LayerControls(QWidget):
         self.canvas = None  # Will be set by main window
         
         # Grid state (NEW)
+        self.current_grid_style = GridStyle.BREADBOARD
+        self.current_grid_spacing = GridSpacing.FINE
+        self.current_custom_spacing = 2.54
+        self.grid_visible = True
+        self.snap_to_grid = True
+        self.current_quick_mode = QuickMode.BREADBOARD
         
         # Layer state (ORIGINAL)
         self.current_layer: Optional[str] = None
@@ -194,7 +216,13 @@ class LayerControls(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
         layout.setSpacing(8)
-
+        
+        # === NEW: GRID SETTINGS GROUP (Top Section) ===
+        self._create_grid_settings_group(layout)
+        
+        # === NEW: QUICK MODES GROUP ===
+        self._create_quick_modes_group(layout)
+        
         # === ORIGINAL: LAYERS GROUP ===
         self._create_layers_group(layout)
         
@@ -205,7 +233,107 @@ class LayerControls(QWidget):
         self._create_global_controls_group(layout)
         
         layout.addStretch()  # Push everything to top
-
+    
+    def _create_grid_settings_group(self, parent_layout):
+        """Create Grid Settings group (NEW)"""
+        grid_group = QGroupBox("Grid Settings")
+        grid_layout = QVBoxLayout(grid_group)
+        
+        # Show Grid checkbox
+        self.show_grid_check = QCheckBox("Show Grid")
+        self.show_grid_check.setChecked(self.grid_visible)
+        self.show_grid_check.toggled.connect(self._on_grid_visibility_changed)
+        grid_layout.addWidget(self.show_grid_check)
+        
+        # Grid Style
+        style_layout = QHBoxLayout()
+        style_layout.addWidget(QLabel("Grid Style:"))
+        self.grid_style_combo = QComboBox()
+        self.grid_style_combo.addItems(["Dots", "Lines", "Crosses", "Breadboard"])
+        self.grid_style_combo.setCurrentText("Breadboard")
+        self.grid_style_combo.currentTextChanged.connect(self._on_grid_style_changed)
+        style_layout.addWidget(self.grid_style_combo)
+        grid_layout.addLayout(style_layout)
+        
+        # Grid Spacing
+        spacing_layout = QHBoxLayout()
+        spacing_layout.addWidget(QLabel("Spacing:"))
+        self.grid_spacing_combo = QComboBox()
+        self.grid_spacing_combo.addItems([
+            "Fine (2.54mm)", "Medium (5.08mm)", "Coarse (10.16mm)", "Custom"
+        ])
+        self.grid_spacing_combo.setCurrentText("Fine (2.54mm)")
+        self.grid_spacing_combo.currentTextChanged.connect(self._on_grid_spacing_changed)
+        spacing_layout.addWidget(self.grid_spacing_combo)
+        grid_layout.addLayout(spacing_layout)
+        
+        # Custom spacing input (initially hidden)
+        self.custom_spacing_layout = QHBoxLayout()
+        self.custom_spacing_layout.addWidget(QLabel("Custom (mm):"))
+        self.custom_spacing_spin = QSpinBox()
+        self.custom_spacing_spin.setRange(1, 50)
+        self.custom_spacing_spin.setValue(int(self.current_custom_spacing))
+        self.custom_spacing_spin.setSuffix(" mm")
+        self.custom_spacing_spin.valueChanged.connect(self._on_custom_spacing_changed)
+        self.custom_spacing_layout.addWidget(self.custom_spacing_spin)
+        grid_layout.addLayout(self.custom_spacing_layout)
+        self._hide_custom_spacing()
+        
+        # Snap to Grid checkbox
+        self.snap_to_grid_check = QCheckBox("Snap to Grid")
+        self.snap_to_grid_check.setChecked(self.snap_to_grid)
+        self.snap_to_grid_check.toggled.connect(self._on_snap_to_grid_changed)
+        grid_layout.addWidget(self.snap_to_grid_check)
+        
+        parent_layout.addWidget(grid_group)
+    
+    def _create_quick_modes_group(self, parent_layout):
+        """Create Quick Modes group (NEW)"""
+        modes_group = QGroupBox("Quick Modes")
+        modes_layout = QVBoxLayout(modes_group)
+        
+        # Create button group for exclusive selection
+        self.mode_button_group = QButtonGroup()
+        
+        # Mode buttons with icons/colors
+        mode_configs = [
+            ("🍞 Breadboard", QuickMode.BREADBOARD, "#8B4513"),
+            ("🔧 PCB Design", QuickMode.PCB_DESIGN, "#228B22"),
+            ("📋 Schematic", QuickMode.SCHEMATIC, "#4682B4"),
+            ("🎨 Freeform", QuickMode.FREEFORM, "#9370DB")
+        ]
+        
+        for i, (text, mode, color) in enumerate(mode_configs):
+            btn = QPushButton(text)
+            btn.setCheckable(True)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    text-align: left;
+                    padding: 8px 12px;
+                    border: 2px solid #555;
+                    border-radius: 4px;
+                    background-color: #3C3C3C;
+                }}
+                QPushButton:checked {{
+                    background-color: {color};
+                    color: white;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    border-color: {color};
+                }}
+            """)
+            
+            # Set default selection
+            if mode == self.current_quick_mode:
+                btn.setChecked(True)
+            
+            btn.clicked.connect(lambda checked, m=mode: self._on_quick_mode_changed(m))
+            self.mode_button_group.addButton(btn, i)
+            modes_layout.addWidget(btn)
+        
+        parent_layout.addWidget(modes_group)
+    
     def _create_layers_group(self, parent_layout):
         """Create Layers group (ORIGINAL)"""
         layers_group = QGroupBox("Layers")
@@ -353,6 +481,69 @@ class LayerControls(QWidget):
         self.update_timer.timeout.connect(self._update_layer_properties_display)
         self.update_timer.start(1000)  # Update every second
     
+    # ========== NEW: GRID SIGNAL HANDLERS ==========
+    def _on_grid_visibility_changed(self, visible: bool):
+        """Handle grid visibility change"""
+        self.grid_visible = visible
+        print(f"🔍 Grid visibility changed: {visible}")
+        self.gridVisibilityChanged.emit(visible)
+    
+    def _on_grid_style_changed(self, style_text: str):
+        """Handle grid style change"""
+        style_map = {
+            "Dots": GridStyle.DOTS,
+            "Lines": GridStyle.LINES, 
+            "Crosses": GridStyle.CROSSES,
+            "Breadboard": GridStyle.BREADBOARD
+        }
+        
+        if style_text in style_map:
+            self.current_grid_style = style_map[style_text]
+            print(f"🎨 Grid style changed: {self.current_grid_style.value}")
+            self.gridStyleChanged.emit(self.current_grid_style)
+    
+    def _on_grid_spacing_changed(self, spacing_text: str):
+        """Handle grid spacing change"""
+        spacing_map = {
+            "Fine (2.54mm)": GridSpacing.FINE,
+            "Medium (5.08mm)": GridSpacing.MEDIUM,
+            "Coarse (10.16mm)": GridSpacing.COARSE,
+            "Custom": GridSpacing.CUSTOM
+        }
+        
+        if spacing_text in spacing_map:
+            self.current_grid_spacing = spacing_map[spacing_text]
+            
+            # Show/hide custom spacing input
+            if self.current_grid_spacing == GridSpacing.CUSTOM:
+                self._show_custom_spacing()
+            else:
+                self._hide_custom_spacing()
+            
+            print(f"📏 Grid spacing changed: {self.current_grid_spacing.value}")
+            self.gridSpacingChanged.emit(self.current_grid_spacing, self.current_custom_spacing)
+    
+    def _on_custom_spacing_changed(self, value: int):
+        """Handle custom spacing value change"""
+        self.current_custom_spacing = float(value)
+        if self.current_grid_spacing == GridSpacing.CUSTOM:
+            print(f"📏 Custom grid spacing: {self.current_custom_spacing}mm")
+            self.gridSpacingChanged.emit(self.current_grid_spacing, self.current_custom_spacing)
+    
+    def _on_snap_to_grid_changed(self, enabled: bool):
+        """Handle snap to grid change"""
+        self.snap_to_grid = enabled
+        print(f"🧲 Snap to grid: {enabled}")
+        self.snapToGridChanged.emit(enabled)
+    
+    def _on_quick_mode_changed(self, mode: QuickMode):
+        """Handle quick mode change"""
+        self.current_quick_mode = mode
+        print(f"⚡ Quick mode changed: {mode.value}")
+        
+        # Apply mode-specific settings
+        self._apply_quick_mode_settings(mode)
+        self.quickModeChanged.emit(mode)
     
     # ========== ORIGINAL: LAYER SIGNAL HANDLERS ==========
     def add_new_layer(self):
@@ -563,6 +754,60 @@ class LayerControls(QWidget):
             if widget:
                 widget.hide()
     
+    def _apply_quick_mode_settings(self, mode: QuickMode):
+        """Apply settings for the selected quick mode"""
+        mode_settings = {
+            QuickMode.BREADBOARD: {
+                "grid_style": "Breadboard",
+                "grid_spacing": "Fine (2.54mm)",
+                "grid_visible": True,
+                "snap_to_grid": True
+            },
+            QuickMode.PCB_DESIGN: {
+                "grid_style": "Lines", 
+                "grid_spacing": "Fine (2.54mm)",
+                "grid_visible": True,
+                "snap_to_grid": True
+            },
+            QuickMode.SCHEMATIC: {
+                "grid_style": "Dots",
+                "grid_spacing": "Medium (5.08mm)",
+                "grid_visible": True, 
+                "snap_to_grid": True
+            },
+            QuickMode.FREEFORM: {
+                "grid_style": "Dots",
+                "grid_spacing": "Coarse (10.16mm)",
+                "grid_visible": False,
+                "snap_to_grid": False
+            }
+        }
+        
+        if mode in mode_settings:
+            settings = mode_settings[mode]
+            
+            # Update controls without triggering signals
+            self.grid_style_combo.blockSignals(True)
+            self.grid_spacing_combo.blockSignals(True)
+            self.show_grid_check.blockSignals(True)
+            self.snap_to_grid_check.blockSignals(True)
+            
+            self.grid_style_combo.setCurrentText(settings["grid_style"])
+            self.grid_spacing_combo.setCurrentText(settings["grid_spacing"])
+            self.show_grid_check.setChecked(settings["grid_visible"])
+            self.snap_to_grid_check.setChecked(settings["snap_to_grid"])
+            
+            self.grid_style_combo.blockSignals(False)
+            self.grid_spacing_combo.blockSignals(False)
+            self.show_grid_check.blockSignals(False)
+            self.snap_to_grid_check.blockSignals(False)
+            
+            # Emit the signals manually to update canvas
+            self._on_grid_style_changed(settings["grid_style"])
+            self._on_grid_spacing_changed(settings["grid_spacing"])
+            self._on_grid_visibility_changed(settings["grid_visible"])
+            self._on_snap_to_grid_changed(settings["snap_to_grid"])
+    
     def _update_layer_properties_display(self):
         """Update the layer properties display with current canvas state"""
         # This would typically get data from the canvas
@@ -612,8 +857,6 @@ class LayerControls(QWidget):
 
 # Backward compatibility aliases
 LayerControlsWidget = LayerControls  # Original name
-EnhancedLayerControls = LayerControls  # Alternative name
 
 # Export
-__all__ = ['LayerControls', 'LayerControlsWidget', 'LayerItem', 'LayerListWidget', 
-           'GridStyle', 'GridSpacing', 'QuickMode']
+__all__ = ['LayerControls', 'LayerControlsWidget', 'LayerItem', 'LayerListWidget', 'GridStyle', 'GridSpacing', 'QuickMode']

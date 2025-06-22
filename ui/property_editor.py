@@ -1,5 +1,5 @@
 """
-X-Seti - June11 2025 - Property Editor System
+X-Seti - June22 2025 - Property Editor System
 Advanced property editing widgets and dialogs
 """
 
@@ -543,7 +543,6 @@ def edit_properties_dict(properties: Dict[str, Any], parent=None) -> Optional[Di
     return None
 
 # Aliases for backward compatibility
-EnhancedPropertyEditor = PropertyEditorDialog
 PropertyEditor = BasePropertyEditor
 PropertyEditorWidget = PropertyEditorDialog
 PropertyManager = PropertyEditorFactory

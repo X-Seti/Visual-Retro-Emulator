@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-X-Seti - June17 2025 - Enhanced Chip Renderer
+X-Seti - June22 2025 - Chip Renderer
 Professional chip rendering with notches, proper text, and realistic appearance
-Integrates with X-Seti canvas for high-quality component visualization
 """
-#this belongs in ui/ enhanced_chip_renderer.py
+#this belongs in ui/ chip_renderer.py
 
 from typing import Tuple, Optional, Dict, Any
 from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QFont, QPixmap, QPolygonF
@@ -536,8 +535,8 @@ class ChipRenderer:
 
 # === INTEGRATION WITH CANVAS ===
 
-class EnhancedChipGraphicsItem(QGraphicsPixmapItem):
-    """Enhanced chip graphics item for canvas integration"""
+class ChipGraphicsItem(QGraphicsPixmapItem):
+    """chip graphics item for canvas integration"""
     
     def __init__(self, chip_name: str, package_type: str = "DIP", pin_count: int = 40):
         super().__init__()
@@ -589,9 +588,9 @@ class EnhancedChipGraphicsItem(QGraphicsPixmapItem):
 
 # === FACTORY FUNCTIONS ===
 
-def create_chip_component(chip_name: str, package_type: str = "DIP", pin_count: int = 40) -> EnhancedChipGraphicsItem:
-    """Factory function to create enhanced chip components"""
-    return EnhancedChipGraphicsItem(chip_name, package_type, pin_count)
+def create_chip_component(chip_name: str, package_type: str = "DIP", pin_count: int = 40) -> ChipGraphicsItem:
+    """Factory function to create chip components"""
+    return ChipGraphicsItem(chip_name, package_type, pin_count)
 
 def render_chip_preview(chip_name: str, package_type: str = "DIP", pin_count: int = 40, 
                        size: Tuple[int, int] = (80, 50)) -> QPixmap:
@@ -615,11 +614,11 @@ COMMON_CHIPS = {
     "CIA": {"package": "DIP", "pins": 40, "type": "io"},
 }
 
-def create_common_chip(chip_name: str) -> Optional[EnhancedChipGraphicsItem]:
+def create_common_chip(chip_name: str) -> Optional[ChipGraphicsItem]:
     """Create a common chip with predefined specifications"""
     if chip_name.upper() in COMMON_CHIPS:
         spec = COMMON_CHIPS[chip_name.upper()]
-        chip = EnhancedChipGraphicsItem(
+        chip = ChipGraphicsItem(
             chip_name.upper(),
             spec["package"],
             spec["pins"]
@@ -631,7 +630,7 @@ def create_common_chip(chip_name: str) -> Optional[EnhancedChipGraphicsItem]:
 # Export
 __all__ = [
     'ChipRenderer', 
-    'EnhancedChipGraphicsItem', 
+    'ChipGraphicsItem',
     'create_chip_component', 
     'render_chip_preview',
     'create_common_chip',

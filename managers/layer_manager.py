@@ -1,12 +1,18 @@
 """
-X-Seti - June12 2025 - Layer Manager - Manages canvas layers
+X-Seti - June22 2025 - Layer Manager - Manages canvas layers
 Provides layer management functionality for the canvas system
 """
 #this goes in managers/
+
+import os
+import json
+import time
+import shutil
+from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass, field
+from pathlib import Path
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QColor
-from typing import Dict, List, Any, Optional
-import json
 
 class Layer:
     """Represents a single canvas layer"""
@@ -339,5 +345,33 @@ class LayerManager(QObject):
             'total_items': sum(len(layer.items) for layer in self.layers.values())
         }
 
-# Alias for backward compatibility
-EnhancedLayerManager = LayerManager
+class ProjectSettings:
+    """Project settings configuration"""
+    name: str = "Untitled Project"
+    description: str = ""
+    author: str = ""
+    version: str = "1.0.0"
+    created_date: str = ""
+    modified_date: str = ""
+    target_system: str = ""  # e.g., "C64", "Amiga", "Custom"
+
+    # Visual settings
+    grid_size: int = 20
+    grid_visible: bool = True
+    snap_to_grid: bool = True
+
+    # Layer settings
+    active_layer: str = "chip"
+    layer_visibility: Dict[str, bool] = field(default_factory=lambda: {
+        "chip": True,
+        "pcb": False,
+        "gerber": False
+    })
+
+    # Export settings
+    export_format: str = "json"
+    export_path: str = ""
+
+    # Simulation settings
+    simulation_speed: float = 1.0
+    debug_mode: bool = False

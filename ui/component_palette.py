@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June16 2025 - Enhanced Component Palette with Bubble Interface
-Visual Retro System Emulator Builder - Clean UI with tooltip bubbles
+X-Seti - June22 2025 - Component Palette with Bubble Interface
 """
 
 #this belongs in ui/component_palette.py
@@ -216,8 +215,8 @@ class ComponentEncyclopedia(QDialog):
         # Implementation for filtering
         pass
 
-class CleanComponentPalette(QWidget):
-    """Clean component palette with bubble tooltips"""
+class ComponentPalette(QWidget):
+    """component palette with bubble tooltips"""
     
     component_selected = pyqtSignal(str, str)  # category, component
     component_double_clicked = pyqtSignal(str, str)  # category, component
@@ -238,7 +237,7 @@ class CleanComponentPalette(QWidget):
         self._load_component_data()
         self._populate_tree()
         
-        print("✅ Clean Component Palette initialized")
+        print("✅ Component Palette initialized")
     
     def _create_ui(self):
         """Create the main UI"""
@@ -576,10 +575,7 @@ class CleanComponentPalette(QWidget):
         # Call original method as fallback
         super(QTreeWidget, self.tree).startDrag(supported_actions)
 
-# For compatibility
-EnhancedComponentPalette = CleanComponentPalette
-ComponentPalette = CleanComponentPalette
 
 # Export
-__all__ = ['CleanComponentPalette', 'EnhancedComponentPalette', 'ComponentPalette', 
+__all__ = ['ComponentPalette',
            'ComponentBubble', 'ComponentEncyclopedia']

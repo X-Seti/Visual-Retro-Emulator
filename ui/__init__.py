@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June17 2025 - UI Package - Visual Retro Emulator
+X-Seti - June22 2025 - UI Package - Visual Retro Emulator
 Contains all user interface components including CAD tools with robust error handling
 """
 
@@ -11,8 +11,7 @@ import os
 # Try to import main components with fallbacks
 MainWindow = None
 try:
-    from .main_window import MainWindow, EnhancedMainWindow, FixedMainWindow
-    #from .fallback_window import MainWindow, EnhancedMainWindow, FixedMainWindow
+    from .main_window import MainWindow
     print("✓ MainWindow imported from ui.main_window")
 except ImportError as e:
     print(f"⚠️ Could not import MainWindow from ui.main_window: {e}")
@@ -30,14 +29,12 @@ except ImportError as e:
         MainWindow = None
 
 # Canvas components
-EnhancedPCBCanvas = None
 PCBCanvas = None
 try:
-    from .canvas import EnhancedPCBCanvas, PCBCanvas
+    from .canvas import PCBCanvas
     print("✓ Canvas components imported")
 except ImportError as e:
     print(f"⚠️ Could not import Canvas components: {e}")
-    EnhancedPCBCanvas = None
     PCBCanvas = None
 
 # CAD Tools Panel - NEW!
@@ -50,25 +47,25 @@ except ImportError as e:
     print(f"   Make sure ui/cad_tools_panel.py exists")
     CADToolsPanel = None
 
-# Enhanced Chip Renderer - NEW!
+# Chip Renderer - NEW!
 ChipRenderer = None
-EnhancedChipGraphicsItem = None
+ChipGraphicsItem = None
 try:
-    from .enhanced_chip_renderer import ChipRenderer, EnhancedChipGraphicsItem
-    print("✓ Enhanced Chip Renderer imported")
+    from .chip_renderer import ChipRenderer, ChipGraphicsItem
+    print("✓ Chip Renderer imported")
 except ImportError as e:
-    print(f"⚠️ Could not import Enhanced Chip Renderer: {e}")
+    print(f"⚠️ Could not import Chip Renderer: {e}")
     ChipRenderer = None
-    EnhancedChipGraphicsItem = None
+    ChipGraphicsItem = None
 
 # Component Palette
 EnhancedComponentPalette = None
 try:
-    from .component_palette import EnhancedComponentPalette
+    from .component_palette import ComponentPalette
     print("✓ ComponentPalette imported")
 except ImportError as e:
     print(f"⚠️ Could not import ComponentPalette: {e}")
-    EnhancedComponentPalette = None
+    ComponentPalette = None
 
 # Status Bar Manager
 StatusBarManager = None
@@ -91,7 +88,7 @@ except ImportError as e:
 # Properties Panel
 PropertiesPanel = None
 try:
-    from .properties_panel import PropertiesPanel
+    from .right_panel import PropertiesPanel
     print("✓ PropertiesPanel imported")
 except ImportError as e:
     print(f"⚠️ Could not import PropertiesPanel: {e}")
@@ -110,19 +107,19 @@ except ImportError as e:
 __all__ = []
 
 if MainWindow is not None:
-    __all__.extend(['MainWindow', 'EnhancedMainWindow', 'FixedMainWindow'])
+    __all__.extend(['MainWindow'])
 
-if EnhancedPCBCanvas is not None:
-    __all__.extend(['EnhancedPCBCanvas', 'PCBCanvas'])
+if PCBCanvas is not None:
+    __all__.extend(['PCBCanvas'])
 
 if CADToolsPanel is not None:
     __all__.append('CADToolsPanel')
 
 if ChipRenderer is not None:
-    __all__.extend(['ChipRenderer', 'EnhancedChipGraphicsItem'])
+    __all__.extend(['ChipRenderer', 'ChipGraphicsItem'])
 
-if EnhancedComponentPalette is not None:
-    __all__.append('EnhancedComponentPalette')
+if ComponentPalette is not None:
+    __all__.append('ComponentPalette')
 
 if StatusBarManager is not None:
     __all__.append('StatusBarManager')
@@ -156,20 +153,13 @@ if CADToolsPanel is None:
             print("⚠️ Using fallback CAD Tools Panel")
         
         def set_canvas(self, canvas):
-            print("⚠️ Fallback CAD Tools Panel - canvas set")
+            print("⚠️ CAD Tools Panel - canvas set")
         
         def select_tool(self, tool):
-            print(f"⚠️ Fallback CAD Tools Panel - tool selected: {tool}")
+            print(f"⚠️ CAD Tools Panel - tool selected: {tool}")
     
-    CADToolsPanel = CADToolsPanelFallback
     __all__.append('CADToolsPanel')
 
-# Ensure backwards compatibility
-if 'EnhancedMainWindow' not in globals() and MainWindow is not None:
-    EnhancedMainWindow = MainWindow
-
-if 'FixedMainWindow' not in globals() and MainWindow is not None:
-    FixedMainWindow = MainWindow
 
 print("🎯 UI package ready with CAD tools support!")
 
@@ -179,7 +169,7 @@ def check_cad_tools_availability():
     print("\n🔧 CAD Tools Availability Check:")
     print(f"   CADToolsPanel: {'✓ Available' if CADToolsPanel and not hasattr(CADToolsPanel, 'widget') else '❌ Fallback'}")
     print(f"   ChipRenderer: {'✓ Available' if ChipRenderer else '❌ Not available'}")
-    print(f"   Enhanced Canvas: {'✓ Available' if EnhancedPCBCanvas else '❌ Not available'}")
+    print(f"   Canvas: {'✓ Available' if PCBCanvas else '❌ Not available'}")
     
     if CADToolsPanel and not hasattr(CADToolsPanel, 'widget'):
         print("   🎉 Full CAD functionality is available!")
