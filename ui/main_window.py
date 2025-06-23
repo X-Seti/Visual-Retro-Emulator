@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         # UI components
         self.canvas = None
         self.component_palette = None
-        self.cad_tools_panel = None
+        self.left_tools_panel = None
         self.layer_controls = None
         self.menu_manager = None
         self.status_manager = None
@@ -59,11 +59,10 @@ class MainWindow(QMainWindow):
         self.tool_label = None
         self.component_count_label = None
         self.connection_count_label = None
-        self.cad_item_count_label = None
 
         # Dock widgets
         self.component_palette_dock = None
-        self.cad_tools_dock = None
+        self.left_tools_dock = None
         self.properties_dock = None
         self.layer_controls_dock = None
 
@@ -1149,7 +1148,7 @@ class MainWindow(QMainWindow):
         # Component Palette Dock
         self._create_component_palette_dock()
 
-        # CAD Tools Dock
+        # Left Tools Dock
         self._create_left_tools_dock()
 
         # Properties Dock
@@ -1413,13 +1412,11 @@ class MainWindow(QMainWindow):
 
         scroll_area.setWidget(tools_widget)
 
-        self.cad_tools_dock = QDockWidget("Canvas Tools", self)
-        self.cad_tools_dock.setWidget(scroll_area)
-        self.cad_tools_dock.setMinimumWidth(200)
-        self.cad_tools_dock.setMaximumWidth(280)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.cad_tools_dock)
-
-        print("✅ Enhanced CAD tools dock created with working controls")
+        self.left_tools_dock = QDockWidget("Canvas Tools", self)
+        self.left_tools_dock.setWidget(scroll_area)
+        self.left_tools_dock.setMinimumWidth(200)
+        self.left_tools_dock.setMaximumWidth(280)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.left_tools_dock)
 
     # Working event handlers with explicit state parameter
     def _on_tool_clicked(self, tool_id, button):
