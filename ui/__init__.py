@@ -59,7 +59,7 @@ except ImportError as e:
     ChipGraphicsItem = None
 
 # Component Palette
-EnhancedComponentPalette = None
+ComponentPalette = None
 try:
     from .component_palette import ComponentPalette
     print("✓ ComponentPalette imported")
@@ -108,12 +108,6 @@ __all__ = []
 
 if MainWindow is not None:
     __all__.extend(['MainWindow'])
-
-if PCBCanvas is not None:
-    __all__.extend(['PCBCanvas'])
-
-if CADToolsPanel is not None:
-    __all__.append('CADToolsPanel')
 
 if ChipRenderer is not None:
     __all__.extend(['ChipRenderer', 'ChipGraphicsItem'])

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-X-Seti - June23 2025 - Enhanced Canvas with ALL Features Merged
-Visual Retro System Emulator Builder - Complete canvas with enhanced functionality
+X-Seti - June23 2025 - canvas functionality
 """
 #this belongs in ui/canvas.py
 

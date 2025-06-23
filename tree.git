@@ -112,6 +112,7 @@
 │   ├── property_dialog.py
 │   ├── rendering.py
 │   └── simulation.py
+├── dark_theme.py
 ├── database
 │   ├── __init__.py
 │   └── retro_database.py
@@ -242,10 +243,7 @@
 │   ├── canvas_grid.py
 │   ├── canvas.py
 │   ├── chip_renderer.py
-│   ├── component_palette.old.py
 │   ├── component_palette.py
-│   ├── dark_theme.py
-│   ├── enhanced_canvas.py
 │   ├── __init__.py
 │   ├── layer_controls.py
 │   ├── main_window.py
@@ -270,4 +268,4 @@
     ├── __init__.py
     └── project_cleanup.py
 
-20 directories, 251 files
+20 directories, 249 files
