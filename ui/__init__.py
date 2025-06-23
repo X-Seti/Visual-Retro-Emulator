@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-X-Seti - June23 2025 - UI Package - Visual Retro Emulator
-Contains all user interface components - cleaned up imports
+X-Seti - June23 2025 - UI Package - Visual Retro Emulator  
+Clean UI package with single implementations only
 """
 #this belongs in ui/__init__.py
 
 import sys
 import os
 
-# Import main components - single clean import path
+# Import main components - single clean import paths only
 MainWindow = None
 try:
     from .main_window import MainWindow
-    print("✓ MainWindow imported from ui.main_window")
+    print("✓ MainWindow imported")
 except ImportError as e:
     print(f"❌ Could not import MainWindow: {e}")
     MainWindow = None
@@ -21,9 +21,9 @@ except ImportError as e:
 PCBCanvas = None
 try:
     from .canvas import PCBCanvas
-    print("✓ Canvas components imported")
+    print("✓ Canvas imported")
 except ImportError as e:
-    print(f"⚠️ Could not import Canvas components: {e}")
+    print(f"⚠️ Could not import Canvas: {e}")
     PCBCanvas = None
 
 # CAD Tools Panel 
@@ -50,75 +50,89 @@ except ImportError as e:
 ComponentPalette = None
 try:
     from .component_palette import ComponentPalette
-    print("✓ ComponentPalette imported")
+    print("✓ Component Palette imported")
 except ImportError as e:
-    print(f"⚠️ Could not import ComponentPalette: {e}")
+    print(f"⚠️ Could not import Component Palette: {e}")
     ComponentPalette = None
 
-# Status Bar Manager
-StatusBarManager = None
+# Status Bar
+RetroEmulatorStatusBar = None
 try:
-    from .status_bar import StatusBarManager
-    print("✓ StatusBar imported")
+    from .status_bar import RetroEmulatorStatusBar
+    # Alias for compatibility
+    StatusBarManager = RetroEmulatorStatusBar
+    print("✓ Status Bar imported")
 except ImportError as e:
-    print(f"⚠️ Could not import StatusBar: {e}")
+    print(f"⚠️ Could not import Status Bar: {e}")
+    RetroEmulatorStatusBar = None
     StatusBarManager = None
 
-# Menu Bar Manager
-MenuBarManager = None
+# Menu Bar
+RetroEmulatorMenuBar = None
 try:
-    from .menu_bar import MenuBarManager
-    print("✓ MenuBar imported")
+    from .menu_bar import RetroEmulatorMenuBar
+    # Alias for compatibility  
+    MenuBarManager = RetroEmulatorMenuBar
+    print("✓ Menu Bar imported")
 except ImportError as e:
-    print(f"⚠️ Could not import MenuBar: {e}")
+    print(f"⚠️ Could not import Menu Bar: {e}")
+    RetroEmulatorMenuBar = None
     MenuBarManager = None
+
+# Toolbar
+MainToolbar = None
+ComponentToolbar = None
+try:
+    from .toolbar import MainToolbar, ComponentToolbar
+    print("✓ Toolbars imported")
+except ImportError as e:
+    print(f"⚠️ Could not import Toolbars: {e}")
+    MainToolbar = None
+    ComponentToolbar = None
 
 # Properties Panel
 PropertiesPanel = None
 try:
     from .property_panel import PropertiesPanel
-    print("✓ PropertiesPanel imported")
+    print("✓ Properties Panel imported")
 except ImportError as e:
-    print(f"⚠️ Could not import PropertiesPanel: {e}")
+    print(f"⚠️ Could not import Properties Panel: {e}")
     PropertiesPanel = None
 
 # Layer Controls
 LayerControls = None
 try:
     from .layer_controls import LayerControls
-    print("✓ LayerControls imported")
+    print("✓ Layer Controls imported")
 except ImportError as e:
-    print(f"⚠️ Could not import LayerControls: {e}")
+    print(f"⚠️ Could not import Layer Controls: {e}")
     LayerControls = None
 
 # Export available components (only non-None ones)
 __all__ = []
 
-if MainWindow is not None:
-    __all__.append('MainWindow')
+# Add components that successfully imported
+for component_name, component_class in [
+    ('MainWindow', MainWindow),
+    ('PCBCanvas', PCBCanvas), 
+    ('CADToolsPanel', CADToolsPanel),
+    ('ChipRenderer', ChipRenderer),
+    ('ChipGraphicsItem', ChipGraphicsItem),
+    ('ComponentPalette', ComponentPalette),
+    ('RetroEmulatorStatusBar', RetroEmulatorStatusBar),
+    ('StatusBarManager', StatusBarManager),
+    ('RetroEmulatorMenuBar', RetroEmulatorMenuBar),
+    ('MenuBarManager', MenuBarManager),
+    ('MainToolbar', MainToolbar),
+    ('ComponentToolbar', ComponentToolbar),
+    ('PropertiesPanel', PropertiesPanel),
+    ('LayerControls', LayerControls)
+]:
+    if component_class is not None:
+        __all__.append(component_name)
 
-if PCBCanvas is not None:
-    __all__.append('PCBCanvas')
+print(f"✓ UI package initialized with: {len(__all__)} components")
+print(f"  Available: {__all__}")
 
-if CADToolsPanel is not None:
-    __all__.append('CADToolsPanel')
-
-if ChipRenderer is not None:
-    __all__.extend(['ChipRenderer', 'ChipGraphicsItem'])
-
-if ComponentPalette is not None:
-    __all__.append('ComponentPalette')
-
-if StatusBarManager is not None:
-    __all__.append('StatusBarManager')
-
-if MenuBarManager is not None:
-    __all__.append('MenuBarManager')
-
-if PropertiesPanel is not None:
-    __all__.append('PropertiesPanel')
-
-if LayerControls is not None:
-    __all__.append('LayerControls')
-
-print(f"✓ UI package initialized with components: {__all__}")
+# NO FALLBACKS - if a component doesn't import, it's not available
+# This forces fixing the actual files instead of using inferior fallbacks

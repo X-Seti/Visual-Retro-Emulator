@@ -1,587 +1,341 @@
+#!/usr/bin/env python3
 """
-X-Seti - June22 2025 - COMPLETE Layer Controls with ALL Original + New Features
+X-Seti - June23 2025 - Layer Controls UI - Clean Working Implementation
+Simple UI that connects to managers/layer_manager.py backend
 """
+#this belongs in ui/layer_controls.py
 
-#this belongs in ui/ layer_controls.py
-
-import os
-from enum import Enum
-from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
-                           QPushButton, QCheckBox, QComboBox, QSlider, QSpinBox,
-                           QLabel, QListWidget, QListWidgetItem, QColorDialog,
-                           QLineEdit, QMessageBox, QButtonGroup, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QColor, QPixmap, QPainter, QBrush, QIcon
-
-# === LAYER DATA STRUCTURES ===
-class LayerItem:
-    """Represents a single layer with complete properties"""
-    
-    def __init__(self, name: str, visible: bool = True, color: QColor = None, opacity: float = 1.0):
-        self.name = name
-        self.visible = visible
-        self.color = color or QColor(255, 107, 53)  # Default orange
-        self.opacity = opacity
-        self.locked = False
-        self.layer_type = "general"  # general, component, connection, annotation, background
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            'name': self.name,
-            'visible': self.visible,
-            'color': self.color.name(),
-            'opacity': self.opacity,
-            'locked': self.locked,
-            'layer_type': self.layer_type
-        }
-        
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'LayerItem':
-        """Create from dictionary"""
-        layer = cls(
-            data['name'],
-            data.get('visible', True),
-            QColor(data.get('color', '#FF6B35')),
-            data.get('opacity', 1.0)
-        )
-        layer.locked = data.get('locked', False)
-        layer.layer_type = data.get('layer_type', 'general')
-        return layer
-
-class LayerListWidget(QListWidget):
-    """Custom list widget for comprehensive layer management"""
-    
-    layerVisibilityChanged = pyqtSignal(str, bool)  # layer_name, visible
-    layerSelected = pyqtSignal(str)  # layer_name
-    layerRenamed = pyqtSignal(str, str)  # old_name, new_name
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.layers: Dict[str, LayerItem] = {}
-        self.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.itemChanged.connect(self.on_item_changed)
-        self.itemClicked.connect(self.on_item_clicked)
-        
-    def add_layer(self, layer: LayerItem):
-        """Add a layer to the list"""
-        self.layers[layer.name] = layer
-        self.refresh_display()
-        
-    def remove_layer(self, name: str):
-        """Remove a layer"""
-        if name in self.layers:
-            del self.layers[name]
-            self.refresh_display()
-            
-    def get_layer(self, name: str) -> Optional[LayerItem]:
-        """Get layer by name"""
-        return self.layers.get(name)
-        
-    def set_layer_visibility(self, name: str, visible: bool):
-        """Set layer visibility"""
-        if name in self.layers:
-            self.layers[name].visible = visible
-            self.refresh_display()
-            self.layerVisibilityChanged.emit(name, visible)
-            
-    def refresh_display(self):
-        """Refresh the layer list display"""
-        self.clear()
-        
-        for layer in self.layers.values():
-            item = QListWidgetItem()
-            item.setText(layer.name)
-            item.setData(Qt.ItemDataRole.UserRole, layer.name)
-            
-            # Set checkbox for visibility
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if layer.visible else Qt.CheckState.Unchecked)
-            
-            # Create color icon
-            color_icon = self.create_color_icon(layer.color, layer.opacity)
-            item.setIcon(color_icon)
-            
-            # Gray out if locked
-            if layer.locked:
-                item.setBackground(QColor(220, 220, 220))
-                
-            self.addItem(item)
-            
-    def create_color_icon(self, color: QColor, opacity: float = 1.0) -> QIcon:
-        """Create a color icon for the layer"""
-        pixmap = QPixmap(16, 16)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        
-        painter = QPainter(pixmap)
-        painter.setOpacity(opacity)
-        painter.setBrush(QBrush(color))
-        painter.drawEllipse(2, 2, 12, 12)
-        painter.end()
-        
-        return QIcon(pixmap)
-        
-    def on_item_changed(self, item: QListWidgetItem):
-        """Handle item changes"""
-        layer_name = item.data(Qt.ItemDataRole.UserRole)
-        if layer_name in self.layers:
-            # Check if visibility changed
-            is_checked = item.checkState() == Qt.CheckState.Checked
-            if self.layers[layer_name].visible != is_checked:
-                self.set_layer_visibility(layer_name, is_checked)
-                
-    def on_item_clicked(self, item: QListWidgetItem):
-        """Handle item clicks"""
-        layer_name = item.data(Qt.ItemDataRole.UserRole)
-        self.layerSelected.emit(layer_name)
+                           QPushButton, QCheckBox, QLabel, QComboBox, QSlider,
+                           QSpinBox, QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 
 class LayerControls(QWidget):
-    """
-    COMPLETE Layer Controls Widget with ALL Features
+    """Clean, working layer controls UI - delegates to LayerManager backend"""
     
-    Includes:
-    - Original comprehensive layer management (LayerItem, LayerListWidget)
-    """
-    
-    # Layer signals (ORIGINAL)
-    layerAdded = pyqtSignal(str)  # layer_name
-    layerRemoved = pyqtSignal(str)  # layer_name
+    # UI signals only
     layerVisibilityChanged = pyqtSignal(str, bool)  # layer_name, visible
-    layerPropertiesChanged = pyqtSignal(str, dict)  # layer_name, properties
-    layerChanged = pyqtSignal(str)  # layer_name
-    currentLayerChanged = pyqtSignal(str)  # layer_name
-    layerSelected = pyqtSignal(str)  # layer_name
+    currentLayerChanged = pyqtSignal(str)           # layer_name
+    layerSelected = pyqtSignal(str)                 # layer_name
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.canvas = None  # Will be set by main window
+        self.layer_manager = None  # Will be set by main window
+        self.canvas = None         # Will be set by main window
+        self.current_layer = "Components"
         
-        # Layer state (ORIGINAL)
-        self.current_layer: Optional[str] = None
-        self.property_editors = {}
-        
-        self._setup_ui()
-        self._create_default_layers()
-        self._connect_signals()
-        
-        print("✓ COMPLETE Layer Controls initialized with ALL features")
+        self._create_ui()
+        print("✓ Layer Controls UI created")
     
-    def _setup_ui(self):
-        """Setup the complete UI layout with all sections"""
+    def _create_ui(self):
+        """Create simple, working UI"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(12)
         
+        # === ACTIVE LAYER SELECTION ===
+        active_group = QGroupBox("Active Layer")
+        active_layout = QVBoxLayout(active_group)
         
-        # === ORIGINAL: LAYERS GROUP ===
-        self._create_layers_group(layout)
+        self.layer_combo = QComboBox()
+        self.layer_combo.addItems(["Components", "Connections", "PCB Traces", "Annotations"])
+        self.layer_combo.setCurrentText("Components")
+        self.layer_combo.currentTextChanged.connect(self._on_active_layer_changed)
+        active_layout.addWidget(self.layer_combo)
         
-        # === ORIGINAL: LAYER PROPERTIES GROUP ===
-        self._create_layer_properties_group(layout)
+        layout.addWidget(active_group)
         
-        # === ORIGINAL: GLOBAL CONTROLS GROUP ===
-        self._create_global_controls_group(layout)
+        # === LAYER VISIBILITY ===
+        visibility_group = QGroupBox("Layer Visibility")
+        visibility_layout = QVBoxLayout(visibility_group)
         
-        layout.addStretch()  # Push everything to top
-    
-    
-    def _create_layers_group(self, parent_layout):
-        """Create Layers group (ORIGINAL)"""
-        layers_group = QGroupBox("")
-        layers_layout = QVBoxLayout(layers_group)
-        
-        # Layer list
-        self.layer_list = LayerListWidget()
-        self.layer_list.setMaximumHeight(120)
-        self.layer_list.layerVisibilityChanged.connect(self.on_layer_visibility_changed)
-        self.layer_list.layerSelected.connect(self.on_layer_selected)
-        layers_layout.addWidget(self.layer_list)
-        
-        # Layer control buttons
-        buttons_layout = QHBoxLayout()
-        self.add_layer_btn = QPushButton("Add")
-        self.remove_layer_btn = QPushButton("Remove")
-        self.duplicate_layer_btn = QPushButton("Duplicate")
-        
-        self.add_layer_btn.clicked.connect(self.add_new_layer)
-        self.remove_layer_btn.clicked.connect(self.remove_selected_layer)
-        self.duplicate_layer_btn.clicked.connect(self.duplicate_selected_layer)
-        
-        buttons_layout.addWidget(self.add_layer_btn)
-        buttons_layout.addWidget(self.remove_layer_btn)
-        buttons_layout.addWidget(self.duplicate_layer_btn)
-        layers_layout.addLayout(buttons_layout)
-        
-        parent_layout.addWidget(layers_group)
-    
-    def _create_layer_properties_group(self, parent_layout):
-        """Create Layer Properties group (ORIGINAL)"""
-        props_group = QGroupBox("Layer Properties")
-        props_layout = QVBoxLayout(props_group)
-        
-        # Layer name
-        name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel("Name:"))
-        self.layer_name_edit = QLineEdit()
-        self.layer_name_edit.textChanged.connect(self.on_layer_name_changed)
-        name_layout.addWidget(self.layer_name_edit)
-        props_layout.addLayout(name_layout)
-        
-        # Position info (read-only display) - FROM SCREENSHOT
-        position_layout = QHBoxLayout()
-        position_layout.addWidget(QLabel("Position:"))
-        self.position_label = QLabel("PyQt6.QtCore.QPointF(-60.0, -140.0)")
-        self.position_label.setStyleSheet("color: #888; font-family: monospace;")
-        position_layout.addWidget(self.position_label)
-        props_layout.addLayout(position_layout)
-        
-        # Size info (read-only display) - FROM SCREENSHOT
-        size_layout = QHBoxLayout()
-        size_layout.addWidget(QLabel("Size:"))
-        self.size_label = QLabel("PyQt6.QtCore.QSizeF(82.0, 42.0)")
-        self.size_label.setStyleSheet("color: #888; font-family: monospace;")
-        size_layout.addWidget(self.size_label)
-        props_layout.addLayout(size_layout)
-        
-        # Layer color
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(QLabel("Color:"))
-        self.color_button = QPushButton()
-        self.color_button.setFixedSize(50, 25)
-        self.color_button.clicked.connect(self.choose_layer_color)
-        color_layout.addWidget(self.color_button)
-        color_layout.addStretch()
-        props_layout.addLayout(color_layout)
-        
-        # Layer opacity
-        opacity_layout = QHBoxLayout()
-        opacity_layout.addWidget(QLabel("Opacity:"))
-        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.opacity_slider.setRange(0, 100)
-        self.opacity_slider.setValue(100)
-        self.opacity_slider.valueChanged.connect(self.on_opacity_changed)
-        self.opacity_spinbox = QSpinBox()
-        self.opacity_spinbox.setRange(0, 100)
-        self.opacity_spinbox.setValue(100)
-        self.opacity_spinbox.setSuffix("%")
-        self.opacity_spinbox.valueChanged.connect(self.opacity_slider.setValue)
-        self.opacity_slider.valueChanged.connect(self.opacity_spinbox.setValue)
-        
-        opacity_layout.addWidget(self.opacity_slider)
-        opacity_layout.addWidget(self.opacity_spinbox)
-        props_layout.addLayout(opacity_layout)
-        
-        # Layer type
-        type_layout = QHBoxLayout()
-        type_layout.addWidget(QLabel("Type:"))
-        self.layer_type_combo = QComboBox()
-        self.layer_type_combo.addItems(["General", "Components", "Connections", "Annotations", "Background"])
-        self.layer_type_combo.currentTextChanged.connect(self.on_layer_type_changed)
-        type_layout.addWidget(self.layer_type_combo)
-        props_layout.addLayout(type_layout)
-        
-        # Lock layer
-        self.lock_layer_check = QCheckBox("Lock Layer")
-        self.lock_layer_check.toggled.connect(self.on_layer_lock_changed)
-        props_layout.addWidget(self.lock_layer_check)
-        
-        parent_layout.addWidget(props_group)
-    
-    def _create_global_controls_group(self, parent_layout):
-        """Create Global Controls group (ORIGINAL)"""
-        global_group = QGroupBox("Global Controls")
-        global_layout = QVBoxLayout(global_group)
-        
-        global_buttons_layout = QHBoxLayout()
-        self.show_all_btn = QPushButton("Show All")
-        self.hide_all_btn = QPushButton("Hide All")
-        self.reset_layers_btn = QPushButton("Reset")
-        
-        self.show_all_btn.clicked.connect(self.show_all_layers)
-        self.hide_all_btn.clicked.connect(self.hide_all_layers)
-        self.reset_layers_btn.clicked.connect(self.reset_layers)
-        
-        global_buttons_layout.addWidget(self.show_all_btn)
-        global_buttons_layout.addWidget(self.hide_all_btn)
-        global_buttons_layout.addWidget(self.reset_layers_btn)
-        global_layout.addLayout(global_buttons_layout)
-        
-        parent_layout.addWidget(global_group)
-    
-    def _create_default_layers(self):
-        """Create default layers (ORIGINAL)"""
-        default_layers = [
-            LayerItem("Background", True, QColor(45, 45, 48), 1.0),
-            LayerItem("Components", True, QColor(255, 107, 53), 1.0),
-            LayerItem("Connections", True, QColor(78, 205, 196), 1.0)
+        # Create checkboxes for each layer
+        self.layer_checkboxes = {}
+        layer_configs = [
+            ("Components", True, "🔧"),
+            ("Connections", True, "🔗"),
+            ("PCB Traces", False, "📋"),
+            ("Annotations", True, "📝"),
+            ("Grid", True, "⚏")
         ]
         
-        for layer in default_layers:
-            self.layer_list.add_layer(layer)
+        for layer_name, default_checked, icon in layer_configs:
+            checkbox = QCheckBox(f"{icon} {layer_name}")
+            checkbox.setChecked(default_checked)
+            checkbox.toggled.connect(
+                lambda checked, name=layer_name: self._on_layer_visibility_changed(name, checked)
+            )
+            self.layer_checkboxes[layer_name] = checkbox
+            visibility_layout.addWidget(checkbox)
         
-        # Set first layer as current
-        if default_layers:
-            self.current_layer = default_layers[1].name  # Components
-            self.layer_list.setCurrentRow(1)
-            self.on_layer_selected(self.current_layer)
-    
-    def _connect_signals(self):
-        """Connect internal signals (ORIGINAL)"""
-        # Auto-update timer for properties display
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self._update_layer_properties_display)
-        self.update_timer.start(1000)  # Update every second
-    
-
-    # ========== ORIGINAL: LAYER SIGNAL HANDLERS ==========
-    def add_new_layer(self):
-        """Add a new layer"""
-        layer_name = f"Layer {len(self.layer_list.layers) + 1}"
-        counter = 1
-        while layer_name in self.layer_list.layers:
-            layer_name = f"Layer {len(self.layer_list.layers) + counter}"
-            counter += 1
+        layout.addWidget(visibility_group)
         
-        new_layer = LayerItem(layer_name, True, QColor(255, 107, 53), 1.0)
-        self.layer_list.add_layer(new_layer)
-        self.layerAdded.emit(layer_name)
-        print(f"➕ Added layer: {layer_name}")
-    
-    def remove_selected_layer(self):
-        """Remove the selected layer"""
-        current_item = self.layer_list.currentItem()
-        if current_item and len(self.layer_list.layers) > 1:
-            layer_name = current_item.data(Qt.ItemDataRole.UserRole)
-            reply = QMessageBox.question(self, "Confirm", f"Remove layer '{layer_name}'?")
-            if reply == QMessageBox.StandardButton.Yes:
-                self.layer_list.remove_layer(layer_name)
-                self.layerRemoved.emit(layer_name)
-                self.enable_properties(False)
-                print(f"➖ Removed layer: {layer_name}")
-                
-    def duplicate_selected_layer(self):
-        """Duplicate the selected layer"""
-        current_item = self.layer_list.currentItem()
-        if current_item:
-            layer_name = current_item.data(Qt.ItemDataRole.UserRole)
-            original_layer = self.layer_list.get_layer(layer_name)
-            
-            if original_layer:
-                new_name = f"{layer_name}_copy"
-                counter = 1
-                while new_name in self.layer_list.layers:
-                    new_name = f"{layer_name}_copy_{counter}"
-                    counter += 1
-                    
-                new_layer = LayerItem(
-                    new_name,
-                    original_layer.visible,
-                    QColor(original_layer.color),
-                    original_layer.opacity
-                )
-                new_layer.layer_type = original_layer.layer_type
-                self.layer_list.add_layer(new_layer)
-                self.layerAdded.emit(new_name)
-                print(f"📋 Duplicated layer: {layer_name} -> {new_name}")
-                
-    def on_layer_visibility_changed(self, layer_name: str, visible: bool):
-        """Handle layer visibility change"""
-        self.layerVisibilityChanged.emit(layer_name, visible)
-        print(f"👁️ Layer '{layer_name}' visibility: {visible}")
+        # === LAYER OPACITY ===
+        opacity_group = QGroupBox("Layer Opacity")
+        opacity_layout = QVBoxLayout(opacity_group)
         
-    def on_layer_selected(self, layer_name: str):
-        """Handle layer selection"""
+        # Current layer opacity
+        current_opacity_layout = QHBoxLayout()
+        current_opacity_layout.addWidget(QLabel("Current Layer:"))
+        
+        self.opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.opacity_slider.setMinimum(10)
+        self.opacity_slider.setMaximum(100)
+        self.opacity_slider.setValue(100)
+        self.opacity_slider.valueChanged.connect(self._on_opacity_changed)
+        current_opacity_layout.addWidget(self.opacity_slider)
+        
+        self.opacity_label = QLabel("100%")
+        self.opacity_label.setMinimumWidth(40)
+        current_opacity_layout.addWidget(self.opacity_label)
+        
+        opacity_layout.addLayout(current_opacity_layout)
+        layout.addWidget(opacity_group)
+        
+        # === QUICK CONTROLS ===
+        controls_group = QGroupBox("Quick Controls")
+        controls_layout = QVBoxLayout(controls_group)
+        
+        # Show/Hide buttons
+        buttons_layout = QHBoxLayout()
+        
+        show_all_btn = QPushButton("Show All")
+        show_all_btn.clicked.connect(self._show_all_layers)
+        buttons_layout.addWidget(show_all_btn)
+        
+        hide_all_btn = QPushButton("Hide All")
+        hide_all_btn.clicked.connect(self._hide_all_layers)
+        buttons_layout.addWidget(hide_all_btn)
+        
+        controls_layout.addLayout(buttons_layout)
+        
+        # Reset button
+        reset_btn = QPushButton("Reset to Default")
+        reset_btn.clicked.connect(self._reset_layers)
+        controls_layout.addWidget(reset_btn)
+        
+        layout.addWidget(controls_group)
+        
+        # === LAYER INFO ===
+        info_group = QGroupBox("Layer Info")
+        info_layout = QVBoxLayout(info_group)
+        
+        self.current_layer_label = QLabel("Current: Components")
+        self.current_layer_label.setStyleSheet("font-weight: bold; color: #333;")
+        info_layout.addWidget(self.current_layer_label)
+        
+        self.visible_layers_label = QLabel("Visible: 4/5")
+        info_layout.addWidget(self.visible_layers_label)
+        
+        # Component counts
+        separator = QFrame()
+        separator.setFrameStyle(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        info_layout.addWidget(separator)
+        
+        self.component_count_label = QLabel("Components: 0")
+        info_layout.addWidget(self.component_count_label)
+        
+        self.connection_count_label = QLabel("Connections: 0")
+        info_layout.addWidget(self.connection_count_label)
+        
+        layout.addWidget(info_group)
+        
+        layout.addStretch()
+        
+        # Initialize display
+        self._update_info_display()
+    
+    def _on_active_layer_changed(self, layer_name):
+        """Handle active layer change"""
         self.current_layer = layer_name
-        layer = self.layer_list.get_layer(layer_name)
         
-        if layer:
-            self.enable_properties(True)
-            self.update_properties_display(layer)
-        else:
-            self.enable_properties(False)
-            
-        # Emit BOTH signals that main_window.py might be looking for
-        self.layerChanged.emit(layer_name)
+        # Update backend if available
+        if self.layer_manager and hasattr(self.layer_manager, 'set_current_layer'):
+            self.layer_manager.set_current_layer(layer_name)
+        
+        # Update canvas if available
+        if self.canvas and hasattr(self.canvas, 'set_current_layer'):
+            self.canvas.set_current_layer(layer_name)
+        
+        # Emit signals
         self.currentLayerChanged.emit(layer_name)
         self.layerSelected.emit(layer_name)
-        print(f"🎯 Layer selected: {layer_name}")
-            
-    def update_properties_display(self, layer: LayerItem):
-        """Update properties display for selected layer"""
-        self.layer_name_edit.setText(layer.name)
-        self.update_color_button(layer.color)
-        self.opacity_slider.setValue(int(layer.opacity * 100))
         
-        # Set layer type
-        type_text = layer.layer_type.title()
-        index = self.layer_type_combo.findText(type_text)
-        if index >= 0:
-            self.layer_type_combo.setCurrentIndex(index)
-            
-        self.lock_layer_check.setChecked(layer.locked)
+        # Update display
+        self._update_info_display()
         
-    def update_color_button(self, color: QColor):
-        """Update color button appearance"""
-        self.color_button.setStyleSheet(f"background-color: {color.name()};")
+        print(f"📄 Active layer: {layer_name}")
+    
+    def _on_layer_visibility_changed(self, layer_name, visible):
+        """Handle layer visibility change"""
+        # Update backend if available
+        if self.layer_manager and hasattr(self.layer_manager, 'set_layer_visibility'):
+            self.layer_manager.set_layer_visibility(layer_name, visible)
         
-    def enable_properties(self, enabled: bool):
-        """Enable/disable property controls"""
-        self.layer_name_edit.setEnabled(enabled)
-        self.color_button.setEnabled(enabled)
-        self.opacity_slider.setEnabled(enabled)
-        self.opacity_spinbox.setEnabled(enabled)
-        self.layer_type_combo.setEnabled(enabled)
-        self.lock_layer_check.setEnabled(enabled)
+        # Update canvas if available
+        if self.canvas and hasattr(self.canvas, 'set_layer_visibility'):
+            self.canvas.set_layer_visibility(layer_name, visible)
         
-    def on_layer_name_changed(self, new_name: str):
-        """Handle layer name change"""
-        if self.current_layer and new_name:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer and layer.name != new_name:
-                # Check if name already exists
-                if new_name in self.layer_list.layers:
-                    QMessageBox.warning(self, "Warning", "Layer with this name already exists")
-                    self.layer_name_edit.setText(layer.name)  # Revert
-                    return
-                    
-                old_name = layer.name
-                layer.name = new_name
-                
-                # Update layer list
-                self.layer_list.layers[new_name] = self.layer_list.layers.pop(old_name)
-                self.layer_list.refresh_display()
-                self.current_layer = new_name
-                
-                self.layer_list.layerRenamed.emit(old_name, new_name)
-                self.layerChanged.emit(new_name)
-                print(f"📝 Layer renamed: {old_name} -> {new_name}")
-                
-    def choose_layer_color(self):
-        """Choose layer color"""
-        if self.current_layer:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer:
-                color = QColorDialog.getColor(layer.color, self)
-                if color.isValid():
-                    layer.color = color
-                    self.update_color_button(color)
-                    self.layer_list.refresh_display()
-                    self.emit_layer_properties_changed()
-                    print(f"🎨 Layer color changed: {color.name()}")
-                    
-    def on_opacity_changed(self, value: int):
+        # Emit signal
+        self.layerVisibilityChanged.emit(layer_name, visible)
+        
+        # Update display
+        self._update_info_display()
+        
+        print(f"👁️ Layer '{layer_name}': {'visible' if visible else 'hidden'}")
+    
+    def _on_opacity_changed(self, value):
         """Handle opacity change"""
-        if self.current_layer:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer:
-                layer.opacity = value / 100.0
-                self.layer_list.refresh_display()
-                self.emit_layer_properties_changed()
-                print(f"💫 Layer opacity changed: {value}%")
-                
-    def on_layer_type_changed(self, type_text: str):
-        """Handle layer type change"""
-        if self.current_layer:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer:
-                layer.layer_type = type_text.lower()
-                self.emit_layer_properties_changed()
-                print(f"🏷️ Layer type changed: {type_text}")
-                
-    def on_layer_lock_changed(self, locked: bool):
-        """Handle layer lock change"""
-        if self.current_layer:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer:
-                layer.locked = locked
-                self.layer_list.refresh_display()
-                self.emit_layer_properties_changed()
-                print(f"🔒 Layer lock changed: {locked}")
-                
-    def emit_layer_properties_changed(self):
-        """Emit layer properties changed signal"""
-        if self.current_layer:
-            layer = self.layer_list.get_layer(self.current_layer)
-            if layer:
-                self.layerPropertiesChanged.emit(self.current_layer, layer.to_dict())
-                
-    def show_all_layers(self):
+        self.opacity_label.setText(f"{value}%")
+        
+        # Update backend if available
+        if self.layer_manager and hasattr(self.layer_manager, 'set_layer_opacity'):
+            self.layer_manager.set_layer_opacity(self.current_layer, value / 100.0)
+        
+        # Update canvas if available
+        if self.canvas and hasattr(self.canvas, 'set_layer_opacity'):
+            self.canvas.set_layer_opacity(self.current_layer, value / 100.0)
+        
+        print(f"🌗 Layer '{self.current_layer}' opacity: {value}%")
+    
+    def _show_all_layers(self):
         """Show all layers"""
-        for layer_name in self.layer_list.layers:
-            self.layer_list.set_layer_visibility(layer_name, True)
+        for checkbox in self.layer_checkboxes.values():
+            checkbox.setChecked(True)
         print("👁️ All layers shown")
-            
-    def hide_all_layers(self):
-        """Hide all layers"""
-        for layer_name in self.layer_list.layers:
-            self.layer_list.set_layer_visibility(layer_name, False)
-        print("🙈 All layers hidden")
-            
-    def reset_layers(self):
-        """Reset to default layers"""
-        reply = QMessageBox.question(self, "Confirm", "Reset all layers to default?")
-        if reply == QMessageBox.StandardButton.Yes:
-            self.layer_list.layers.clear()
-            self._create_default_layers()
-            self.enable_properties(False)
-            self.current_layer = None
-            print("🔄 Layers reset to default")
     
-    def _show_custom_spacing(self):
-        """Show custom spacing controls"""
-        for i in range(self.custom_spacing_layout.count()):
-            widget = self.custom_spacing_layout.itemAt(i).widget()
-            if widget:
-                widget.show()
+    def _hide_all_layers(self):
+        """Hide all layers except components"""
+        for name, checkbox in self.layer_checkboxes.items():
+            # Always keep components visible for usability
+            checkbox.setChecked(name == "Components")
+        print("👁️ All layers hidden (except Components)")
     
-    def _hide_custom_spacing(self):
-        """Hide custom spacing controls"""
-        for i in range(self.custom_spacing_layout.count()):
-            widget = self.custom_spacing_layout.itemAt(i).widget()
-            if widget:
-                widget.hide()
-
-    def _update_layer_properties_display(self):
-        """Update the layer properties display with current canvas state"""
-        # This would typically get data from the canvas
-        # For now, show placeholder data
-        pass
-    
-    # ========== PUBLIC API METHODS FOR MAIN WINDOW ==========
-    def set_canvas(self, canvas):
-        """Set the canvas reference for integration"""
-        self.canvas = canvas
-        print("✓ Canvas reference set in layer controls")
-    
-    
-    def get_layer_settings(self) -> Dict[str, Any]:
-        """Get current layer settings"""
-        return {
-            "layers": {name: layer.to_dict() for name, layer in self.layer_list.layers.items()},
-            "current_layer": self.current_layer
+    def _reset_layers(self):
+        """Reset layers to default state"""
+        # Default visibility settings
+        defaults = {
+            "Components": True,
+            "Connections": True,
+            "PCB Traces": False,
+            "Annotations": True,
+            "Grid": True
         }
-    
-    def update_component_info(self, position: str, size: str):
-        """Update component info display (called from main window)"""
-        self.position_label.setText(position)
-        self.size_label.setText(size)
-    
-    def get_layer_visibility(self, layer_name: str) -> bool:
-        """Get layer visibility"""
-        layer = self.layer_list.get_layer(layer_name)
-        return layer.visible if layer else True
         
-    def set_layer_visibility(self, layer_name: str, visible: bool):
-        """Set layer visibility"""
-        self.layer_list.set_layer_visibility(layer_name, visible)
+        for name, default_visible in defaults.items():
+            if name in self.layer_checkboxes:
+                self.layer_checkboxes[name].setChecked(default_visible)
         
-    def get_all_layers(self) -> Dict[str, LayerItem]:
-        """Get all layers"""
-        return self.layer_list.layers.copy()
+        # Reset to components layer
+        self.layer_combo.setCurrentText("Components")
+        
+        # Reset opacity
+        self.opacity_slider.setValue(100)
+        
+        print("🔄 Layers reset to defaults")
+    
+    def _update_info_display(self):
+        """Update the information display"""
+        # Update current layer
+        self.current_layer_label.setText(f"Current: {self.current_layer}")
+        
+        # Count visible layers
+        visible_count = sum(1 for cb in self.layer_checkboxes.values() if cb.isChecked())
+        total_count = len(self.layer_checkboxes)
+        self.visible_layers_label.setText(f"Visible: {visible_count}/{total_count}")
+    
+    # === PUBLIC API FOR INTEGRATION ===
+    def set_layer_manager(self, layer_manager):
+        """Set the backend layer manager"""
+        self.layer_manager = layer_manager
+        print("✓ Layer manager connected to UI")
+    
+    def set_canvas(self, canvas):
+        """Set canvas reference for integration"""
+        self.canvas = canvas
+        print("✓ Canvas connected to layer controls")
+    
+    def get_layer_visibility(self, layer_name):
+        """Get layer visibility status"""
+        checkbox = self.layer_checkboxes.get(layer_name)
+        return checkbox.isChecked() if checkbox else True
+    
+    def set_layer_visibility(self, layer_name, visible):
+        """Set layer visibility programmatically"""
+        checkbox = self.layer_checkboxes.get(layer_name)
+        if checkbox:
+            checkbox.setChecked(visible)
+    
+    def get_current_layer(self):
+        """Get current active layer"""
+        return self.current_layer
+    
+    def set_current_layer(self, layer_name):
+        """Set current active layer programmatically"""
+        if layer_name in [self.layer_combo.itemText(i) for i in range(self.layer_combo.count())]:
+            self.layer_combo.setCurrentText(layer_name)
+    
+    def update_component_counts(self, components=0, connections=0):
+        """Update component and connection counts"""
+        self.component_count_label.setText(f"Components: {components}")
+        self.connection_count_label.setText(f"Connections: {connections}")
+    
+    def refresh_from_backend(self):
+        """Refresh UI from backend state"""
+        if not self.layer_manager:
+            return
+        
+        # Update checkboxes from backend
+        if hasattr(self.layer_manager, 'get_layer_visibility'):
+            for layer_name, checkbox in self.layer_checkboxes.items():
+                try:
+                    visible = self.layer_manager.get_layer_visibility(layer_name)
+                    checkbox.setChecked(visible)
+                except:
+                    pass  # Backend might not have this layer
+        
+        # Update active layer from backend
+        if hasattr(self.layer_manager, 'current_layer') and self.layer_manager.current_layer:
+            self.set_current_layer(self.layer_manager.current_layer)
+        
+        # Update display
+        self._update_info_display()
+        print("🔄 Layer controls refreshed from backend")
 
-# Backward compatibility aliases
-LayerControlsWidget = LayerControls  # Original name
 
 # Export
-__all__ = ['LayerControls', 'LayerControlsWidget', 'LayerItem', 'LayerListWidget']
+__all__ = ['LayerControls']
+
+
+# Test function
+def test_layer_controls():
+    """Test the layer controls"""
+    from PyQt6.QtWidgets import QApplication
+    import sys
+    
+    app = QApplication(sys.argv)
+    
+    controls = LayerControls()
+    controls.show()
+    controls.resize(280, 500)
+    controls.setWindowTitle("Layer Controls Test")
+    
+    # Test signals
+    controls.layerVisibilityChanged.connect(
+        lambda layer, visible: print(f"✓ Signal: {layer} visibility -> {visible}")
+    )
+    controls.currentLayerChanged.connect(
+        lambda layer: print(f"✓ Signal: Current layer -> {layer}")
+    )
+    
+    # Test component count updates
+    controls.update_component_counts(5, 3)
+    
+    print("✓ Layer controls test running - close window to continue")
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    test_layer_controls()

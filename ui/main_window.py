@@ -38,8 +38,8 @@ class MainWindow(QMainWindow):
         # UI components
         self.canvas = None
         self.component_palette = None
-        self.left_tools_panel = None
         self.layer_controls = None
+        self.cad_tools_panel = None
         self.menu_manager = None
         self.status_manager = None
         self.property_editor = None
@@ -60,14 +60,24 @@ class MainWindow(QMainWindow):
         self.component_count_label = None
         self.connection_count_label = None
 
-        # Dock widgets
+        # Dock widgets - UPDATED NAMES TO MATCH IMPLEMENTATION
         self.component_palette_dock = None
-        self.left_tools_dock = None
+        self.display_controls_dock = None  # ← Renamed from left_tools_dock
         self.properties_dock = None
         self.layer_controls_dock = None
+        self.cad_tools_dock = None  # ← Added missing CAD tools dock
 
-        # Apply theme - use global theme manager.
-        #self._apply_dark_theme()
+        # Control widget references for keyboard shortcuts
+        self.pin_numbers_check = None
+        self.component_labels_check = None
+        self.grid_check = None
+        self.snap_check = None
+        self.grid_size_spin = None
+        self.zoom_slider = None
+        self.zoom_display = None
+
+        # Apply theme - use global theme manager
+        # self._apply_dark_theme()
 
         # Initialize everything
         self._initialize_managers()
@@ -85,7 +95,7 @@ class MainWindow(QMainWindow):
         self._update_window_title()
         self._update_status_counts()
 
-        print("✅ Complete Main Window initialized - FULL SIZE RESTORED")
+        print("✅ Complete Main Window initialized with clean dock structure")
 
     def _initialize_managers(self):
         """Initialize all manager components"""
@@ -1141,23 +1151,7 @@ class MainWindow(QMainWindow):
 
         print("✓ Main UI created")
 
-    def _create_docks(self):
-        """Create dock widgets"""
-        print("Creating dock widgets...")
 
-        # Component Palette Dock
-        self._create_component_palette_dock()
-
-        # Left Tools Dock
-        self._create_left_tools_dock()
-
-        # Properties Dock
-        self._create_properties_dock()
-
-        # Layer Controls Dock
-        self._create_layer_controls_dock()
-
-        print("✓ Dock widgets created")
 
     def _create_component_palette_dock(self):
         """Create enhanced component palette with comprehensive chip library"""
@@ -1337,87 +1331,6 @@ class MainWindow(QMainWindow):
 
         print("✅ Enhanced component palette created")
 
-    def _create_left_tools_dock(self):
-        """Create left tools dock with working controls"""
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-
-        tools_widget = QWidget()
-        layout = QVBoxLayout(tools_widget)
-        layout.setContentsMargins(5, 5, 5, 5)
-
-        # Tool buttons group
-        tools_group = QGroupBox("Tools")
-
-        # Display settings group
-        display_group = QGroupBox("Display")
-        display_layout = QVBoxLayout(display_group)
-
-        # Pin number toggle - with explicit connection
-        self.pin_numbers_check = QCheckBox("Show Pin Numbers")
-        self.pin_numbers_check.setChecked(True)
-        self.pin_numbers_check.setObjectName("pin_numbers_check")
-        # Use explicit connection method
-        self.pin_numbers_check.stateChanged.connect(self._pin_numbers_state_changed)
-        display_layout.addWidget(self.pin_numbers_check)
-
-        # Component labels toggle - with explicit connection
-        self.component_labels_check = QCheckBox("Show Component Labels")
-        self.component_labels_check.setChecked(True)
-        self.component_labels_check.setObjectName("component_labels_check")
-        # Use explicit connection method
-        self.component_labels_check.stateChanged.connect(self._component_labels_state_changed)
-        display_layout.addWidget(self.component_labels_check)
-
-        layout.addWidget(display_group)
-
-        # Grid settings group
-        grid_group = QGroupBox("Grid Settings")
-        grid_layout = QVBoxLayout(grid_group)
-
-        # Grid visibility
-        self.grid_check = QCheckBox("Show Grid")
-        self.grid_check.setChecked(True)
-        self.grid_check.setObjectName("grid_check")
-        self.grid_check.stateChanged.connect(self._grid_state_changed)
-        grid_layout.addWidget(self.grid_check)
-
-        # Snap to grid
-        self.snap_check = QCheckBox("Snap to Grid")
-        self.snap_check.setChecked(True)
-        self.snap_check.setObjectName("snap_check")
-        self.snap_check.stateChanged.connect(self._snap_state_changed)
-        grid_layout.addWidget(self.snap_check)
-
-        # Grid size
-        size_layout = QHBoxLayout()
-        size_layout.addWidget(QLabel("Grid Size:"))
-        self.grid_size_spin = QSpinBox()
-        self.grid_size_spin.setRange(5, 100)
-        self.grid_size_spin.setValue(20)
-        self.grid_size_spin.setSuffix(" px")
-        self.grid_size_spin.setObjectName("grid_size_spin")
-        self.grid_size_spin.valueChanged.connect(self._grid_size_value_changed)
-        size_layout.addWidget(self.grid_size_spin)
-        grid_layout.addLayout(size_layout)
-
-        layout.addWidget(grid_group)
-
-        # Test button to verify connections
-        test_btn = QPushButton("🧪 Test Controls")
-        test_btn.clicked.connect(self._test_controls)
-        layout.addWidget(test_btn)
-
-        layout.addStretch()
-
-        scroll_area.setWidget(tools_widget)
-
-        self.left_tools_dock = QDockWidget("Canvas Tools", self)
-        self.left_tools_dock.setWidget(scroll_area)
-        self.left_tools_dock.setMinimumWidth(200)
-        self.left_tools_dock.setMaximumWidth(280)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.left_tools_dock)
-
     # Working event handlers with explicit state parameter
     def _on_tool_clicked(self, tool_id, button):
         """Handle tool button clicks - WORKING VERSION"""
@@ -1433,60 +1346,6 @@ class MainWindow(QMainWindow):
         
         # Set the tool
         self._set_tool_direct(tool_id)
-
-    def _pin_numbers_state_changed(self, state):
-        """Handle pin numbers checkbox state change - WORKING VERSION"""
-        enabled = state == 2  # Qt.CheckState.Checked = 2
-        print(f"📍 Pin numbers checkbox changed: {enabled} (state: {state})")
-        
-        if self.canvas and hasattr(self.canvas, 'toggle_pin_numbers'):
-            self.canvas.toggle_pin_numbers(enabled)
-            print(f"📍 Canvas pin numbers toggled: {enabled}")
-        else:
-            print("⚠️ Canvas pin number control not available")
-
-    def _component_labels_state_changed(self, state):
-        """Handle component labels checkbox state change - WORKING VERSION"""
-        enabled = state == 2  # Qt.CheckState.Checked = 2
-        print(f"🏷️ Component labels checkbox changed: {enabled} (state: {state})")
-        
-        if self.canvas and hasattr(self.canvas, 'toggle_component_labels'):
-            self.canvas.toggle_component_labels(enabled)
-            print(f"🏷️ Canvas component labels toggled: {enabled}")
-        else:
-            print("⚠️ Canvas label control not available")
-
-    def _grid_state_changed(self, state):
-        """Handle grid checkbox state change - WORKING VERSION"""
-        enabled = state == 2  # Qt.CheckState.Checked = 2
-        print(f"🔲 Grid checkbox changed: {enabled} (state: {state})")
-        
-        if self.canvas and hasattr(self.canvas, 'set_grid_visible'):
-            self.canvas.set_grid_visible(enabled)
-            print(f"🔲 Canvas grid visibility: {enabled}")
-        else:
-            print("⚠️ Canvas grid control not available")
-
-    def _snap_state_changed(self, state):
-        """Handle snap checkbox state change - WORKING VERSION"""
-        enabled = state == 2  # Qt.CheckState.Checked = 2
-        print(f"🧲 Snap checkbox changed: {enabled} (state: {state})")
-        
-        if self.canvas and hasattr(self.canvas, 'set_snap_to_grid'):
-            self.canvas.set_snap_to_grid(enabled)
-            print(f"🧲 Canvas snap to grid: {enabled}")
-        else:
-            print("⚠️ Canvas snap control not available")
-
-    def _grid_size_value_changed(self, value):
-        """Handle grid size spinner change - WORKING VERSION"""
-        print(f"📏 Grid size changed: {value}")
-        
-        if self.canvas and hasattr(self.canvas, 'set_grid_size'):
-            self.canvas.set_grid_size(value)
-            print(f"📏 Canvas grid size: {value}")
-        else:
-            print("⚠️ Canvas grid size control not available")
 
     def _test_controls(self):
         """Test all controls to verify they work"""
@@ -1568,96 +1427,439 @@ class MainWindow(QMainWindow):
 
         print("✅ Properties dock created")
 
-    def _create_layer_controls_dock(self):
-        """Create layer controls dock"""
-        try:
-            from ui.layer_controls import LayerControls
-            self.layer_controls = LayerControls()
-            layer_dock = QDockWidget("Layers", self)
-            layer_dock.setWidget(self.layer_controls)
-            layer_dock.setMinimumWidth(180)
-            layer_dock.setMaximumWidth(250)
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, layer_dock)
-            print("✓ Layer controls dock created")
-        except ImportError:
-            print("⚠️ Layer controls not available - using fallback")
-            self._create_fallback_layer_controls()
+    def _create_docks(self):
+        """Create dock widgets - SINGLE CLEAN IMPLEMENTATION"""
+        print("Creating dock widgets...")
 
-    def _create_fallback_layer_controls(self):
-        """Create fallback layer controls"""
-        layer_widget = QWidget()
-        layout = QVBoxLayout(layer_widget)
+        # Component Palette Dock
+        self._create_component_palette_dock()
 
-        title_label = QLabel("Layers")
-        title_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        layout.addWidget(title_label)
+        # Display Controls Dock (formerly left tools dock)
+        self._create_display_controls_dock()
 
-        layers = ["Top Copper", "Bottom Copper", "Solder Mask", "Silk Screen", "Components"]
-        
-        for layer in layers:
-            layer_frame = QFrame()
-            layer_layout = QHBoxLayout(layer_frame)
-            layer_layout.setContentsMargins(2, 2, 2, 2)
-            
-            visible_checkbox = QCheckBox()
-            visible_checkbox.setChecked(True)
-            layer_layout.addWidget(visible_checkbox)
-            
-            layer_label = QLabel(layer)
-            layer_layout.addWidget(layer_label)
-            
-            layer_layout.addStretch()
-            layout.addWidget(layer_frame)
+        # Layer Controls Dock
+        self._create_layer_controls_dock()
+
+        # Properties Dock
+        self._create_properties_dock()
+
+        # CAD Tools Dock
+        self._create_cad_tools_dock()
+
+        print("✓ All dock widgets created")
+
+    def _create_display_controls_dock(self):
+        """Create display controls dock - SINGLE IMPLEMENTATION"""
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        controls_widget = QWidget()
+        layout = QVBoxLayout(controls_widget)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(10)
+
+        # === DISPLAY SETTINGS GROUP ===
+        display_group = QGroupBox("Display")
+        display_layout = QVBoxLayout(display_group)
+
+        # Pin numbers toggle
+        self.pin_numbers_check = QCheckBox("Show Pin Numbers")
+        self.pin_numbers_check.setChecked(True)
+        self.pin_numbers_check.setObjectName("pin_numbers_check")
+        self.pin_numbers_check.stateChanged.connect(self._pin_numbers_state_changed)
+        display_layout.addWidget(self.pin_numbers_check)
+
+        # Component labels toggle
+        self.component_labels_check = QCheckBox("Show Component Labels")
+        self.component_labels_check.setChecked(True)
+        self.component_labels_check.setObjectName("component_labels_check")
+        self.component_labels_check.stateChanged.connect(self._component_labels_state_changed)
+        display_layout.addWidget(self.component_labels_check)
+
+        layout.addWidget(display_group)
+
+        # === GRID SETTINGS GROUP ===
+        grid_group = QGroupBox("Grid Settings")
+        grid_layout = QVBoxLayout(grid_group)
+
+        # Grid visibility toggle
+        self.grid_check = QCheckBox("Show Grid")
+        self.grid_check.setChecked(True)
+        self.grid_check.setObjectName("grid_check")
+        self.grid_check.stateChanged.connect(self._grid_state_changed)
+        grid_layout.addWidget(self.grid_check)
+
+        # Snap to grid toggle
+        self.snap_check = QCheckBox("Snap to Grid")
+        self.snap_check.setChecked(True)
+        self.snap_check.setObjectName("snap_check")
+        self.snap_check.stateChanged.connect(self._snap_state_changed)
+        grid_layout.addWidget(self.snap_check)
+
+        # Grid size controls
+        grid_size_layout = QHBoxLayout()
+        grid_size_layout.addWidget(QLabel("Grid Size:"))
+        self.grid_size_spin = QSpinBox()
+        self.grid_size_spin.setMinimum(5)
+        self.grid_size_spin.setMaximum(100)
+        self.grid_size_spin.setValue(20)
+        self.grid_size_spin.setSuffix(" px")
+        self.grid_size_spin.valueChanged.connect(self._grid_size_changed)
+        grid_size_layout.addWidget(self.grid_size_spin)
+        grid_layout.addLayout(grid_size_layout)
+
+        layout.addWidget(grid_group)
+
+        # === VIEW CONTROLS GROUP ===
+        view_group = QGroupBox("View Controls")
+        view_layout = QVBoxLayout(view_group)
+
+        # Zoom controls
+        zoom_layout = QHBoxLayout()
+        zoom_layout.addWidget(QLabel("Zoom:"))
+
+        zoom_out_btn = QPushButton("-")
+        zoom_out_btn.setMaximumWidth(30)
+        zoom_out_btn.clicked.connect(self._zoom_out)
+        zoom_layout.addWidget(zoom_out_btn)
+
+        self.zoom_slider = QSlider(Qt.Orientation.Horizontal)
+        self.zoom_slider.setMinimum(25)
+        self.zoom_slider.setMaximum(400)
+        self.zoom_slider.setValue(100)
+        self.zoom_slider.valueChanged.connect(self._zoom_slider_changed)
+        zoom_layout.addWidget(self.zoom_slider)
+
+        zoom_in_btn = QPushButton("+")
+        zoom_in_btn.setMaximumWidth(30)
+        zoom_in_btn.clicked.connect(self._zoom_in)
+        zoom_layout.addWidget(zoom_in_btn)
+
+        view_layout.addLayout(zoom_layout)
+
+        # Zoom level display
+        self.zoom_display = QLabel("100%")
+        self.zoom_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.zoom_display.setStyleSheet("font-weight: bold; color: #666;")
+        view_layout.addWidget(self.zoom_display)
+
+        # Fit buttons
+        fit_layout = QHBoxLayout()
+        fit_width_btn = QPushButton("Fit Width")
+        fit_width_btn.clicked.connect(self._fit_width)
+        fit_layout.addWidget(fit_width_btn)
+
+        fit_all_btn = QPushButton("Fit All")
+        fit_all_btn.clicked.connect(self._zoom_fit)
+        fit_layout.addWidget(fit_all_btn)
+        view_layout.addLayout(fit_layout)
+
+        layout.addWidget(view_group)
 
         layout.addStretch()
+        scroll_area.setWidget(controls_widget)
 
-        self.layer_controls_dock = QDockWidget("Layers", self)
-        self.layer_controls_dock.setWidget(layer_widget)
-        self.layer_controls_dock.setMinimumWidth(150)
-        self.layer_controls_dock.setMaximumWidth(250)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_controls_dock)
-        print("✅ Fallback layer controls created")
+        # Create dock
+        self.display_controls_dock = QDockWidget("Display Controls", self)
+        self.display_controls_dock.setWidget(scroll_area)
+        self.display_controls_dock.setMinimumWidth(200)
+        self.display_controls_dock.setMaximumWidth(280)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.display_controls_dock)
 
-    def _create_menu_bar(self):
-        """Create menu bar"""
+        print("✓ Display controls dock created")
+
+    def _create_layer_controls_dock(self):
+        """Create clean working layer controls dock"""
+        try:
+            # Import backend layer manager
+            from managers.layer_manager import LayerManager
+            self.layer_manager = LayerManager()
+            print("✓ Layer manager (backend) initialized")
+
+        except ImportError as e:
+            print(f"⚠️ Could not load LayerManager backend: {e}")
+            self.layer_manager = None
+
+        try:
+            # Import UI layer controls
+            from ui.layer_controls import LayerControls
+            self.layer_controls = LayerControls()
+
+            # Connect UI to backend
+            if self.layer_manager:
+                self.layer_controls.set_layer_manager(self.layer_manager)
+
+            # Connect UI to canvas
+            if hasattr(self, 'canvas') and self.canvas:
+                self.layer_controls.set_canvas(self.canvas)
+
+            # Connect layer signals to main window
+            self.layer_controls.layerVisibilityChanged.connect(self._on_layer_visibility_changed)
+            self.layer_controls.currentLayerChanged.connect(self._on_current_layer_changed)
+
+            # Create dock
+            self.layer_controls_dock = QDockWidget("Layers", self)
+            self.layer_controls_dock.setWidget(self.layer_controls)
+            self.layer_controls_dock.setMinimumWidth(220)
+            self.layer_controls_dock.setMaximumWidth(300)
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_controls_dock)
+
+            print("✓ Clean layer controls dock created with backend + frontend")
+
+        except ImportError as e:
+            print(f"❌ Could not load layer controls UI: {e}")
+            print("❌ Layer controls required - check ui/layer_controls.py exists")
+
+    def _on_layer_visibility_changed(self, layer_name, visible):
+        """Handle layer visibility changes"""
+        # Update canvas if available
+        if hasattr(self.canvas, 'set_layer_visibility'):
+            self.canvas.set_layer_visibility(layer_name, visible)
+
+        # Update status bar if available
+        if hasattr(self, 'status_manager') and self.status_manager:
+            visible_count = sum(1 for layer in ["Components", "Connections", "PCB Traces", "Annotations", "Grid"]
+                              if self.layer_controls.get_layer_visibility(layer))
+            self.status_manager.show_temporary_message(f"Layer '{layer_name}' {'shown' if visible else 'hidden'} ({visible_count}/5 visible)")
+
+        print(f"👁️ Layer '{layer_name}': {'visible' if visible else 'hidden'}")
+
+    def _on_current_layer_changed(self, layer_name):
+        """Handle current layer changes"""
+        # Update canvas if available
+        if hasattr(self.canvas, 'set_current_layer'):
+            self.canvas.set_current_layer(layer_name)
+
+        # Update status bar if available
+        if hasattr(self, 'status_manager') and self.status_manager:
+            self.status_manager.show_temporary_message(f"Active layer: {layer_name}")
+
+        print(f"📄 Current layer: {layer_name}")
+
+    def _update_layer_info(self):
+        """Update layer controls with current canvas info"""
+        if hasattr(self, 'layer_controls') and self.layer_controls:
+            # Update component counts
+            component_count = 0
+            connection_count = 0
+
+            if hasattr(self.canvas, 'get_component_count'):
+                component_count = self.canvas.get_component_count()
+            elif hasattr(self.canvas, 'components'):
+                component_count = len(getattr(self.canvas, 'components', {}))
+
+            if hasattr(self.canvas, 'get_connection_count'):
+                connection_count = self.canvas.get_connection_count()
+            elif hasattr(self.canvas, 'connections'):
+                connection_count = len(getattr(self.canvas, 'connections', []))
+
+            self.layer_controls.update_component_counts(component_count, connection_count)
+
+    def _create_cad_tools_dock(self):
+        """Create CAD tools dock - SINGLE IMPLEMENTATION"""
+        try:
+            from ui.cad_tools_panel import CADToolsPanel
+            self.cad_tools_panel = CADToolsPanel()
+
+            # Connect CAD tools to canvas if available
+            if hasattr(self, 'canvas') and self.canvas:
+                self.cad_tools_panel.set_canvas(self.canvas)
+
+            # Create dock
+            cad_dock = QDockWidget("CAD Tools", self)
+            cad_dock.setWidget(self.cad_tools_panel)
+            cad_dock.setMinimumWidth(200)
+            cad_dock.setMaximumWidth(280)
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, cad_dock)
+
+            print("✓ Professional CAD tools dock created")
+
+        except ImportError as e:
+            print(f"❌ Could not load CAD tools: {e}")
+            print("❌ CAD tools are required - check ui/cad_tools_panel.py")
+
+    # === DISPLAY CONTROL EVENT HANDLERS ===
+    def _pin_numbers_state_changed(self, state):
+        """Handle pin numbers toggle"""
+        enabled = state == Qt.CheckState.Checked.value
+        if hasattr(self.canvas, 'set_pin_numbers_visible'):
+            self.canvas.set_pin_numbers_visible(enabled)
+        print(f"📍 Pin numbers: {'shown' if enabled else 'hidden'}")
+
+    def _component_labels_state_changed(self, state):
+        """Handle component labels toggle"""
+        enabled = state == Qt.CheckState.Checked.value
+        if hasattr(self.canvas, 'set_component_labels_visible'):
+            self.canvas.set_component_labels_visible(enabled)
+        print(f"🏷️ Component labels: {'shown' if enabled else 'hidden'}")
+
+    def _grid_state_changed(self, state):
+        """Handle grid toggle"""
+        enabled = state == Qt.CheckState.Checked.value
+        if hasattr(self.canvas, 'set_grid_visible'):
+            self.canvas.set_grid_visible(enabled)
+        print(f"📐 Grid: {'shown' if enabled else 'hidden'}")
+
+    def _snap_state_changed(self, state):
+        """Handle snap to grid toggle"""
+        enabled = state == Qt.CheckState.Checked.value
+        if hasattr(self.canvas, 'set_snap_to_grid'):
+            self.canvas.set_snap_to_grid(enabled)
+        print(f"🧲 Snap to grid: {'enabled' if enabled else 'disabled'}")
+
+    def _grid_size_changed(self, size):
+        """Handle grid size change"""
+        if hasattr(self.canvas, 'set_grid_size'):
+            self.canvas.set_grid_size(size)
+        print(f"📏 Grid size: {size}px")
+
+    def _zoom_slider_changed(self, value):
+        """Handle zoom slider change"""
+        zoom_factor = value / 100.0
+        if hasattr(self.canvas, 'set_zoom'):
+            self.canvas.set_zoom(zoom_factor)
+        self.zoom_display.setText(f"{value}%")
+        print(f"🔍 Zoom: {value}%")
+
+    def _fit_width(self):
+        """Fit canvas width to view"""
+        if hasattr(self.canvas, 'fit_width'):
+            self.canvas.fit_width()
+        print("↔️ Fit width")
+
+
+    def _create_menu_bar(self): #new
+        """Create menu bar - SINGLE IMPLEMENTATION"""
         try:
             from ui.menu_bar import RetroEmulatorMenuBar
             self.menu_manager = RetroEmulatorMenuBar(self)
             self.setMenuBar(self.menu_manager)
+
+            # Connect menu signals to main window methods
+            self._connect_menu_signals()
+
+            # Add custom pin numbers menu items
             self._add_pin_numbers_to_view_menu()
-            print("✓ Menu bar created")
-        except ImportError:
-            print("⚠️ Menu bar not available - using fallback")
-            self._create_fallback_menu_bar()
 
-    def _create_fallback_menu_bar(self):
-        """Create fallback menu bar"""
-        menubar = self.menuBar()
+            print("✓ Professional menu bar created")
 
-        # File menu
-        file_menu = menubar.addMenu('&File')
-        file_menu.addAction('&New Project', self._new_project, QKeySequence.StandardKey.New)
-        file_menu.addAction('&Open Project', self._open_project, QKeySequence.StandardKey.Open)
-        file_menu.addAction('&Save Project', self._save_project, QKeySequence.StandardKey.Save)
-        file_menu.addSeparator()
-        file_menu.addAction('E&xit', self.close, QKeySequence.StandardKey.Quit)
+        except ImportError as e:
+            print(f"❌ Could not load menu bar: {e}")
+            print("❌ Menu bar is required - check ui/menu_bar.py")
+            # Don't create fallback - require proper menu bar
 
-        # Edit menu
-        edit_menu = menubar.addMenu('&Edit')
-        edit_menu.addAction('&Undo', self._undo, QKeySequence.StandardKey.Undo)
-        edit_menu.addAction('&Redo', self._redo, QKeySequence.StandardKey.Redo)
+    def _connect_menu_signals(self): #new
+        """Connect menu bar signals to main window methods"""
+        if not hasattr(self, 'menu_manager'):
+            return
 
-        # View menu
-        view_menu = menubar.addMenu('&View')
-        view_menu.addAction('Zoom &In', self._zoom_in, 'Ctrl++')
-        view_menu.addAction('Zoom &Out', self._zoom_out, 'Ctrl+-')
-        view_menu.addAction('&Toggle Grid', self._toggle_grid, 'Ctrl+G')
+        signals = self.menu_manager.signals
 
-        # Tools menu
-        tools_menu = menubar.addMenu('&Tools')
-        tools_menu.addAction('&Simulate', self._start_simulation, 'F5')
+        # File menu connections
+        signals.newProject.connect(self._new_project)
+        signals.openProject.connect(self._open_project_file)
+        signals.saveProject.connect(self._save_project)
+        signals.saveProjectAs.connect(self._save_project_as)
+        signals.exitApplication.connect(self.close)
 
-        print("✓ Fallback menu bar created")
+        # Edit menu connections
+        signals.undo.connect(self._undo)
+        signals.redo.connect(self._redo)
+        signals.cut.connect(self._cut)
+        signals.copy.connect(self._copy)
+        signals.paste.connect(self._paste)
+        signals.delete.connect(self._delete)
+        signals.selectAll.connect(self._select_all)
+
+        # View menu connections
+        signals.zoomIn.connect(self._zoom_in)
+        signals.zoomOut.connect(self._zoom_out)
+        signals.zoomFit.connect(self._zoom_fit)
+        signals.zoomActual.connect(self._zoom_actual)
+        signals.toggleGrid.connect(self._toggle_grid)
+
+        # Simulation menu connections
+        signals.startSimulation.connect(self._start_simulation)
+        signals.stopSimulation.connect(self._stop_simulation)
+        signals.pauseSimulation.connect(self._pause_simulation)
+        signals.resetSimulation.connect(self._reset_simulation)
+
+        print("✓ Menu signals connected")
+
+    def _open_project_file(self, file_path):
+        """Open project from file path (called by menu)"""
+        try:
+            if self.project_manager:
+                self.project_manager.open_project(file_path)
+                self._update_window_title()
+                print(f"✓ Opened project: {file_path}")
+            else:
+                print("⚠️ No project manager available")
+        except Exception as e:
+            print(f"❌ Failed to open project: {e}")
+
+    def _save_project_as(self, file_path):
+        """Save project as (called by menu)"""
+        try:
+            if self.project_manager:
+                self.project_manager.save_project(file_path)
+                self._update_window_title()
+                print(f"✓ Saved project as: {file_path}")
+            else:
+                print("⚠️ No project manager available")
+        except Exception as e:
+            print(f"❌ Failed to save project: {e}")
+
+    # ADD MISSING MENU ACTION METHODS
+    def _cut(self):
+        """Cut selected items"""
+        if hasattr(self.canvas, 'cut_selected'):
+            self.canvas.cut_selected()
+        print("Cut action")
+
+    def _copy(self):
+        """Copy selected items"""
+        if hasattr(self.canvas, 'copy_selected'):
+            self.canvas.copy_selected()
+        print("Copy action")
+
+    def _paste(self):
+        """Paste from clipboard"""
+        if hasattr(self.canvas, 'paste'):
+            self.canvas.paste()
+        print("Paste action")
+
+    def _delete(self):
+        """Delete selected items"""
+        if hasattr(self.canvas, 'delete_selected'):
+            self.canvas.delete_selected()
+        print("Delete action")
+
+    def _select_all(self):
+        """Select all items"""
+        if hasattr(self.canvas, 'select_all'):
+            self.canvas.select_all()
+        print("Select all action")
+
+    def _zoom_actual(self):
+        """Zoom to actual size (100%)"""
+        if hasattr(self.canvas, 'zoom_actual'):
+            self.canvas.zoom_actual()
+        else:
+            print("Zoom actual (100%)")
+
+    def _pause_simulation(self):
+        """Pause simulation"""
+        if self.simulation_engine:
+            self.simulation_engine.pause()
+        print("Simulation paused")
+
+    def _reset_simulation(self):
+        """Reset simulation"""
+        if self.simulation_engine:
+            self.simulation_engine.reset()
+        print("Simulation reset")
+
 
     def _create_status_bar(self):
         """Create status bar"""
@@ -1669,23 +1871,112 @@ class MainWindow(QMainWindow):
             print("⚠️ Status bar not available - using fallback")
             self._create_fallback_status_bar()
 
-    def _create_fallback_status_bar(self):
-        """Create fallback status bar"""
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
+    def _create_status_bar(self):
+        """Create status bar - SINGLE IMPLEMENTATION"""
+        try:
+            from ui.status_bar import create_status_bar
+            self.status_manager = create_status_bar(self)
 
-        self.coordinate_label = QLabel("X: 0, Y: 0")
-        self.zoom_label = QLabel("Zoom: 100%")
-        self.tool_label = QLabel("Tool: Select")
-        self.component_count_label = QLabel("Components: 0")
+            # Connect status bar signals
+            self._connect_status_bar_signals()
 
-        self.status_bar.addWidget(self.coordinate_label)
-        self.status_bar.addPermanentWidget(self.zoom_label)
-        self.status_bar.addPermanentWidget(self.tool_label)
-        self.status_bar.addPermanentWidget(self.component_count_label)
+            print("✓ Professional status bar created")
 
-        self.status_bar.showMessage("Ready")
-        print("✅ Fallback status bar created")
+        except ImportError as e:
+            print(f"❌ Could not load status bar: {e}")
+            print("❌ Status bar is required - check ui/status_bar.py")
+            # Don't create fallback - require proper status bar
+
+    def _connect_status_bar_signals(self):
+        """Connect status bar signals to main window methods"""
+        if not hasattr(self, 'status_manager'):
+            return
+
+        # Connect status bar signals
+        self.status_manager.zoomChanged.connect(self._on_status_zoom_changed)
+        self.status_manager.gridToggled.connect(self._on_status_grid_toggled)
+        self.status_manager.snapToggled.connect(self._on_status_snap_toggled)
+        self.status_manager.unitsChanged.connect(self._on_status_units_changed)
+        self.status_manager.coordinatesClicked.connect(self._on_coordinates_clicked)
+
+        print("✓ Status bar signals connected")
+
+    def _on_status_zoom_changed(self, zoom_level):
+        """Handle zoom change from status bar"""
+        if hasattr(self.canvas, 'set_zoom'):
+            if zoom_level == -1:  # Fit to window
+                self.canvas.zoom_fit()
+            else:
+                self.canvas.set_zoom(zoom_level / 100.0)
+        print(f"Zoom changed to: {zoom_level}%")
+
+    def _on_status_grid_toggled(self, visible):
+        """Handle grid toggle from status bar"""
+        if hasattr(self.canvas, 'set_grid_visible'):
+            self.canvas.set_grid_visible(visible)
+        print(f"Grid toggled: {visible}")
+
+    def _on_status_snap_toggled(self, enabled):
+        """Handle snap toggle from status bar"""
+        if hasattr(self.canvas, 'set_snap_to_grid'):
+            self.canvas.set_snap_to_grid(enabled)
+        print(f"Snap toggled: {enabled}")
+
+    def _on_status_units_changed(self, units):
+        """Handle units change from status bar"""
+        # Update canvas units
+        if hasattr(self.canvas, 'set_units'):
+            self.canvas.set_units(units)
+        print(f"Units changed to: {units}")
+
+    def _on_coordinates_clicked(self):
+        """Handle coordinates label clicked"""
+        # Could toggle between different coordinate systems
+        print("Coordinates clicked - could toggle coordinate system")
+
+    # ADD STATUS BAR UPDATE METHODS
+    def _update_status_counts(self):
+        """Update component and connection counts in status bar"""
+        if hasattr(self, 'status_manager'):
+            # Count components on canvas
+            component_count = 0
+            connection_count = 0
+
+            if hasattr(self.canvas, 'get_component_count'):
+                component_count = self.canvas.get_component_count()
+            elif hasattr(self.canvas, 'components'):
+                component_count = len(self.canvas.components)
+
+            if hasattr(self.canvas, 'get_connection_count'):
+                connection_count = self.canvas.get_connection_count()
+            elif hasattr(self.canvas, 'connections'):
+                connection_count = len(self.canvas.connections)
+
+            self.status_manager.set_component_count(component_count)
+            self.status_manager.set_connection_count(connection_count)
+
+    def _update_mouse_coordinates(self, x, y):
+        """Update mouse coordinates in status bar"""
+        if hasattr(self, 'status_manager'):
+            self.status_manager.set_coordinates(x, y)
+
+    def _update_zoom_display(self, zoom_level):
+        """Update zoom display in status bar"""
+        if hasattr(self, 'status_manager'):
+            self.status_manager.set_zoom(zoom_level * 100)
+
+    def _update_project_status(self, project_name=None, modified=False):
+        """Update project status in status bar"""
+        if hasattr(self, 'status_manager'):
+            if project_name:
+                self.status_manager.set_project_name(project_name)
+            self.status_manager.set_project_modified(modified)
+
+    def _update_simulation_status(self, running=False, info=""):
+        """Update simulation status in status bar"""
+        if hasattr(self, 'status_manager'):
+            self.status_manager.set_simulation_status(running, info)
+
 
     def _setup_connections(self):
         """Setup signal connections"""
