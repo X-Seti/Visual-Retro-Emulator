@@ -1,10 +1,8 @@
-"""
-X-Seti - June05 2025 - Enhanced Component Rendering System (FIXED)
-Fixes rendering bugs and implements accurate IC package visualization
-"""
-#this goes in core/
+# X-Seti - June23 2025 - Component Rendering System with Pin Numbers
+# this belongs in core/rendering.py
+
 import math
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsTextItem
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPen, QBrush, QColor, QPolygonF, QPainter, QFont
 
@@ -13,9 +11,8 @@ class ICPackage:
     """Defines standard IC package types with accurate dimensions and pin layouts"""
     
     # Package types with accurate dimensions for proper pin spacing (2.54mm = 8px scale)
-        # CORRECTED: Realistic but proportional package dimensions
     PACKAGES = {
-        # DIP packages - FIXED to be realistic but not excessive
+        # DIP packages
         "DIP-8": {"width": 80, "height": 60, "pins": 8, "pin_spacing": 8, "row_spacing": 7.62},
         "DIP-14": {"width": 80, "height": 80, "pins": 14, "pin_spacing": 8, "row_spacing": 7.62},
         "DIP-16": {"width": 80, "height": 90, "pins": 16, "pin_spacing": 8, "row_spacing": 7.62},
@@ -24,98 +21,73 @@ class ICPackage:
         "DIP-24": {"width": 80, "height": 130, "pins": 24, "pin_spacing": 8, "row_spacing": 7.62},
         "DIP-28": {"width": 80, "height": 150, "pins": 28, "pin_spacing": 8, "row_spacing": 7.62},
         "DIP-40": {"width": 80, "height": 200, "pins": 40, "pin_spacing": 8, "row_spacing": 15.24},
-        
-        # CORRECTED: DIP-64 - Wider but not excessively so
         "DIP-64": {"width": 120, "height": 220, "pins": 64, "pin_spacing": 6, "row_spacing": 22.86},
-        
-        # DIP-48 for custom chips like Paula, Denise
         "DIP-48": {"width": 100, "height": 200, "pins": 48, "pin_spacing": 7, "row_spacing": 15.24},
         
-        # Surface mount packages - Proportional
+        # Surface mount packages
         "SOIC-8": {"width": 60, "height": 40, "pins": 8, "pin_spacing": 6, "row_spacing": 5.3},
         "SOIC-14": {"width": 80, "height": 50, "pins": 14, "pin_spacing": 6, "row_spacing": 5.3},
         "SOIC-16": {"width": 90, "height": 55, "pins": 16, "pin_spacing": 6, "row_spacing": 5.3},
         "SOIC-28": {"width": 120, "height": 60, "pins": 28, "pin_spacing": 6, "row_spacing": 5.3},
         
-        # Quad packages - Reasonable square dimensions
+        # Quad packages
         "PLCC-44": {"width": 120, "height": 120, "pins": 44, "pin_spacing": 6, "quad": True},
         "PLCC-68": {"width": 150, "height": 150, "pins": 68, "pin_spacing": 5, "quad": True},
-        "PLCC-84": {"width": 180, "height": 180, "pins": 84, "pin_spacing": 5, "quad": True},
+        "QFP-44": {"width": 120, "height": 120, "pins": 44, "pin_spacing": 5, "quad": True},
+        "QFP-64": {"width": 140, "height": 140, "pins": 64, "pin_spacing": 4, "quad": True},
+        "QFP-80": {"width": 160, "height": 160, "pins": 80, "pin_spacing": 4, "quad": True},
+        "QFP-100": {"width": 180, "height": 180, "pins": 100, "pin_spacing": 3.5, "quad": True},
         
-        # QFP packages - Reasonable square dimensions
-        "QFP-44": {"width": 100, "height": 100, "pins": 44, "quad": True, "pin_spacing": 5},
-        "QFP-100": {"width": 140, "height": 140, "pins": 100, "quad": True, "pin_spacing": 3},
-        "QFP-144": {"width": 180, "height": 180, "pins": 144, "quad": True, "pin_spacing": 3},
-        
-        # Ball Grid Array - Compact
-        "BGA-144": {"width": 120, "height": 120, "pins": 144, "grid": True},
-        "BGA-256": {"width": 140, "height": 140, "pins": 256, "grid": True},
-        
-        # Custom packages for specific chips
-        "PGA-68": {"width": 160, "height": 160, "pins": 68, "pga": True},
+        # Grid packages
+        "PGA-68": {"width": 180, "height": 180, "pins": 68, "pin_spacing": 10, "grid": True},
+        "BGA-256": {"width": 200, "height": 200, "pins": 256, "pin_spacing": 8, "grid": True}
     }
     
     @classmethod
     def get_package_info(cls, package_type):
-        """Get package information for a given package type"""
-        return cls.PACKAGES.get(package_type, cls.PACKAGES["DIP-40"])  # Default fallback
+        """Get package information"""
+        return cls.PACKAGES.get(package_type, cls.PACKAGES["DIP-40"])
     
     @classmethod
     def calculate_pin_positions(cls, package_type):
-        """Calculate accurate pin positions for a package type"""
+        """Calculate pin positions for a package type"""
         pkg_info = cls.get_package_info(package_type)
-        pins = []
         
-        if pkg_info.get("quad"):
-            # Quad package (PLCC, QFP)
-            pins = cls._calculate_quad_pins(pkg_info)
-        elif pkg_info.get("grid"):
-            # Ball Grid Array
-            pins = cls._calculate_grid_pins(pkg_info)
-        elif pkg_info.get("pga"):
-            # Pin Grid Array
-            pins = cls._calculate_pga_pins(pkg_info)
+        if "quad" in pkg_info:
+            return cls._calculate_quad_pins(pkg_info)
+        elif "grid" in pkg_info:
+            return cls._calculate_grid_pins(pkg_info)
         else:
-            # Standard DIP package
-            pins = cls._calculate_dip_pins(pkg_info)
-        
-        return pins
+            return cls._calculate_dip_pins(pkg_info)
     
     @classmethod
     def _calculate_dip_pins(cls, pkg_info):
-        """Calculate pin positions for DIP packages with accurate spacing"""
+        """Calculate pin positions for DIP packages"""
         pins = []
-        width = pkg_info["width"]
+        pin_count = pkg_info["pins"]
+        pins_per_side = pin_count // 2
         height = pkg_info["height"]
-        total_pins = pkg_info["pins"]
-        pins_per_side = total_pins // 2
         
-        # Use actual pin spacing (2.54mm scaled for display)
-        pin_spacing = 8  # 2.54mm scaled to screen units
+        if pins_per_side <= 1:
+            return pins
         
-        # Calculate total span needed for all pins
-        total_pin_span = (pins_per_side - 1) * pin_spacing
+        pin_spacing = (height - 20) / (pins_per_side - 1)
         
-        # Center the pins vertically with proper spacing
-        start_y = (height - total_pin_span) / 2
-        
-        # Left side pins (1 to n/2) - from top to bottom
+        # Left side pins (1 to pins_per_side)
         for i in range(pins_per_side):
-            y = start_y + (i * pin_spacing)
             pins.append({
                 "number": i + 1,
                 "x": 0,
-                "y": y,
+                "y": 10 + i * pin_spacing,
                 "side": "left"
             })
         
-        # Right side pins (n/2+1 to n) - from bottom to top (reverse order)
+        # Right side pins (pin_count down to pins_per_side + 1)
         for i in range(pins_per_side):
-            y = start_y + ((pins_per_side - 1 - i) * pin_spacing)
             pins.append({
-                "number": pins_per_side + i + 1,
-                "x": width,
-                "y": y,
+                "number": pin_count - i,
+                "x": pkg_info["width"],
+                "y": 10 + i * pin_spacing,
                 "side": "right"
             })
         
@@ -123,146 +95,99 @@ class ICPackage:
     
     @classmethod
     def _calculate_quad_pins(cls, pkg_info):
-        """Calculate pin positions for quad packages (PLCC, QFP) - FIXED"""
+        """Calculate pin positions for quad packages (QFP, PLCC)"""
         pins = []
+        pin_count = pkg_info["pins"]
+        pins_per_side = pin_count // 4
         width = pkg_info["width"]
         height = pkg_info["height"]
-        total_pins = pkg_info["pins"]
-        pins_per_side = total_pins // 4
         
-        # Handle cases where pins don't divide evenly by 4
-        if total_pins % 4 != 0:
-            print(f"Warning: {total_pins} pins don't divide evenly by 4, using {pins_per_side} per side")
+        if pins_per_side <= 1:
+            return pins
         
-        # Pin spacing for QFP (smaller than DIP)
-        pin_spacing = 6  # Smaller spacing for surface mount
+        pin_spacing = (width - 20) / (pins_per_side - 1)
+        pin_num = 1
         
-        # Top side (pins 1 to pins_per_side)
-        if pins_per_side > 1:
-            total_span = (pins_per_side - 1) * pin_spacing
-            start_x = (width - total_span) / 2
-            
-            for i in range(pins_per_side):
-                x = start_x + (i * pin_spacing)
-                pins.append({
-                    "number": i + 1,
-                    "x": x,
-                    "y": 0,
-                    "side": "top"
-                })
-        else:
-            # Single pin centered
+        # Top side (left to right)
+        for i in range(pins_per_side):
             pins.append({
-                "number": 1,
-                "x": width / 2,
+                "number": pin_num,
+                "x": 10 + i * pin_spacing,
                 "y": 0,
                 "side": "top"
             })
+            pin_num += 1
         
-        # Right side (pins pins_per_side+1 to pins_per_side*2)
-        if pins_per_side > 1:
-            total_span = (pins_per_side - 1) * pin_spacing
-            start_y = (height - total_span) / 2
-            
-            for i in range(pins_per_side):
-                y = start_y + (i * pin_spacing)
-                pins.append({
-                    "number": pins_per_side + i + 1,
-                    "x": width,
-                    "y": y,
-                    "side": "right"
-                })
-        else:
+        # Right side (top to bottom)
+        for i in range(pins_per_side):
             pins.append({
-                "number": pins_per_side + 1,
+                "number": pin_num,
                 "x": width,
-                "y": height / 2,
+                "y": 10 + i * pin_spacing,
                 "side": "right"
             })
+            pin_num += 1
         
-        # Bottom side (pins pins_per_side*2+1 to pins_per_side*3) - right to left
-        if pins_per_side > 1:
-            total_span = (pins_per_side - 1) * pin_spacing
-            start_x = (width + total_span) / 2
-            
-            for i in range(pins_per_side):
-                x = start_x - (i * pin_spacing)
-                pins.append({
-                    "number": pins_per_side * 2 + i + 1,
-                    "x": x,
-                    "y": height,
-                    "side": "bottom"
-                })
-        else:
+        # Bottom side (right to left)
+        for i in range(pins_per_side):
             pins.append({
-                "number": pins_per_side * 2 + 1,
-                "x": width / 2,
+                "number": pin_num,
+                "x": width - 10 - i * pin_spacing,
                 "y": height,
                 "side": "bottom"
             })
+            pin_num += 1
         
-        # Left side (pins pins_per_side*3+1 to pins_per_side*4) - bottom to top
-        if pins_per_side > 1:
-            total_span = (pins_per_side - 1) * pin_spacing
-            start_y = (height + total_span) / 2
-            
-            for i in range(pins_per_side):
-                y = start_y - (i * pin_spacing)
-                pins.append({
-                    "number": pins_per_side * 3 + i + 1,
-                    "x": 0,
-                    "y": y,
-                    "side": "left"
-                })
-        else:
+        # Left side (bottom to top)
+        for i in range(pins_per_side):
             pins.append({
-                "number": pins_per_side * 3 + 1,
+                "number": pin_num,
                 "x": 0,
-                "y": height / 2,
+                "y": height - 10 - i * pin_spacing,
                 "side": "left"
             })
+            pin_num += 1
         
         return pins
     
     @classmethod
     def _calculate_grid_pins(cls, pkg_info):
-        """Calculate pin positions for grid packages (BGA)"""
+        """Calculate pin positions for grid packages (PGA, BGA)"""
         pins = []
+        pin_count = pkg_info["pins"]
+        grid_size = int(math.sqrt(pin_count))
         width = pkg_info["width"]
         height = pkg_info["height"]
-        total_pins = pkg_info["pins"]
         
-        # Calculate grid dimensions
-        grid_size = int(math.sqrt(total_pins))
+        spacing_x = width / (grid_size + 1)
+        spacing_y = height / (grid_size + 1)
         
-        for i in range(grid_size):
-            for j in range(grid_size):
-                if len(pins) < total_pins:
-                    x = (width * 0.1) + (j * (width * 0.8) / (grid_size - 1))
-                    y = (height * 0.1) + (i * (height * 0.8) / (grid_size - 1))
+        pin_num = 1
+        for row in range(grid_size):
+            for col in range(grid_size):
+                if pin_num <= pin_count:
                     pins.append({
-                        "number": len(pins) + 1,
-                        "x": x,
-                        "y": y,
+                        "number": pin_num,
+                        "x": spacing_x * (col + 1),
+                        "y": spacing_y * (row + 1),
                         "side": "grid"
                     })
+                    pin_num += 1
         
         return pins
-    
-    @classmethod
-    def _calculate_pga_pins(cls, pkg_info):
-        """Calculate pin positions for PGA packages"""
-        # Similar to grid but with different spacing
-        return cls._calculate_grid_pins(pkg_info)
 
 
-class EnhancedPinPoint(QGraphicsEllipseItem):
-    """Enhanced pin point with accurate positioning and visual representation"""
+class PinPoint(QGraphicsEllipseItem):
+    """Pin point with accurate positioning and visual representation"""
     
     def __init__(self, parent, pin_info, pin_def, layer_mode="chip"):
         self.pin_info = pin_info  # Physical pin information
         self.pin_def = pin_def    # Logical pin definition
         self.layer_mode = layer_mode
+        
+        # Pin numbers visibility
+        self.pin_numbers_visible = True
+        self._pin_number_text = None
         
         # Size based on layer mode
         if layer_mode == "chip":
@@ -288,10 +213,43 @@ class EnhancedPinPoint(QGraphicsEllipseItem):
         
         # Connection tracking
         self.connections = []
+        
+        # Create pin number text
+        self._create_pin_number_text()
     
     def get_scene_pos(self):
-        """Get the scene position of this pin - FIXED METHOD"""
+        """Get the scene position of this pin"""
         return self.scenePos()
+    
+    def set_pin_numbers_visible(self, visible):
+        """Set pin number visibility"""
+        self.pin_numbers_visible = visible
+        if self._pin_number_text:
+            self._pin_number_text.setVisible(visible)
+    
+    def _create_pin_number_text(self):
+        """Create pin number text item"""
+        if hasattr(self, 'pin_info') and 'number' in self.pin_info:
+            self._pin_number_text = QGraphicsTextItem(str(self.pin_info['number']), self)
+            self._pin_number_text.setFont(QFont("Arial", 6, QFont.Weight.Bold))
+            self._pin_number_text.setDefaultTextColor(QColor(255, 255, 0))  # Yellow
+            
+            # Position text based on pin side
+            text_rect = self._pin_number_text.boundingRect()
+            side = self.pin_info.get('side', 'left')
+            
+            if side == 'left':
+                self._pin_number_text.setPos(-text_rect.width() - 15, -text_rect.height() / 2)
+            elif side == 'right':
+                self._pin_number_text.setPos(8, -text_rect.height() / 2)
+            elif side == 'top':
+                self._pin_number_text.setPos(-text_rect.width() / 2, -text_rect.height() - 8)
+            elif side == 'bottom':
+                self._pin_number_text.setPos(-text_rect.width() / 2, 8)
+            else:  # grid or default
+                self._pin_number_text.setPos(8, -text_rect.height() / 2)
+            
+            self._pin_number_text.setVisible(self.pin_numbers_visible)
     
     def _set_appearance(self):
         """Set pin appearance based on type and layer mode"""
@@ -327,12 +285,15 @@ class EnhancedPinPoint(QGraphicsEllipseItem):
             self.setPen(QPen(Qt.GlobalColor.black, 1))
 
 
-class EnhancedHardwareComponent(QGraphicsRectItem):
-    """Enhanced hardware component with accurate IC package rendering"""
+class HardwareComponent(QGraphicsRectItem):
+    """Hardware component with accurate IC package rendering and pin numbers"""
     
     def __init__(self, component_def, package_type=None, layer_mode="chip"):
         self.component_def = component_def
         self.layer_mode = layer_mode
+        
+        # Pin numbers visibility
+        self.pin_numbers_visible = True
         
         # Determine package type
         if package_type:
@@ -355,7 +316,7 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
         self.description = component_def.description
         self.properties = {}
         
-        # Copy properties from definition - FIXED to handle different structures
+        # Copy properties from definition
         self.properties = {}
         if hasattr(component_def, 'properties') and component_def.properties:
             try:
@@ -388,10 +349,28 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
         
         # Create pins
         self.pin_points = {}
-        self._create_enhanced_pins()
+        self._create_pins()
         
         # Add component identifier notch for DIP packages
         self._add_package_features()
+    
+    def set_pin_numbers_visible(self, visible):
+        """Set pin numbers visibility for this component"""
+        self.pin_numbers_visible = visible
+        
+        # Update all pin points
+        for pin_point in self.pin_points.values():
+            if hasattr(pin_point, 'set_pin_numbers_visible'):
+                pin_point.set_pin_numbers_visible(visible)
+        
+        # Force component repaint
+        self.update()
+        
+        print(f"🔢 Pin numbers {'visible' if visible else 'hidden'} on {self.name}")
+    
+    def get_pin_numbers_visible(self):
+        """Get pin numbers visibility state"""
+        return self.pin_numbers_visible
     
     def _set_appearance(self):
         """Set component appearance based on layer mode"""
@@ -419,8 +398,8 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
             self.setBrush(QBrush(Qt.GlobalColor.transparent))
             self.setPen(QPen(Qt.GlobalColor.yellow, 1))
     
-    def _create_enhanced_pins(self):
-        """Create pins with accurate package positioning - FIXED with error handling"""
+    def _create_pins(self):
+        """Create pins with accurate package positioning"""
         try:
             # Get physical pin positions from package
             physical_pins = ICPackage.calculate_pin_positions(self.package_type)
@@ -449,9 +428,9 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
                             "direction": "input"
                         }
                 
-                # Create the pin point with error handling
+                # Create the pin point
                 try:
-                    pin_point = EnhancedPinPoint(self, phys_pin, logical_pin, self.layer_mode)
+                    pin_point = PinPoint(self, phys_pin, logical_pin, self.layer_mode)
                     pin_name = logical_pin["name"]
                     self.pin_points[pin_name] = pin_point
                 except Exception as pin_error:
@@ -471,7 +450,7 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
                     "direction": "input"
                 }
                 fallback_phys = {"number": 1, "x": 0, "y": 10, "side": "left"}
-                pin_point = EnhancedPinPoint(self, fallback_phys, fallback_pin, self.layer_mode)
+                pin_point = PinPoint(self, fallback_phys, fallback_pin, self.layer_mode)
                 self.pin_points["Pin1"] = pin_point
                 print(f"⚠️  Created fallback pin for {self.name}")
             except:
@@ -494,7 +473,7 @@ class EnhancedHardwareComponent(QGraphicsRectItem):
             dot.setPen(QPen(Qt.GlobalColor.black, 1))
     
     def paint(self, painter, option, widget):
-        """Custom paint method for enhanced rendering"""
+        """Custom paint method with pin numbers support"""
         # Draw the basic package
         super().paint(painter, option, widget)
         
@@ -607,3 +586,11 @@ class LayerManager:
                 "color_scheme": "technical"
             }
         }
+
+
+# Aliases for backwards compatibility
+EnhancedHardwareComponent = HardwareComponent
+EnhancedPinPoint = PinPoint
+
+# Export
+__all__ = ['ICPackage', 'PinPoint', 'HardwareComponent', 'LayerManager', 'EnhancedHardwareComponent', 'EnhancedPinPoint']
