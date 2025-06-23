@@ -1150,7 +1150,7 @@ class MainWindow(QMainWindow):
         self._create_component_palette_dock()
 
         # CAD Tools Dock
-        self._create_cad_tools_dock()
+        self._create_left_tools_dock()
 
         # Properties Dock
         self._create_properties_dock()
@@ -1338,8 +1338,8 @@ class MainWindow(QMainWindow):
 
         print("✅ Enhanced component palette created")
 
-    def _create_cad_tools_dock(self):
-        """Create CAD tools dock with working controls"""
+    def _create_left_tools_dock(self):
+        """Create left tools dock with working controls"""
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
 
@@ -1349,39 +1349,6 @@ class MainWindow(QMainWindow):
 
         # Tool buttons group
         tools_group = QGroupBox("Tools")
-        tools_layout = QVBoxLayout(tools_group)
-        self.tool_group = QButtonGroup(self)  # Store reference
-
-        tools = [
-            ("Select", "S", "select"),
-            ("Place Component", "P", "place"),
-            ("Draw Wire", "W", "wire"),
-            ("Draw Trace", "T", "trace"),
-            ("Add Via", "V", "via"),
-            ("Add Pad", "A", "pad"),
-            ("Measure", "M", "measure"),
-            ("Delete", "Del", "delete")
-        ]
-
-        # Store tool buttons for reference
-        self.tool_buttons = {}
-
-        for tool_name, shortcut, tool_id in tools:
-            btn = QPushButton(f"{tool_name} ({shortcut})")
-            btn.setCheckable(True)
-            btn.setObjectName(f"tool_{tool_id}")  # Set object name for identification
-
-            # Connect with proper lambda capture
-            btn.clicked.connect(lambda checked, t=tool_id, b=btn: self._on_tool_clicked(t, b))
-
-            self.tool_group.addButton(btn)
-            tools_layout.addWidget(btn)
-            self.tool_buttons[tool_id] = btn
-
-            if tool_id == "select":
-                btn.setChecked(True)
-
-        layout.addWidget(tools_group)
 
         # Display settings group
         display_group = QGroupBox("Display")
@@ -1446,7 +1413,7 @@ class MainWindow(QMainWindow):
 
         scroll_area.setWidget(tools_widget)
 
-        self.cad_tools_dock = QDockWidget("CAD Tools", self)
+        self.cad_tools_dock = QDockWidget("Canvas Tools", self)
         self.cad_tools_dock.setWidget(scroll_area)
         self.cad_tools_dock.setMinimumWidth(200)
         self.cad_tools_dock.setMaximumWidth(280)
@@ -1526,7 +1493,6 @@ class MainWindow(QMainWindow):
 
     def _test_controls(self):
         """Test all controls to verify they work"""
-        print("🧪 Testing CAD controls...")
         
         # Test pin numbers
         current_pin_state = self.pin_numbers_check.isChecked()
@@ -1547,35 +1513,6 @@ class MainWindow(QMainWindow):
             print(f"🔧 Canvas methods: {', '.join(canvas_methods[:10])}...")
         else:
             print("❌ Canvas not available")
-
-    def _set_tool_direct(self, tool_name):
-        """Set current tool - DIRECT VERSION"""
-        print(f"🔧 Setting tool directly: {tool_name}")
-        self.current_tool = tool_name
-        
-        # Update tool label if available
-        if hasattr(self, 'tool_label') and self.tool_label:
-            self.tool_label.setText(f"Tool: {tool_name.title()}")
-            print(f"📊 Status updated: Tool: {tool_name.title()}")
-        
-        # Update status bar if available
-        if hasattr(self, 'status_bar') and self.status_bar:
-            self.status_bar.showMessage(f"Tool: {tool_name.title()}", 3000)
-        
-        # Tool-specific feedback
-        tool_messages = {
-            "select": "👆 Select tool - click and drag components",
-            "place": "📦 Place tool - drag components from palette",
-            "wire": "🔌 Wire tool - connect component pins",
-            "trace": "📏 Trace tool - draw PCB traces",
-            "via": "⚪ Via tool - add layer connections",
-            "pad": "🔲 Pad tool - add connection pads",
-            "measure": "📐 Measure tool - measure distances",
-            "delete": "🗑️ Delete tool - click to remove components"
-        }
-        
-        if tool_name in tool_messages:
-            print(tool_messages[tool_name])
 
     # Update keyboard shortcut methods to use working versions
     def _toggle_pin_numbers(self):
