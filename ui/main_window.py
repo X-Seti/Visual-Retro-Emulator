@@ -1687,41 +1687,24 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("Ready")
         print("✅ Fallback status bar created")
 
-    def _create_toolbars(self):
-        """Create toolbars"""
-        print("Creating toolbars...")
-
-        # Main toolbar
-        main_toolbar = self.addToolBar("Main")
-        main_toolbar.setObjectName("MainToolbar")
-
-        # File actions
-        main_toolbar.addAction("New", self._new_project)
-        main_toolbar.addAction("Open", self._open_project)
-        main_toolbar.addAction("Save", self._save_project)
-        main_toolbar.addSeparator()
-
-        # Edit actions
-        main_toolbar.addAction("Undo", self._undo)
-        main_toolbar.addAction("Redo", self._redo)
-        main_toolbar.addSeparator()
-
-        # View actions
-        main_toolbar.addAction("Zoom In", self._zoom_in)
-        main_toolbar.addAction("Zoom Out", self._zoom_out)
-        main_toolbar.addAction("Zoom Fit", self._zoom_fit)
-        main_toolbar.addSeparator()
-
-        # Simulation actions
-        main_toolbar.addAction("Start", self._start_simulation)
-        main_toolbar.addAction("Stop", self._stop_simulation)
-
-        print("✓ Toolbars created")
-
     def _setup_connections(self):
         """Setup signal connections"""
         print("Setting up connections...")
         print("✓ Connections setup complete")
+
+    def _create_toolbars(self):
+        """Create toolbars"""
+        from ui.toolbar import create_toolbars
+        self.main_toolbar, self.component_toolbar = create_toolbars(self)
+
+        # Connect toolbar signals
+        self.main_toolbar.new_project.connect(self._new_project)
+        self.main_toolbar.open_project.connect(self._open_project)
+        self.main_toolbar.save_project.connect(self._save_project)
+        # ... connect other signals as needed
+
+        print("✓ Toolbars created and connected")
+
 
     def _setup_hotkeys(self):
         """Setup keyboard shortcuts"""

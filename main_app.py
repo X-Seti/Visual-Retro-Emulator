@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-X-Seti - June22 2025 - Visual Retro System Emulator Builder - Main Application
-Refactored modular architecture with fixed imports
+X-Seti - June23 2025 - Visual Retro System Emulator Builder - Main Application
+Clean version with simplified imports and removed conflicts
 """
 #this belongs in main_app.py
 
@@ -60,19 +60,20 @@ class RetroEmulatorApp(QApplication):
             self.component_manager = None
         
         try:
-            # Initialize Project Manager - try multiple import paths
-            try:
-                from managers.project_manager import ProjectManager
-                print("✓ Project Manager loaded from managers")
-            except ImportError:
-                from project_manager import ProjectManager
-                print("✓ Project Manager loaded from root")
-            
+            # Initialize Project Manager - clean single import
+            from managers.project_manager import ProjectManager
             self.project_manager = ProjectManager()
             print("✓ Project Manager initialized")
         except ImportError as e:
             print(f"⚠️ Could not load ProjectManager: {e}")
-            self.project_manager = None
+            # Try fallback
+            try:
+                from project_manager import ProjectManager
+                self.project_manager = ProjectManager()
+                print("✓ Project Manager (fallback) initialized")
+            except ImportError as e2:
+                print(f"⚠️ ProjectManager not available: {e2}")
+                self.project_manager = None
 
         try:
             # Initialize Simulation Engine
@@ -92,36 +93,13 @@ class RetroEmulatorApp(QApplication):
             print(f"⚠️ Could not load ComponentLoader: {e}")
             self.component_loader = None
 
-        
     def setup_main_window(self):
         """Setup the main application window with robust error handling"""
         print("Setting up main window...")
         
         try:
-            # Try to import MainWindow from ui package
+            # Simple, clean import
             from ui.main_window import MainWindow
-            print("✓ MainWindow imported from ui package")
-        except ImportError as e:
-            print(f"⚠️ Could not import from ui.main_window: {e}")
-            try:
-                # Try importing from ui package init
-                from ui import MainWindow
-                if MainWindow is None:
-                    raise ImportError("MainWindow is None in ui package")
-                print("✓ MainWindow imported from ui package init")
-            except ImportError as e2:
-                print(f"⚠️ Could not import from ui package: {e2}")
-                try:
-                    # Try direct import from main_window
-                    from main_window import MainWindow
-                    print("✓ MainWindow imported from root")
-                except ImportError as e3:
-                    print(f"⚠️ Could not import MainWindow from root: {e3}")
-                    self.show_error("Critical Error", 
-                                  f"Could not import MainWindow:\n{e}\n{e2}\n{e3}")
-                    sys.exit(1)
-        
-        try:
             self.main_window = MainWindow()
             
             # Connect core systems to UI if methods exist
@@ -160,63 +138,31 @@ class RetroEmulatorApp(QApplication):
         print("Loading initial components...")
         
         try:
-            if self.component_loader and hasattr(self.component_loader, 'refresh_library'):
-                self.component_loader.refresh_library()
-            
-            # Update UI with loaded components if possible
-            if (hasattr(self.main_window, 'refresh_component_palette') and 
-                callable(self.main_window.refresh_component_palette)):
-                self.main_window.refresh_component_palette()
-                print("✓ Component palette refreshed")
-            elif hasattr(self.main_window, 'component_palette'):
-                if hasattr(self.main_window.component_palette, '_populate_tree'):
-                    self.main_window.component_palette._populate_tree()
-                    print("✓ Component tree populated")
+            if self.component_loader and hasattr(self.component_loader, 'load_all_components'):
+                components = self.component_loader.load_all_components()
+                print(f"✓ Loaded {len(components)} components")
                 
+                # Connect to main window if available
+                if hasattr(self.main_window, 'load_components'):
+                    self.main_window.load_components(components)
+                    
         except Exception as e:
-            print(f"⚠️ Error loading components: {e}")
-            # Don't exit on component loading failure - continue with empty library
-    
+            print(f"⚠️ Error loading initial components: {e}")
+
 def main():
-    """Main entry point with comprehensive error handling"""
-    print("="*60)
-    print("Visual Retro System Emulator Builder")
-    print("="*60)
+    """Main entry point"""
+    app = RetroEmulatorApp(sys.argv)
     
-    # Enable high DPI scaling
     try:
-        if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-            QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
-        if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-            QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
-    except:
-        print("⚠️ High DPI scaling not available")
-    
-    # Create and run application
-    app = None
-    try:
-        app = RetroEmulatorApp(sys.argv)
-        print("✓ Application created successfully")
-        
-        # Run main loop
-        return app.exec()
-        
+        sys.exit(app.exec())
     except KeyboardInterrupt:
-        print("\n⚠️ Application interrupted by user")
-        return 0
+        print("\n🛑 Application interrupted by user")
+        sys.exit(0)
     except Exception as e:
-        print(f"💥 Critical application error: {e}")
+        print(f"💥 Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-        return 1
-    finally:
-        if app:
-            try:
-                app.quit()
-            except:
-                pass
+        sys.exit(1)
 
 if __name__ == "__main__":
-    exit_code = main()
-    print(f"\n🏁 Application exited with code: {exit_code}")
-    sys.exit(exit_code)
+    main()
