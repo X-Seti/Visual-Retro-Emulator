@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self._setup_connections()
         self._setup_hotkeys()
         self._post_init_setup()
+        self._initialize_pin_numbers()
 
         # Update display
         self._update_window_title()
@@ -127,17 +128,127 @@ class MainWindow(QMainWindow):
             print(f"⚠️ Simulation Engine not available: {e}")
             self.simulation_engine = None
 
+    def _initialize_pin_numbers(self):
+        """Initialize pin numbers manager - call from __init__ or _post_init_setup"""
+        try:
+            from .pin_numbers import add_pin_numbers_to_canvas
+
+            if self.canvas:
+                self.pin_numbers_manager = add_pin_numbers_to_canvas(self.canvas)
+                print("✓ Pin numbers manager initialized")
+            else:
+                print("⚠️ Canvas not available for pin numbers initialization")
+
+        except ImportError as e:
+            print(f"⚠️ Could not import pin numbers module: {e}")
+            self.pin_numbers_manager = None
+
+    def _add_pin_numbers_to_view_menu(self):
+        """Add pin numbers options to View menu - call from _create_menu_bar"""
+        if not hasattr(self, 'view_menu'):
+            print("⚠️ No view_menu found")
+            return
+
+        # Add separator
+        self.view_menu.addSeparator()
+
+        # Pin Numbers submenu
+        pin_menu = self.view_menu.addMenu("📍 Pin Numbers")
+
+        # Show/Hide pin numbers
+        self.pin_numbers_action = pin_menu.addAction("Show Pin Numbers")
+        self.pin_numbers_action.setCheckable(True)
+        self.pin_numbers_action.setChecked(True)
+        self.pin_numbers_action.triggered.connect(self._toggle_pin_numbers)
+
+        # Pin number styles
+        pin_style_menu = pin_menu.addMenu("Pin Number Style")
+
+        self.pin_style_group = []
+        styles = ["Outside", "Inside", "On Pin", "Tooltips Only"]
+
+        for style in styles:
+            action = pin_style_menu.addAction(style)
+            action.setCheckable(True)
+            if style == "Outside":
+                action.setChecked(True)
+            action.triggered.connect(lambda checked, s=style: self._set_pin_number_style(s))
+            self.pin_style_group.append(action)
+
+        print("✓ Pin numbers menu added to View menu")
+
+    def _add_pin_numbers_hotkeys(self):
+        """Add pin numbers keyboard shortcuts - call from _setup_hotkeys"""
+        try:
+            from PyQt6.QtGui import QShortcut, QKeySequence
+
+            # Toggle pin numbers
+            pin_shortcut = QShortcut(QKeySequence('Ctrl+P'), self)
+            pin_shortcut.activated.connect(self._toggle_pin_numbers)
+
+            # Cycle pin styles
+            style_shortcut = QShortcut(QKeySequence('Ctrl+Shift+P'), self)
+            style_shortcut.activated.connect(self._cycle_pin_styles)
+
+            print("✓ Pin numbers hotkeys added (Ctrl+P, Ctrl+Shift+P)")
+
+        except ImportError as e:
+            print(f"⚠️ Could not add pin numbers hotkeys: {e}")
+
+    def _toggle_pin_numbers(self, enabled=None):
+        """Toggle pin numbers visibility"""
+        if enabled is None:
+            enabled = self.pin_numbers_action.isChecked()
+
+        if hasattr(self, 'pin_numbers_manager') and self.pin_numbers_manager:
+            self.pin_numbers_manager.set_pin_numbers_visible(enabled)
+            print(f"🔢 Pin numbers {'shown' if enabled else 'hidden'}")
+        elif self.canvas and hasattr(self.canvas, 'set_pin_numbers_visible'):
+            self.canvas.set_pin_numbers_visible(enabled)
+            print(f"🔢 Pin numbers {'shown' if enabled else 'hidden'}")
+        else:
+            print("⚠️ Pin numbers not available")
+
+    def _set_pin_number_style(self, style):
+        """Set pin number display style"""
+        # Uncheck all style actions
+        for action in self.pin_style_group:
+            action.setChecked(False)
+
+        # Check the selected style
+        for action in self.pin_style_group:
+            if action.text() == style:
+                action.setChecked(True)
+                break
+
+        # Apply the style
+        if hasattr(self, 'pin_numbers_manager') and self.pin_numbers_manager:
+            self.pin_numbers_manager.set_pin_number_style(style.lower().replace(" ", "_"))
+            print(f"📌 Pin number style: {style}")
+        else:
+            print(f"⚠️ Pin numbers manager not available for style: {style}")
+
+    def _cycle_pin_styles(self):
+        """Cycle through pin number styles"""
+        if not hasattr(self, 'pin_style_group'):
+            return
+
+        # Find currently checked style
+        current_index = -1
+        for i, action in enumerate(self.pin_style_group):
+            if action.isChecked():
+                current_index = i
+                break
+
+        # Move to next style
+        next_index = (current_index + 1) % len(self.pin_style_group)
+        next_style = self.pin_style_group[next_index].text()
+        self._set_pin_number_style(next_style)
+
+
     def _create_canvas(self):
         """Create main canvas"""
         self.canvas = self._create_canvasarea()
-
-    def _on_pin_numbers_changed(self, enabled):
-        """Handle pin numbers visibility change from CAD tools panel"""
-        if self.canvas and hasattr(self.canvas, 'set_pin_numbers_visible'):
-            self.canvas.set_pin_numbers_visible(enabled)
-            print(f"🏷️ Pin numbers {'enabled' if enabled else 'disabled'}")
-        else:
-            print(f"⚠️ Canvas doesn't support set_pin_numbers_visible")
 
     def _create_canvasarea(self):
         """Create enhanced canvas with realistic chip rendering"""
@@ -175,14 +286,6 @@ class MainWindow(QMainWindow):
 
                 print("✓ Enhanced canvas created with realistic chip rendering")
                 self.viewport().update()
-
-
-            def set_pin_numbers_visible(self, visible):
-                """Set pin numbers visibility on all components"""
-                for component in self.components:  # or however you store components
-                    if hasattr(component, 'set_pin_numbers_visible'):
-                        component.set_pin_numbers_visible(visible)
-                self.update()  # Refresh the display
 
             def drawBackground(self, painter, rect):
                 super().drawBackground(painter, rect)
@@ -1247,7 +1350,7 @@ class MainWindow(QMainWindow):
         # Tool buttons group
         tools_group = QGroupBox("Tools")
         tools_layout = QVBoxLayout(tools_group)
-        self.tool_group = QButtonGroup(self)
+        self.tool_group = QButtonGroup(self)  # Store reference
 
         tools = [
             ("Select", "S", "select"),
@@ -1260,13 +1363,17 @@ class MainWindow(QMainWindow):
             ("Delete", "Del", "delete")
         ]
 
+        # Store tool buttons for reference
         self.tool_buttons = {}
 
         for tool_name, shortcut, tool_id in tools:
             btn = QPushButton(f"{tool_name} ({shortcut})")
             btn.setCheckable(True)
-            btn.setObjectName(f"tool_{tool_id}")
+            btn.setObjectName(f"tool_{tool_id}")  # Set object name for identification
+
+            # Connect with proper lambda capture
             btn.clicked.connect(lambda checked, t=tool_id, b=btn: self._on_tool_clicked(t, b))
+
             self.tool_group.addButton(btn)
             tools_layout.addWidget(btn)
             self.tool_buttons[tool_id] = btn
@@ -1280,17 +1387,19 @@ class MainWindow(QMainWindow):
         display_group = QGroupBox("Display")
         display_layout = QVBoxLayout(display_group)
 
-        # Pin numbers checkbox (ONLY ONE - remove duplicate)
+        # Pin number toggle - with explicit connection
         self.pin_numbers_check = QCheckBox("Show Pin Numbers")
         self.pin_numbers_check.setChecked(True)
         self.pin_numbers_check.setObjectName("pin_numbers_check")
-        self.pin_numbers_check.toggled.connect(self._on_pin_numbers_changed)
+        # Use explicit connection method
+        self.pin_numbers_check.stateChanged.connect(self._pin_numbers_state_changed)
         display_layout.addWidget(self.pin_numbers_check)
 
-        # Component labels toggle
+        # Component labels toggle - with explicit connection
         self.component_labels_check = QCheckBox("Show Component Labels")
         self.component_labels_check.setChecked(True)
         self.component_labels_check.setObjectName("component_labels_check")
+        # Use explicit connection method
         self.component_labels_check.stateChanged.connect(self._component_labels_state_changed)
         display_layout.addWidget(self.component_labels_check)
 
@@ -1298,34 +1407,37 @@ class MainWindow(QMainWindow):
 
         # Grid settings group
         grid_group = QGroupBox("Grid Settings")
-        grid_layout = QFormLayout(grid_group)
+        grid_layout = QVBoxLayout(grid_group)
 
         # Grid visibility
         self.grid_check = QCheckBox("Show Grid")
         self.grid_check.setChecked(True)
         self.grid_check.setObjectName("grid_check")
         self.grid_check.stateChanged.connect(self._grid_state_changed)
-        grid_layout.addRow(self.grid_check)
+        grid_layout.addWidget(self.grid_check)
 
         # Snap to grid
         self.snap_check = QCheckBox("Snap to Grid")
         self.snap_check.setChecked(True)
         self.snap_check.setObjectName("snap_check")
         self.snap_check.stateChanged.connect(self._snap_state_changed)
-        grid_layout.addRow(self.snap_check)
+        grid_layout.addWidget(self.snap_check)
 
         # Grid size
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(QLabel("Grid Size:"))
         self.grid_size_spin = QSpinBox()
         self.grid_size_spin.setRange(5, 100)
         self.grid_size_spin.setValue(20)
         self.grid_size_spin.setSuffix(" px")
         self.grid_size_spin.setObjectName("grid_size_spin")
         self.grid_size_spin.valueChanged.connect(self._grid_size_value_changed)
-        grid_layout.addRow("Size:", self.grid_size_spin)
+        size_layout.addWidget(self.grid_size_spin)
+        grid_layout.addLayout(size_layout)
 
         layout.addWidget(grid_group)
 
-        # Test button
+        # Test button to verify connections
         test_btn = QPushButton("🧪 Test Controls")
         test_btn.clicked.connect(self._test_controls)
         layout.addWidget(test_btn)
@@ -1578,6 +1690,7 @@ class MainWindow(QMainWindow):
             from ui.menu_bar import RetroEmulatorMenuBar
             self.menu_manager = RetroEmulatorMenuBar(self)
             self.setMenuBar(self.menu_manager)
+            self._add_pin_numbers_to_view_menu()
             print("✓ Menu bar created")
         except ImportError:
             print("⚠️ Menu bar not available - using fallback")
@@ -1680,6 +1793,7 @@ class MainWindow(QMainWindow):
         """Setup keyboard shortcuts"""
         print("Setting up hotkeys...")
 
+        self._add_pin_numbers_hotkeys()
         # Standard shortcuts
         QShortcut(QKeySequence('Ctrl+F'), self, self._show_search_dialog)
         QShortcut(QKeySequence('F1'), self, self._show_shortcuts)

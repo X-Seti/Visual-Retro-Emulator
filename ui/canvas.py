@@ -454,7 +454,8 @@ if PYQT6_AVAILABLE:
             self.via_drill = 0.3
             self.via_type = ViaType.THROUGH
             self.active_layer = "pcb"
-            
+            self._initialize_pin_numbers_support()
+
             # Text input for text tool
             self.text_input = ""
             
@@ -469,7 +470,32 @@ if PYQT6_AVAILABLE:
             self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
-        # === CAD TOOL METHODS ===
+        def _initialize_pin_numbers_support(self):
+            """Initialize pin numbers support - call from Canvas __init__"""
+            try:
+                from .pin_numbers import add_pin_numbers_to_canvas
+
+                # Add pin numbers manager to this canvas
+                self.pin_numbers_manager = add_pin_numbers_to_canvas(self)
+
+                print("✓ Pin numbers support added to canvas")
+
+            except ImportError as e:
+                print(f"⚠️ Pin numbers module not available: {e}")
+
+                # Fallback methods
+                self.pin_numbers_visible = True
+
+                def fallback_set_pin_numbers_visible(visible):
+                    self.pin_numbers_visible = visible
+                    print(f"🔢 Pin numbers {visible} (fallback mode)")
+
+                def fallback_get_pin_numbers_visible():
+                    return self.pin_numbers_visible
+
+                self.set_pin_numbers_visible = fallback_set_pin_numbers_visible
+                self.get_pin_numbers_visible = fallback_get_pin_numbers_visible
+                # === CAD TOOL METHODS ===
         
         def set_cad_tool(self, tool: CADTool):
             """Set the current CAD tool"""
