@@ -13,6 +13,8 @@
 ├── chip_generator.py
 ├── chip_image_loader.py
 ├── chip_renderer.py
+├── chipset_integration.py
+├── chipset_migrator.py
 ├── chipsets
 │   ├── chipset_acorn_chips.py
 │   ├── chipset_amiga_chips.py
@@ -108,11 +110,6 @@
 │   ├── __init__.py
 │   ├── project_manager.py
 │   ├── property_dialog.py
-│   ├── __pycache__
-│   │   ├── components.cpython-312.pyc
-│   │   ├── __init__.cpython-312.pyc
-│   │   ├── project_manager.cpython-312.pyc
-│   │   └── simulation.cpython-312.pyc
 │   ├── rendering.py
 │   └── simulation.py
 ├── database
@@ -223,32 +220,29 @@
 │   ├── Zilog Z180.jpg
 │   ├── Zilog Z8018008VSG-pinout.jpg
 │   └── Zilog-Z84C0010FEC_LQFP.jpg
+├── integrate_chipsets.py
 ├── main_app.py
 ├── managers
 │   ├── __init__.py
 │   ├── layer_manager.py
-│   ├── project_manager.py
-│   └── __pycache__
-│       ├── __init__.cpython-312.pyc
-│       ├── layer_manager.cpython-312.pyc
-│       └── project_manager.cpython-312.pyc
+│   └── project_manager.py
 ├── manufacturing_export.py
+├── migrated_components.py
 ├── perfboard_background.py
 ├── project_manager.py
-├── __pycache__
-│   ├── component_library.cpython-312.pyc
-│   ├── component_loader.cpython-312.pyc
-│   └── project_manager.cpython-312.pyc
 ├── README.md
+├── test_chipsets.py
 ├── themer_settings.json
 ├── tree.git
 ├── ui
 │   ├── cad_integration_guide.py
 │   ├── cad_tools_panel.py
 │   ├── cad_tools.py
+│   ├── canvas_chip_integration.py
 │   ├── canvas_grid.py
 │   ├── canvas.py
 │   ├── chip_renderer.py
+│   ├── component_palette.old.py
 │   ├── component_palette.py
 │   ├── dark_theme.py
 │   ├── enhanced_canvas.py
@@ -257,19 +251,9 @@
 │   ├── main_window.py
 │   ├── menu_bar.py
 │   ├── missing_ui_modules.py
+│   ├── pin_numbers.py
 │   ├── property_editor.py
 │   ├── property_panel.py
-│   ├── __pycache__
-│   │   ├── cad_tools_panel.cpython-312.pyc
-│   │   ├── canvas.cpython-312.pyc
-│   │   ├── chip_renderer.cpython-312.pyc
-│   │   ├── component_palette.cpython-312.pyc
-│   │   ├── __init__.cpython-312.pyc
-│   │   ├── layer_controls.cpython-312.pyc
-│   │   ├── main_window.cpython-312.pyc
-│   │   ├── menu_bar.cpython-312.pyc
-│   │   ├── property_panel.cpython-312.pyc
-│   │   └── status_bar.cpython-312.pyc
 │   ├── status_bar.py
 │   └── toolbar.py
 ├── unknown
@@ -278,13 +262,12 @@
 │   ├── kb_entry_components.md
 │   ├── kb_entry_images.json
 │   └── kb_entry_images.md
-├── utils
-│   ├── App_settings_system.py
-│   ├── chip_editor.py
-│   ├── chip_editor_settings.json
-│   ├── code_cleaner.py
-│   ├── __init__.py
-│   └── project_cleanup.py
-└── visauleditor.jpg
+└── utils
+    ├── App_settings_system.py
+    ├── chip_editor.py
+    ├── chip_editor_settings.json
+    ├── code_cleaner.py
+    ├── __init__.py
+    └── project_cleanup.py
 
-24 directories, 264 files
+20 directories, 251 files
