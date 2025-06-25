@@ -7,9 +7,11 @@ Clean version with simplified imports and removed conflicts
 
 import sys
 import os
+import shutil
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
+
 
 # Add current directory to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))

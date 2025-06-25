@@ -89,7 +89,8 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.component_manager = None
         self.simulation_engine = None
         self.app_settings = None
-        
+        self.create_menu_bar
+
         # Try to load app settings system
         try:
             from App_settings_system import AppSettingsSystem
@@ -661,9 +662,55 @@ class RetroEmulatorMenuBar(QMenuBar):
         self.recent_projects = projects[:self.max_recent_projects]
         self.update_recent_projects_menu()
 
+    def create_menu_bar(main_window):
+        """Create and connect menu bar to main window"""
+        menu_bar = RetroEmulatorMenuBar(main_window)
+        main_window.setMenuBar(menu_bar)
+
+        # Connect signals if main window has the methods
+        signals = menu_bar.signals
+
+        # File menu connections
+        if hasattr(main_window, '_new_project'):
+            signals.newProject.connect(main_window._new_project)
+        if hasattr(main_window, '_open_project'):
+            signals.openProject.connect(main_window._open_project)
+        if hasattr(main_window, '_save_project'):
+            signals.saveProject.connect(main_window._save_project)
+        if hasattr(main_window, 'close'):
+            signals.exitApplication.connect(main_window.close)
+
+        # Edit menu connections
+        if hasattr(main_window, '_undo'):
+            signals.undo.connect(main_window._undo)
+        if hasattr(main_window, '_redo'):
+            signals.redo.connect(main_window._redo)
+
+        # View menu connections
+        if hasattr(main_window, '_zoom_in'):
+            signals.zoomIn.connect(main_window._zoom_in)
+        if hasattr(main_window, '_zoom_out'):
+            signals.zoomOut.connect(main_window._zoom_out)
+        if hasattr(main_window, '_zoom_fit'):
+            signals.zoomFit.connect(main_window._zoom_fit)
+        if hasattr(main_window, '_toggle_grid'):
+            signals.toggleGrid.connect(main_window._toggle_grid)
+
+        # Simulation menu connections
+        if hasattr(main_window, '_start_simulation'):
+            signals.startSimulation.connect(main_window._start_simulation)
+        if hasattr(main_window, '_stop_simulation'):
+            signals.stopSimulation.connect(main_window._stop_simulation)
+
+        print("✅ Menu bar connected to main window")
+        return menu_bar
+
+
 # Backward compatibility aliases
 MenuBarManager = RetroEmulatorMenuBar
 MenuManager = RetroEmulatorMenuBar
+
+__all__ = ['RetroEmulatorMenuBar', 'MenuBarManager', 'MenuManager', 'MenuBarSignals', 'create_menu_bar']
 
 # Export
 __all__ = ['RetroEmulatorMenuBar', 'MenuBarManager', 'MenuManager', 'MenuBarSignals']
