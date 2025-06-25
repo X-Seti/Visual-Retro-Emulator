@@ -10,6 +10,8 @@ import os
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
+from ui.menu_bar import create_menu_bar
+
 
 class MainWindow(QMainWindow):
     """Main window - minimal core, delegates to existing UI files"""
@@ -21,7 +23,7 @@ class MainWindow(QMainWindow):
         self.current_tool = 'select'
         self.current_project_path = None
         self.is_modified = False
-        
+        self.menu_bar = create_menu_bar(self)
         # Core references - set by main_app.py
         self.canvas = None
         self.component_manager = None
