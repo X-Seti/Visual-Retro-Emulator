@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+tree.git
+*.spec
+*.docx
+.venv/
+venv/
+.env
