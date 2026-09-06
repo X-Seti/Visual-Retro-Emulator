@@ -1,4 +1,4 @@
-Visual Retro System Emulator Builder
+Visual Retro System Emulator Builder - Project on Hold, Busy with others.
 
 Design Document v0.2 document subject to change.
 
