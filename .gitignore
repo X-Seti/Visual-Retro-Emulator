@@ -8,3 +8,6 @@ tree.git
 .venv/
 venv/
 .env
+apps/images
+apps/themes
+apps/utils
